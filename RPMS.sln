@@ -1,0 +1,55 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.37328.6 d17.14
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RPMS.Common", "RPMS.Common\RPMS.Common.csproj", "{07A245AE-2139-4FD5-8FDA-83CEC39923B7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RPMS.DTO", "RPMS.DTO\RPMS.DTO.csproj", "{39DB3844-F088-4196-BE83-31F99ED16B89}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RPMS.DAL", "RPMS.DAL\RPMS.DAL.csproj", "{C7CAEC9A-0B01-4E1F-882F-96BEADD78309}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RPMS.BLL", "RPMS.BLL\RPMS.BLL.csproj", "{BF070D5E-1CDA-4D2B-81F3-2F513194A24E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RPMS.WinForms", "RPMS.WinForms\RPMS.WinForms.csproj", "{371BBB60-C2EC-43C9-9FFF-F1B3F4FF8FAD}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BCryptHelper", "BCryptHelper\BCryptHelper.csproj", "{894D6E20-4810-4CD8-902D-2F7C99B7ACB0}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{07A245AE-2139-4FD5-8FDA-83CEC39923B7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{07A245AE-2139-4FD5-8FDA-83CEC39923B7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{07A245AE-2139-4FD5-8FDA-83CEC39923B7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{07A245AE-2139-4FD5-8FDA-83CEC39923B7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{39DB3844-F088-4196-BE83-31F99ED16B89}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{39DB3844-F088-4196-BE83-31F99ED16B89}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{39DB3844-F088-4196-BE83-31F99ED16B89}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{39DB3844-F088-4196-BE83-31F99ED16B89}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C7CAEC9A-0B01-4E1F-882F-96BEADD78309}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C7CAEC9A-0B01-4E1F-882F-96BEADD78309}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C7CAEC9A-0B01-4E1F-882F-96BEADD78309}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C7CAEC9A-0B01-4E1F-882F-96BEADD78309}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BF070D5E-1CDA-4D2B-81F3-2F513194A24E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BF070D5E-1CDA-4D2B-81F3-2F513194A24E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BF070D5E-1CDA-4D2B-81F3-2F513194A24E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BF070D5E-1CDA-4D2B-81F3-2F513194A24E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{371BBB60-C2EC-43C9-9FFF-F1B3F4FF8FAD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{371BBB60-C2EC-43C9-9FFF-F1B3F4FF8FAD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{371BBB60-C2EC-43C9-9FFF-F1B3F4FF8FAD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{371BBB60-C2EC-43C9-9FFF-F1B3F4FF8FAD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{894D6E20-4810-4CD8-902D-2F7C99B7ACB0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{894D6E20-4810-4CD8-902D-2F7C99B7ACB0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{894D6E20-4810-4CD8-902D-2F7C99B7ACB0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{894D6E20-4810-4CD8-902D-2F7C99B7ACB0}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {90BC0123-AA04-4A28-94B2-DB314D7A2044}
+	EndGlobalSection
+EndGlobal
