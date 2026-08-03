@@ -35,6 +35,7 @@ namespace RPMS.WinForms.Forms.Admin
                     $"NỘI THẤT:\n{post.Furniture}\n\n" +
                     $"TIỆN ÍCH: {string.Join(", ", post.Amenities)}\n";
                 rtxtContent.Text = content;
+                UIHelper.SoftAnchorDialogControls(this);
             }
             catch (Exception ex)
             {

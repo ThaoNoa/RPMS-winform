@@ -46,6 +46,7 @@ namespace RPMS.WinForms.Forms.Landlord
                 txtBedroom.Text = "0";
                 txtBathroom.Text = "0";
             }
+            UIHelper.SoftAnchorDialogControls(this);
         }
 
         private async Task LoadAmenitiesAsync()
@@ -135,12 +136,7 @@ namespace RPMS.WinForms.Forms.Landlord
             if (lstImages.SelectedIndex >= 0)
             {
                 string path = _tempImagePaths[lstImages.SelectedIndex];
-                if (path.StartsWith("/"))
-                    path = Path.Combine(Application.StartupPath, path.TrimStart('/'));
-                if (File.Exists(path))
-                    picPreview.Image = Image.FromFile(path);
-                else
-                    picPreview.Image = null;
+                ImagePathHelper.ApplyToPictureBox(picPreview, path);
             }
         }
 

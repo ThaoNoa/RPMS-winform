@@ -28,9 +28,12 @@ namespace RPMS.WinForms.Forms.Dashboard
 
         private void InitializeUI()
         {
+            UIHelper.ApplyFormStyle(this);
+            MinimumSize = new Size(900, 560);
             ClientSize = new Size(1100, 700);
             BackColor = AppColors.Background;
             Text = "Dashboard";
+            AutoScroll = false;
 
             var pnlTop = new Panel { Dock = DockStyle.Top, Height = 70, BackColor = AppColors.Background };
             lblWelcome = new Label
@@ -42,10 +45,18 @@ namespace RPMS.WinForms.Forms.Dashboard
             };
             pnlTop.Controls.Add(lblWelcome);
 
+            var split = new SplitContainer
+            {
+                Dock = DockStyle.Fill,
+                Orientation = Orientation.Horizontal,
+                SplitterDistance = 300,
+                BackColor = AppColors.Background
+            };
+
             flpCards = new FlowLayoutPanel
             {
-                Dock = DockStyle.Top,
-                Height = 280,
+                Dock = DockStyle.Fill,
+                WrapContents = true,
                 Padding = new Padding(10),
                 AutoScroll = true,
                 BackColor = AppColors.Background
@@ -59,8 +70,10 @@ namespace RPMS.WinForms.Forms.Dashboard
                 AutoScroll = true
             };
 
-            Controls.Add(pnlCharts);
-            Controls.Add(flpCards);
+            split.Panel1.Controls.Add(flpCards);
+            split.Panel2.Controls.Add(pnlCharts);
+
+            Controls.Add(split);
             Controls.Add(pnlTop);
         }
 
@@ -149,8 +162,11 @@ namespace RPMS.WinForms.Forms.Dashboard
             {
                 var g = e.Graphics;
                 g.Clear(AppColors.Card);
-                using var titleFont = AppTypography.BodyBold;
-                g.DrawString(title, titleFont, new SolidBrush(AppColors.TextMain), 12, 10);
+                using var titleFont = new Font("Segoe UI", 10F, FontStyle.Bold);
+                using var captionFont = new Font("Segoe UI", 9F, FontStyle.Regular);
+                using var titleBrush = new SolidBrush(AppColors.TextMain);
+                using var mutedBrush = new SolidBrush(AppColors.TextMuted);
+                g.DrawString(title, titleFont, titleBrush, 12, 10);
                 if (data.Count == 0) return;
                 decimal max = Math.Max(1, data.Max(x => x.Value));
                 int baseY = 190;
@@ -163,7 +179,7 @@ namespace RPMS.WinForms.Forms.Dashboard
                     int x = startX + i * (barWidth + gap);
                     using var brush = new SolidBrush(AppColors.Primary);
                     g.FillRectangle(brush, x, baseY - h, barWidth, h);
-                    g.DrawString(data[i].Label, AppTypography.Caption, new SolidBrush(AppColors.TextMuted), x, baseY + 4);
+                    g.DrawString(data[i].Label, captionFont, mutedBrush, x, baseY + 4);
                 }
             };
             pnlCharts.Controls.Add(panel);

@@ -40,7 +40,8 @@ namespace RPMS.WinForms.Forms.Admin
             {
                 Text = "Làm mới",
                 Location = new Point(900, 12),
-                Size = new Size(110, 34)
+                Size = new Size(110, 34),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right
             };
             btnRefresh.Click += async (s, e) => await LoadDataAsync();
             pnlTop.Controls.Add(btnRefresh);
@@ -61,6 +62,8 @@ namespace RPMS.WinForms.Forms.Admin
 
             Controls.Add(dgv);
             Controls.Add(pnlTop);
+            UIHelper.WireListPage(this, pnlTop, dgv);
+            MinimumSize = new Size(700, 480);
         }
 
         private async System.Threading.Tasks.Task LoadDataAsync()

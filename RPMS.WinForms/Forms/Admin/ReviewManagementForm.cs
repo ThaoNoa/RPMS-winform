@@ -56,6 +56,8 @@ namespace RPMS.WinForms.Forms.Admin
             dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "LandlordReply", HeaderText = "Phản hồi", Width = 220 });
             Controls.Add(dgv);
             Controls.Add(pnlTop);
+            UIHelper.WireListPage(this, pnlTop, dgv);
+            MinimumSize = new Size(700, 480);
         }
     }
 }

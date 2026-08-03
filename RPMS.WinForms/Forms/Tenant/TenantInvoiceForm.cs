@@ -1,4 +1,5 @@
-﻿using RPMS.BLL.Interfaces;
+﻿using Microsoft.Extensions.DependencyInjection;
+using RPMS.BLL.Interfaces;
 using RPMS.Common.Constants;
 using RPMS.Common.Globals;
 using RPMS.DTO.Invoice;
@@ -15,7 +16,7 @@ namespace RPMS.WinForms.Forms.Tenant
     {
         private readonly IContractService _contractService;
         private readonly IInvoiceService _invoiceService;
-        private ModernDataGridView dgvInvoices;
+        private ModernDataGridView dgvInvoices = null!;
 
         public TenantInvoiceForm(IContractService contractService, IInvoiceService invoiceService)
         {
@@ -30,58 +31,78 @@ namespace RPMS.WinForms.Forms.Tenant
             this.ClientSize = new Size(1000, 600);
             this.BackColor = AppColors.Background;
             this.Text = "Hóa đơn thanh toán";
+            this.MinimumSize = new Size(700, 480);
+
+            var pnlTop = new Panel { Dock = DockStyle.Top, Height = 56, BackColor = AppColors.Card };
+            pnlTop.Controls.Add(new Label
+            {
+                Text = "Hóa đơn của tôi",
+                Font = new Font("Segoe UI", 14F, FontStyle.Bold),
+                ForeColor = AppColors.TextMain,
+                Location = new Point(20, 14),
+                AutoSize = true
+            });
 
             dgvInvoices = new ModernDataGridView { Dock = DockStyle.Fill };
+            dgvInvoices.AutoGenerateColumns = false;
             dgvInvoices.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "InvoiceID", HeaderText = "ID", Width = 50 });
-            dgvInvoices.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "InvoiceCode", HeaderText = "Mã Hóa Đơn", Width = 150 });
-            dgvInvoices.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "RoomNumber", HeaderText = "Phòng", Width = 100 });
+            dgvInvoices.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "InvoiceCode", HeaderText = "Mã Hóa Đơn", Width = 140 });
+            dgvInvoices.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "RoomNumber", HeaderText = "Phòng", Width = 80 });
             dgvInvoices.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Total", HeaderText = "Tổng tiền", Width = 120, DefaultCellStyle = new DataGridViewCellStyle { Format = "N0" } });
-            dgvInvoices.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Status", HeaderText = "Trạng thái", Width = 100 });
-            dgvInvoices.Columns.Add(new DataGridViewLinkColumn { Name = "DetailCol", HeaderText = "Chi tiết", Text = "Xem & Chuyển khoản", UseColumnTextForLinkValue = true, Width = 150, LinkColor = Color.Blue });
+            dgvInvoices.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Status", HeaderText = "Trạng thái", Width = 90 });
+            dgvInvoices.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                DataPropertyName = "DueDate",
+                HeaderText = "Hạn TT",
+                Width = 100,
+                DefaultCellStyle = new DataGridViewCellStyle { Format = "dd/MM/yyyy" }
+            });
+            dgvInvoices.Columns.Add(new DataGridViewLinkColumn { Name = "DetailCol", HeaderText = "Chi tiết", Text = "Xem chi tiết", UseColumnTextForLinkValue = true, Width = 110, LinkColor = Color.Blue });
             dgvInvoices.CellContentClick += DgvInvoices_CellContentClick;
             this.Controls.Add(dgvInvoices);
+            this.Controls.Add(pnlTop);
+            UIHelper.WireListPage(this, pnlTop, dgvInvoices);
         }
 
         private async System.Threading.Tasks.Task LoadDataAsync()
         {
-            var contracts = await _contractService.GetContractsByTenantAsync(UserSession.CurrentUser!.UserID);
-            var invoices = new System.Collections.Generic.List<InvoiceDto>();
-            foreach (var c in contracts)
+            try
             {
-                var invs = await _invoiceService.GetInvoicesByContractAsync(c.ContractID);
-                invoices.AddRange(invs);
+                if (IsDisposed) return;
+                var contracts = await _contractService.GetContractsByTenantAsync(UserSession.CurrentUser!.UserID);
+                var invoices = new System.Collections.Generic.List<InvoiceDto>();
+                foreach (var c in contracts)
+                {
+                    var invs = await _invoiceService.GetInvoicesByContractAsync(c.ContractID);
+                    invoices.AddRange(invs);
+                }
+                if (IsDisposed) return;
+                dgvInvoices.DataSource = invoices.OrderByDescending(i => i.InvoiceID).ToList();
             }
-            dgvInvoices.DataSource = invoices.OrderByDescending(i => i.InvoiceID).ToList();
+            catch (Exception ex)
+            {
+                if (!IsDisposed)
+                    AppDialog.ShowError("Không tải được hóa đơn: " + ex.Message);
+            }
         }
 
-        private async void DgvInvoices_CellContentClick(object sender, DataGridViewCellEventArgs e)
+        private async void DgvInvoices_CellContentClick(object? sender, DataGridViewCellEventArgs e)
         {
             if (e.RowIndex < 0 || dgvInvoices.Columns[e.ColumnIndex].Name != "DetailCol") return;
             var invoice = dgvInvoices.Rows[e.RowIndex].DataBoundItem as InvoiceDto;
+            if (invoice == null) return;
 
-            var detail = await _invoiceService.GetInvoiceByIdAsync(invoice.InvoiceID);
-            string msg = $"CHI TIẾT HÓA ĐƠN {detail.InvoiceCode}\n" +
-                         $"========================\n" +
-                         $"Tiền phòng: {detail.Rent:N0} đ\n" +
-                         $"Tiền điện: {detail.ElectricCost:N0} đ (Số mới: {detail.NewElectric} - Cũ: {detail.OldElectric})\n" +
-                         $"Tiền nước: {detail.WaterCost:N0} đ (Số mới: {detail.NewWater} - Cũ: {detail.OldWater})\n" +
-                         $"Phí dịch vụ/khác: {detail.OtherFee:N0} đ\n\n" +
-                         $"TỔNG CỘNG: {detail.Total:N0} đ\n" +
-                         $"Trạng thái: {detail.Status}\n\n";
-
-            if (detail.Status == "Unpaid")
+            try
             {
-                msg += "Bạn có muốn XÁC NHẬN ĐÃ CHUYỂN KHOẢN cho hóa đơn này không?";
-                if (AppDialog.Confirm(msg, "Thanh toán"))
-                {
-                    await _invoiceService.ProcessPaymentAsync(detail.InvoiceID, new ProcessPaymentDto { Amount = detail.Total, Method = "Banking" });
-                    AppDialog.ShowInfo("Xác nhận thanh toán thành công!");
+                var detailForm = Program.ServiceProvider.GetRequiredService<InvoiceDetailForm>();
+                detailForm.InvoiceId = invoice.InvoiceID;
+                await detailForm.LoadAndShowAsync(this);
+                if (detailForm.PaymentCompleted || detailForm.DialogResult == DialogResult.OK)
                     await LoadDataAsync();
-                }
             }
-            else
+            catch (Exception ex)
             {
-                AppDialog.ShowInfo(msg, "Chi tiết hóa đơn");
+                AppDialog.ShowError("Lỗi mở chi tiết hóa đơn: " + ex.Message);
             }
         }
     }

@@ -9,12 +9,34 @@ using System.Threading.Tasks;
 
 namespace RPMS.BLL
 {
+    /// <summary>
+    /// Đồng bộ mật khẩu demo với script SQL sample.
+    /// Sample SQL lưu plain text — Auth dùng BCrypt nên phải hash khi khởi động.
+    /// </summary>
     public static class DataSeeder
     {
         public static async Task SeedAsync(RPMSContext db)
         {
-            await db.Database.EnsureCreatedAsync();
+            // Không tạo lại schema/roles/users nếu DB đã có từ script SQL.
+            // Chỉ hash mật khẩu plain-text → BCrypt cho tài khoản sample.
 
+            await HashIfPlaintextAsync(db, "admin", "admin123");
+            await HashIfPlaintextAsync(db, "namlandlord", "123456");
+            await HashIfPlaintextAsync(db, "tenant", "123456");
+            await HashIfPlaintextAsync(db, "manager", "123456");
+
+            // Sửa tên tiếng Việt nếu sample SQL bị mojibake encoding
+            await FixSampleDisplayNamesAsync(db);
+
+            // Đồng bộ ngày sample về thời điểm thực (tháng trước nhận phòng ngày 15 → prorate)
+            await SyncSampleTimelineAsync(db);
+
+            // Tài khoản demo cũ (LocalDB) — nếu còn trong DB thì hash luôn
+            await HashIfPlaintextAsync(db, "landlord1", "123456");
+            await HashIfPlaintextAsync(db, "tenant1", "123456");
+            await HashIfPlaintextAsync(db, "manager1", "123456");
+
+            // Nếu Roles trống (DB rỗng chưa chạy script) — seed tối thiểu để app không crash
             if (!await db.Roles.AnyAsync())
             {
                 db.Roles.AddRange(
@@ -25,120 +47,366 @@ namespace RPMS.BLL
                 await db.SaveChangesAsync();
             }
 
-            var roles = await db.Roles.ToListAsync();
-            int adminRole = roles.First(r => r.RoleName == "Admin").RoleID;
-            int landlordRole = roles.First(r => r.RoleName == "Landlord").RoleID;
-            int tenantRole = roles.First(r => r.RoleName == "Tenant").RoleID;
-            int managerRole = roles.First(r => r.RoleName == "Manager").RoleID;
-
-            async Task EnsureUser(string username, string fullName, int roleId, string email)
+            if (!await db.Users.AnyAsync())
             {
-                if (await db.Users.AnyAsync(u => u.Username == username)) return;
-                db.Users.Add(new User
-                {
-                    Username = username,
-                    Password = PasswordHelper.HashPassword("123456"),
-                    FullName = fullName,
-                    Email = email,
-                    Phone = "0900000000",
-                    Address = "TP.HCM",
-                    RoleID = roleId,
-                    Status = "Active",
-                    CreatedDate = DateTime.Now,
-                    UpdatedDate = DateTime.Now
-                });
+                var roles = await db.Roles.ToListAsync();
+                int adminRole = roles.First(r => r.RoleName == "Admin").RoleID;
+                int landlordRole = roles.First(r => r.RoleName == "Landlord").RoleID;
+                int tenantRole = roles.First(r => r.RoleName == "Tenant").RoleID;
+                int managerRole = roles.First(r => r.RoleName == "Manager").RoleID;
+
+                db.Users.AddRange(
+                    new User
+                    {
+                        Username = "admin",
+                        Password = PasswordHelper.HashPassword("admin123"),
+                        FullName = "Quản trị viên",
+                        Email = "admin@rpms.com",
+                        Phone = "0900123456",
+                        Address = "Hà Nội",
+                        RoleID = adminRole,
+                        Status = "Active",
+                        CreatedDate = DateTime.Now,
+                        UpdatedDate = DateTime.Now
+                    },
+                    new User
+                    {
+                        Username = "namlandlord",
+                        Password = PasswordHelper.HashPassword("123456"),
+                        FullName = "Nguyễn Văn Nam",
+                        Email = "nam@landlord.com",
+                        Phone = "0912345678",
+                        Address = "TP.HCM",
+                        RoleID = landlordRole,
+                        Status = "Active",
+                        CreatedDate = DateTime.Now,
+                        UpdatedDate = DateTime.Now
+                    },
+                    new User
+                    {
+                        Username = "tenant",
+                        Password = PasswordHelper.HashPassword("123456"),
+                        FullName = "Trần Văn An",
+                        Email = "an@tenant.com",
+                        Phone = "0923456789",
+                        Address = "TP.HCM",
+                        RoleID = tenantRole,
+                        Status = "Active",
+                        CreatedDate = DateTime.Now,
+                        UpdatedDate = DateTime.Now
+                    },
+                    new User
+                    {
+                        Username = "manager",
+                        Password = PasswordHelper.HashPassword("123456"),
+                        FullName = "Lê Thị Mai",
+                        Email = "mai@manager.com",
+                        Phone = "0934567890",
+                        Address = "TP.HCM",
+                        RoleID = managerRole,
+                        Status = "Active",
+                        CreatedDate = DateTime.Now,
+                        UpdatedDate = DateTime.Now
+                    });
                 await db.SaveChangesAsync();
             }
+        }
 
-            await EnsureUser("admin", "System Admin", adminRole, "admin@rpms.local");
-            await EnsureUser("landlord1", "Nguyen Van Chu", landlordRole, "landlord1@rpms.local");
-            await EnsureUser("tenant1", "Tran Thi Thue", tenantRole, "tenant1@rpms.local");
-            await EnsureUser("manager1", "Le Van Quan", managerRole, "manager1@rpms.local");
+        private static bool LooksLikeBcrypt(string password) =>
+            password.StartsWith("$2a$", StringComparison.Ordinal) ||
+            password.StartsWith("$2b$", StringComparison.Ordinal) ||
+            password.StartsWith("$2y$", StringComparison.Ordinal);
 
-            if (!await db.Amenities.AnyAsync())
+        private static async Task HashIfPlaintextAsync(RPMSContext db, string username, string plainPassword)
+        {
+            var user = await db.Users.FirstOrDefaultAsync(u => u.Username == username);
+            if (user == null) return;
+            if (LooksLikeBcrypt(user.Password)) return;
+
+            user.Password = PasswordHelper.HashPassword(plainPassword);
+            user.Status = "Active";
+            user.UpdatedDate = DateTime.Now;
+            await db.SaveChangesAsync();
+        }
+
+        /// <summary>
+        /// Script SQL chạy bằng sqlcmd không UTF-8 thường làm hỏng tiếng Việt (mojibake).
+        /// Sửa lại tên hiển thị cho tài khoản sample.
+        /// </summary>
+        private static async Task FixSampleDisplayNamesAsync(RPMSContext db)
+        {
+            async Task FixUser(string username, string fullName, string address)
             {
-                db.Amenities.AddRange(
-                    new Amenity { AmenityName = "Điều hòa" },
-                    new Amenity { AmenityName = "Wifi" },
-                    new Amenity { AmenityName = "Máy giặt" },
-                    new Amenity { AmenityName = "Chỗ để xe" },
-                    new Amenity { AmenityName = "Cho phép thú cưng" },
-                    new Amenity { AmenityName = "Nóng lạnh" },
-                    new Amenity { AmenityName = "Tủ lạnh" });
-                await db.SaveChangesAsync();
+                var user = await db.Users.FirstOrDefaultAsync(u => u.Username == username);
+                if (user == null) return;
+                if (user.FullName == fullName && user.Address == address) return;
+                user.FullName = fullName;
+                user.Address = address;
+                user.UpdatedDate = DateTime.Now;
             }
 
-            var landlord = await db.Users.FirstAsync(u => u.Username == "landlord1");
-            if (!await db.Houses.AnyAsync(h => h.OwnerID == landlord.UserID))
+            await FixUser("admin", "Quản trị viên", "Hà Nội");
+            await FixUser("namlandlord", "Nguyễn Văn Nam", "123 Đường A, Quận B, TP.HCM");
+            await FixUser("tenant", "Trần Văn An", "456 Đường C, Quận D, TP.HCM");
+            await FixUser("manager", "Lê Thị Mai", "789 Đường E, Quận F, TP.HCM");
+            await db.SaveChangesAsync();
+
+            var house = await db.Houses.FirstOrDefaultAsync(h => h.HouseID == 1);
+            if (house != null)
             {
-                var house = new House
-                {
-                    OwnerID = landlord.UserID,
-                    HouseName = "Nhà trọ Bình Thạnh Demo",
-                    Address = "123 Điện Biên Phủ, Bình Thạnh, TP.HCM",
-                    Description = "Nhà trọ demo cho hệ thống RPMS",
-                    Status = "Active",
-                    CreatedDate = DateTime.Now,
-                    UpdatedDate = DateTime.Now
-                };
-                db.Houses.Add(house);
-                await db.SaveChangesAsync();
+                house.HouseName = "Nhà trọ Nam";
+                house.Address = "123 Đường A, Quận B, TP.HCM";
+                house.Description = "Nhà cho thuê nhiều phòng";
+            }
 
-                var room = new Room
-                {
-                    HouseID = house.HouseID,
-                    RoomNumber = "P101",
-                    Floor = 1,
-                    Area = 28,
-                    Price = 4500000,
-                    Capacity = 2,
-                    Bedroom = 1,
-                    Bathroom = 1,
-                    Furniture = "Giường, tủ, bàn ghế",
-                    Status = "Available",
-                    Description = "Phòng demo đầy đủ nội thất",
-                    CreatedDate = DateTime.Now,
-                    UpdatedDate = DateTime.Now
-                };
-                db.Rooms.Add(room);
-                await db.SaveChangesAsync();
+            var room1 = await db.Rooms.FirstOrDefaultAsync(r => r.RoomID == 1);
+            if (room1 != null)
+            {
+                room1.Furniture = "Giường, tủ quần áo, điều hòa";
+                room1.Description = "Phòng đẹp, có cửa sổ";
+            }
+            var room2 = await db.Rooms.FirstOrDefaultAsync(r => r.RoomID == 2);
+            if (room2 != null)
+            {
+                room2.Furniture = "Giường, tủ, điều hòa, ban công";
+                room2.Description = "Phòng rộng, có ban công";
+            }
 
-                var amenities = await db.Amenities.Take(4).ToListAsync();
-                foreach (var a in amenities)
+            var amenities = new Dictionary<int, string>
+            {
+                [1] = "Điều hòa",
+                [2] = "Nóng lạnh",
+                [3] = "Wifi",
+                [4] = "Ban công",
+                [5] = "Bếp",
+                [6] = "Gara xe"
+            };
+            foreach (var a in await db.Amenities.ToListAsync())
+            {
+                if (amenities.TryGetValue(a.AmenityID, out var name))
+                    a.AmenityName = name;
+            }
+
+            var post = await db.Posts.FirstOrDefaultAsync(p => p.PostID == 1);
+            if (post != null)
+            {
+                post.Title = "Cho thuê phòng 101 giá rẻ";
+                post.Description = "Phòng đẹp, đầy đủ tiện nghi";
+            }
+
+            var appt = await db.Appointments.FirstOrDefaultAsync(a => a.AppointmentID == 1);
+            if (appt != null)
+                appt.Note = "Khách muốn xem phòng";
+
+            var maint = await db.MaintenanceRequests.FirstOrDefaultAsync(m => m.RequestID == 1);
+            if (maint != null)
+            {
+                maint.Title = "Bóng đèn hỏng";
+                maint.Description = "Bóng đèn phòng tắm không sáng";
+            }
+
+            var review = await db.Reviews.FirstOrDefaultAsync(r => r.ReviewID == 1);
+            if (review != null)
+                review.Comment = "Phòng đẹp, chủ nhà thân thiện, tiện nghi đầy đủ. Rất hài lòng!";
+
+            var noti = await db.Notifications.FirstOrDefaultAsync(n => n.NotificationID == 1);
+            if (noti != null)
+            {
+                noti.Title = "Có lịch hẹn mới";
+                noti.Content = "Người thuê Trần Văn An đặt lịch xem phòng 102";
+            }
+
+            await db.SaveChangesAsync();
+        }
+
+        /// <summary>
+        /// Đồng bộ sample theo thời gian thực (vd hôm nay 4/8):
+        /// - Nhận phòng ngày 15 tháng T-3 (15/5) → demo prorate tháng đầu
+        /// - Hóa đơn / chỉ số 3 tháng đã qua: T-3, T-2, T-1 (5, 6, 7) — không có tháng hiện tại
+        /// </summary>
+        private static async Task SyncSampleTimelineAsync(RPMSContext db)
+        {
+            var contract = await db.Contracts.FirstOrDefaultAsync(c => c.ContractID == 1);
+            if (contract == null) return;
+
+            var today = DateTime.Today;
+            // 3 tháng đã kết thúc trước tháng hiện tại
+            var month0 = new DateTime(today.AddMonths(-3).Year, today.AddMonths(-3).Month, 1); // 5
+            var month1 = new DateTime(today.AddMonths(-2).Year, today.AddMonths(-2).Month, 1); // 6
+            var month2 = new DateTime(today.AddMonths(-1).Year, today.AddMonths(-1).Month, 1); // 7
+            var months = new[] { month0, month1, month2 };
+
+            var moveIn = new DateTime(month0.Year, month0.Month, 15);
+            contract.StartDate = moveIn;
+            contract.EndDate = moveIn.AddYears(1).AddDays(-1);
+            contract.MoveInDate = moveIn;
+            contract.MoveOutDate = null;
+            contract.Status = "Active";
+            contract.UpdatedDate = DateTime.Now;
+
+            var room = await db.Rooms.FirstOrDefaultAsync(r => r.RoomID == contract.RoomID);
+            if (room != null)
+            {
+                room.Status = "Occupied";
+                room.UpdatedDate = DateTime.Now;
+            }
+
+            // Chỉ số tích lũy: tháng 5 → 6 → 7
+            var endsE = new decimal[] { 1100, 1250, 1400 };
+            var endsW = new decimal[] { 55, 62, 70 };
+            const decimal startE = 1000;
+            const decimal startW = 50;
+
+            for (int i = 0; i < months.Length; i++)
+            {
+                var monthStart = months[i];
+                var monthEnd = monthStart.AddMonths(1).AddDays(-1);
+                decimal oldE = i == 0 ? startE : endsE[i - 1];
+                decimal newE = endsE[i];
+                decimal oldW = i == 0 ? startW : endsW[i - 1];
+                decimal newW = endsW[i];
+
+                var reading = await db.MeterReadings.FirstOrDefaultAsync(m =>
+                    m.ContractID == 1 && m.ReadingMonth.Year == monthStart.Year && m.ReadingMonth.Month == monthStart.Month);
+                if (reading == null)
                 {
-                    db.RoomAmenities.Add(new RoomAmenity { RoomID = room.RoomID, AmenityID = a.AmenityID });
+                    reading = new MeterReading
+                    {
+                        ContractID = 1,
+                        ReadingMonth = monthStart,
+                        CreatedBy = 4,
+                        CreatedDate = DateTime.Now
+                    };
+                    db.MeterReadings.Add(reading);
                 }
+
+                reading.ReadingMonth = monthStart;
+                reading.OldElectric = oldE;
+                reading.NewElectric = newE;
+                reading.OldWater = oldW;
+                reading.NewWater = newW;
+                reading.UpdatedDate = DateTime.Now;
+                await db.SaveChangesAsync(); // cần ReadingID cho invoice mới
+
+                var rentCalc = RentProrationHelper.Calculate(
+                    contract.MonthlyRent,
+                    monthStart,
+                    contract.StartDate,
+                    contract.EndDate,
+                    contract.MoveInDate,
+                    contract.MoveOutDate);
+
+                decimal electricCost = (newE - oldE) * contract.ElectricPrice;
+                decimal waterCost = (newW - oldW) * contract.WaterPrice;
+                decimal total = rentCalc.ProratedRent + electricCost + waterCost;
+
+                // Tháng đầu + giữa: đã thanh toán; tháng gần nhất (7): Unpaid để demo
+                bool isLatest = i == months.Length - 1;
+                string status = isLatest ? "Unpaid" : "Paid";
+                DateTime? paidDate = isLatest ? null : monthStart.AddDays(Math.Min(20, monthEnd.Day));
+
+                var invoice = await db.Invoices.FirstOrDefaultAsync(inv =>
+                    inv.ContractID == 1 && inv.ReadingID == reading.ReadingID);
+                if (invoice == null)
+                {
+                    // fallback: tìm theo DueDate trong tháng
+                    invoice = await db.Invoices.FirstOrDefaultAsync(inv =>
+                        inv.ContractID == 1 &&
+                        inv.DueDate.Year == monthEnd.Year &&
+                        inv.DueDate.Month == monthEnd.Month);
+                }
+
+                if (invoice == null)
+                {
+                    invoice = new Invoice
+                    {
+                        InvoiceCode = $"INV{monthStart:yyMM}01",
+                        ContractID = 1,
+                        ReadingID = reading.ReadingID,
+                        CreatedDate = DateTime.Now
+                    };
+                    db.Invoices.Add(invoice);
+                }
+
+                invoice.ReadingID = reading.ReadingID;
+                invoice.Rent = rentCalc.ProratedRent;
+                invoice.ElectricCost = electricCost;
+                invoice.WaterCost = waterCost;
+                invoice.OtherFee = 0;
+                invoice.Total = total;
+                invoice.DueDate = monthEnd;
+                invoice.PaidDate = paidDate;
+                invoice.Status = status;
+                invoice.UpdatedDate = DateTime.Now;
                 await db.SaveChangesAsync();
 
-                var manager = await db.Users.FirstAsync(u => u.Username == "manager1");
-                db.Assignments.Add(new Assignment
+                var payment = await db.Payments.FirstOrDefaultAsync(p => p.InvoiceID == invoice.InvoiceID);
+                if (!isLatest)
                 {
-                    HouseID = house.HouseID,
-                    ManagerID = manager.UserID,
-                    AssignedDate = DateTime.Now,
-                    Status = "Active",
-                    CreatedDate = DateTime.Now,
-                    UpdatedDate = DateTime.Now
-                });
-                await db.SaveChangesAsync();
-
-                db.Posts.Add(new Post
+                    if (payment == null)
+                    {
+                        payment = new Payment
+                        {
+                            InvoiceID = invoice.InvoiceID,
+                            Method = "Banking",
+                            CreatedDate = DateTime.Now
+                        };
+                        db.Payments.Add(payment);
+                    }
+                    payment.PaymentDate = paidDate ?? monthEnd;
+                    payment.Amount = total;
+                    payment.Status = "Completed";
+                    payment.UpdatedDate = DateTime.Now;
+                }
+                else if (payment != null)
                 {
-                    RoomID = room.RoomID,
-                    Title = "Cho thuê phòng P101 Bình Thạnh",
-                    Description = "Phòng sạch sẽ, gần trung tâm, có tiện nghi đầy đủ.",
-                    PriceSnapshot = room.Price,
-                    Status = "Approved",
-                    ViewCount = 0,
-                    ExpiryDate = DateTime.Now.AddMonths(2),
-                    IsFeatured = true,
-                    ApprovedBy = (await db.Users.FirstAsync(u => u.Username == "admin")).UserID,
-                    ApprovedDate = DateTime.Now,
-                    CreatedDate = DateTime.Now,
-                    UpdatedDate = DateTime.Now
-                });
-                await db.SaveChangesAsync();
+                    // Tháng mới nhất chưa thanh toán — xóa payment sample nếu còn
+                    db.Payments.Remove(payment);
+                }
             }
+
+            // Xóa chỉ số / hóa đơn sample của tháng hiện tại (nếu từng tạo nhầm)
+            var currentMonth = new DateTime(today.Year, today.Month, 1);
+            var futureReadings = await db.MeterReadings
+                .Where(m => m.ContractID == 1 && m.ReadingMonth >= currentMonth)
+                .ToListAsync();
+            foreach (var fr in futureReadings)
+            {
+                var invs = await db.Invoices.Where(i => i.ReadingID == fr.ReadingID).ToListAsync();
+                foreach (var inv in invs)
+                {
+                    var pays = await db.Payments.Where(p => p.InvoiceID == inv.InvoiceID).ToListAsync();
+                    db.Payments.RemoveRange(pays);
+                    db.Invoices.Remove(inv);
+                }
+                db.MeterReadings.Remove(fr);
+            }
+
+            var appt = await db.Appointments.FirstOrDefaultAsync(a => a.AppointmentID == 1);
+            if (appt != null)
+            {
+                appt.AppointmentDate = today.AddDays(2).Date.AddHours(9);
+                appt.Status = "Pending";
+                appt.UpdatedDate = DateTime.Now;
+            }
+
+            var noti = await db.Notifications.FirstOrDefaultAsync(n => n.NotificationID == 1);
+            if (noti != null)
+            {
+                noti.Content =
+                    $"Người thuê Trần Văn An đặt lịch xem phòng 102 vào ngày {appt?.AppointmentDate:dd/MM/yyyy}";
+                noti.CreatedDate = DateTime.Now;
+                noti.UpdatedDate = DateTime.Now;
+            }
+
+            var maint = await db.MaintenanceRequests.FirstOrDefaultAsync(m => m.RequestID == 1);
+            if (maint != null)
+            {
+                maint.CreatedDate = today.AddDays(-3);
+                maint.UpdatedDate = DateTime.Now;
+            }
+
+            await db.SaveChangesAsync();
         }
     }
 }

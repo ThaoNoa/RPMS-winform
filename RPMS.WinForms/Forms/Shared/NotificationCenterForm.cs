@@ -32,6 +32,7 @@ namespace RPMS.WinForms.Forms.Shared
             UIHelper.ApplyFormStyle(this);
             Text = "Trung tâm thông báo";
             ClientSize = new Size(1000, 620);
+            AutoScroll = false;
 
             var pnlTop = new Panel { Dock = DockStyle.Top, Height = 70, BackColor = AppColors.Card };
             lblUnread = new Label
@@ -43,17 +44,18 @@ namespace RPMS.WinForms.Forms.Shared
                 AutoSize = true
             };
 
-            txtSearch = new ModernTextBox { Location = new Point(280, 18), Size = new Size(220, 35) };
+            txtSearch = new ModernTextBox { Location = new Point(280, 18), Size = new Size(220, 35), Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
             cboFilter = new ComboBox
             {
                 Location = new Point(520, 20),
                 Size = new Size(140, 28),
-                DropDownStyle = ComboBoxStyle.DropDownList
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Anchor = AnchorStyles.Top | AnchorStyles.Right
             };
             cboFilter.Items.AddRange(new object[] { "Tất cả", "Chưa đọc", "Đã đọc" });
             cboFilter.SelectedIndex = 0;
 
-            var btnSearch = new ModernButton { Text = "Lọc", Location = new Point(680, 18), Size = new Size(90, 35) };
+            var btnSearch = new ModernButton { Text = "Lọc", Location = new Point(680, 18), Size = new Size(90, 35), Anchor = AnchorStyles.Top | AnchorStyles.Right };
             btnSearch.Click += async (s, e) => await LoadDataAsync();
 
             var btnMarkAll = new ModernButton
@@ -61,12 +63,20 @@ namespace RPMS.WinForms.Forms.Shared
                 Text = "Đọc tất cả",
                 Location = new Point(780, 18),
                 Size = new Size(110, 35),
-                BackColor = AppColors.Success
+                BackColor = AppColors.Success,
+                Anchor = AnchorStyles.Top | AnchorStyles.Right
             };
             btnMarkAll.Click += async (s, e) =>
             {
-                await _notificationService.MarkAllAsReadAsync(UserSession.CurrentUser!.UserID);
-                await LoadDataAsync();
+                try
+                {
+                    await _notificationService.MarkAllAsReadAsync(UserSession.CurrentUser!.UserID);
+                    await LoadDataAsync();
+                }
+                catch (Exception ex)
+                {
+                    AppDialog.ShowError("Không đánh dấu đọc: " + ex.Message);
+                }
             };
 
             pnlTop.Controls.AddRange(new Control[] { lblUnread, txtSearch, cboFilter, btnSearch, btnMarkAll });
@@ -91,25 +101,36 @@ namespace RPMS.WinForms.Forms.Shared
 
             Controls.Add(dgv);
             Controls.Add(pnlTop);
+            UIHelper.WireListPage(this, pnlTop, dgv);
         }
 
         private async System.Threading.Tasks.Task LoadDataAsync()
         {
-            bool? isRead = cboFilter.SelectedIndex switch
+            try
             {
-                1 => false,
-                2 => true,
-                _ => null
-            };
+                bool? isRead = cboFilter.SelectedIndex switch
+                {
+                    1 => false,
+                    2 => true,
+                    _ => null
+                };
 
-            var list = await _notificationService.GetByUserAsync(
-                UserSession.CurrentUser!.UserID,
-                isRead,
-                txtSearch.Text);
-            dgv.DataSource = list.ToList();
+                var list = await _notificationService.GetByUserAsync(
+                    UserSession.CurrentUser!.UserID,
+                    isRead,
+                    txtSearch.Text);
+                if (IsDisposed) return;
+                dgv.DataSource = list.ToList();
 
-            int unread = await _notificationService.GetUnreadCountAsync(UserSession.CurrentUser.UserID);
-            lblUnread.Text = $"Thông báo ({unread} chưa đọc)";
+                int unread = await _notificationService.GetUnreadCountAsync(UserSession.CurrentUser.UserID);
+                if (IsDisposed) return;
+                lblUnread.Text = $"Thông báo ({unread} chưa đọc)";
+            }
+            catch (Exception ex)
+            {
+                if (!IsDisposed)
+                    AppDialog.ShowError("Không tải thông báo: " + ex.Message);
+            }
         }
 
         private async void Dgv_CellContentClick(object sender, DataGridViewCellEventArgs e)

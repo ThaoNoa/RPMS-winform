@@ -118,12 +118,16 @@ namespace RPMS.WinForms.Forms.Layout
             this.pnlContent.Dock = DockStyle.Fill;
             this.pnlContent.Padding = new Padding(20);
 
-            // MainForm
-            this.ClientSize = new Size(1280, 720);
+            // MainForm — cửa sổ chính có thể phóng to / kéo giãn
+            this.ClientSize = new Size(1400, 850);
             this.Controls.Add(this.pnlContent);
             this.Controls.Add(this.pnlTopbar);
             this.Controls.Add(this.pnlSidebar);
-            this.MinimumSize = new Size(1024, 768);
+            this.MinimumSize = new Size(900, 600);
+            this.FormBorderStyle = FormBorderStyle.Sizable;
+            this.MaximizeBox = true;
+            this.MinimizeBox = true;
+            this.WindowState = FormWindowState.Maximized;
             this.StartPosition = FormStartPosition.CenterScreen;
             this.Text = "RPMS - Rental Property Management System";
             this.BackColor = AppColors.Background;

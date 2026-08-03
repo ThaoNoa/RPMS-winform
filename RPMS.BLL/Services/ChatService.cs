@@ -95,25 +95,28 @@ namespace RPMS.BLL.Services
                 ConversationID = request.ConversationID,
                 SenderID = request.SenderID,
                 Content = (request.Content ?? "").Trim(),
-                ImagePath = request.ImagePath,
+                ImagePath = string.IsNullOrWhiteSpace(request.ImagePath) ? null : request.ImagePath.Trim(),
                 IsRead = false,
                 CreatedDate = DateTime.Now
             };
             await _unitOfWork.ChatMessages.AddAsync(message);
 
-            conversation.LastMessageAt = DateTime.Now;
-            conversation.UpdatedDate = DateTime.Now;
+            conversation.LastMessageAt = message.CreatedDate;
+            conversation.UpdatedDate = message.CreatedDate;
             _unitOfWork.ChatConversations.Update(conversation);
 
             int receiverId = conversation.LandlordID == request.SenderID
                 ? conversation.TenantID
                 : conversation.LandlordID;
 
+            string preview = string.IsNullOrWhiteSpace(message.Content) ? "[Hình ảnh]" : message.Content;
+            if (preview.Length > 120) preview = preview[..120] + "…";
+
             await _unitOfWork.Notifications.AddAsync(new Notification
             {
                 UserID = receiverId,
                 Title = "Tin nhắn mới",
-                Content = string.IsNullOrWhiteSpace(message.Content) ? "[Hình ảnh]" : message.Content,
+                Content = preview,
                 IsRead = false,
                 CreatedDate = DateTime.Now,
                 UpdatedDate = DateTime.Now

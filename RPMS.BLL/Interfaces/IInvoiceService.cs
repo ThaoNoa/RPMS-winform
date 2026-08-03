@@ -10,5 +10,6 @@ namespace RPMS.BLL.Interfaces
         Task<InvoiceDetailDto> GetInvoiceByIdAsync(int id);
         Task<InvoiceDto> GenerateMonthlyInvoiceAsync(GenerateInvoiceDto request);
         Task<bool> ProcessPaymentAsync(int invoiceId, ProcessPaymentDto request);
+        Task<MeterReadingSummaryDto?> GetLatestReadingAsync(int contractId);
     }
 }

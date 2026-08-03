@@ -1,5 +1,6 @@
 ﻿using AutoMapper;
 using RPMS.BLL.Exceptions;
+using RPMS.BLL.Helpers;
 using RPMS.BLL.Interfaces;
 using RPMS.DAL.Entities;
 using RPMS.DAL.UnitOfWork.Interfaces;
@@ -24,15 +25,93 @@ namespace RPMS.BLL.Services
 
         public async Task<IEnumerable<InvoiceDto>> GetInvoicesByContractAsync(int contractId)
         {
-            var invoices = await _unitOfWork.Invoices.FindAsync(i => i.ContractID == contractId, "Contract.Room");
+            var invoices = await _unitOfWork.Invoices.FindAsync(i => i.ContractID == contractId, "Contract.Room, Payments");
+            // Đồng bộ trạng thái nếu đã có payment Completed nhưng Status vẫn Unpaid (sample data lệch)
+            foreach (var inv in invoices)
+            {
+                if (inv.Status != "Paid" && inv.Payments != null && inv.Payments.Any(p => p.Status == "Completed"))
+                {
+                    inv.Status = "Paid";
+                    inv.PaidDate ??= inv.Payments.Where(p => p.Status == "Completed").Max(p => p.PaymentDate);
+                    inv.UpdatedDate = DateTime.Now;
+                    _unitOfWork.Invoices.Update(inv);
+                }
+            }
+            if (invoices.Any(i => i.Status == "Paid" && i.Payments?.Any(p => p.Status == "Completed") == true))
+                await _unitOfWork.SaveChangesAsync();
+
             return _mapper.Map<IEnumerable<InvoiceDto>>(invoices);
         }
 
         public async Task<InvoiceDetailDto> GetInvoiceByIdAsync(int id)
         {
-            var invoice = await _unitOfWork.Invoices.FirstOrDefaultAsync(i => i.InvoiceID == id, "Contract.Room, Contract.Tenant, MeterReading");
+            var invoice = await _unitOfWork.Invoices.FirstOrDefaultAsync(
+                i => i.InvoiceID == id,
+                "Contract.Room.House, Contract.Tenant, MeterReading, Payments");
             if (invoice == null) throw new NotFoundException("Hóa đơn", id);
-            return _mapper.Map<InvoiceDetailDto>(invoice);
+
+            if (invoice.Status != "Paid" && invoice.Payments != null && invoice.Payments.Any(p => p.Status == "Completed"))
+            {
+                invoice.Status = "Paid";
+                invoice.PaidDate ??= invoice.Payments.Where(p => p.Status == "Completed").Max(p => p.PaymentDate);
+                invoice.UpdatedDate = DateTime.Now;
+                _unitOfWork.Invoices.Update(invoice);
+                await _unitOfWork.SaveChangesAsync();
+            }
+
+            return EnrichProration(_mapper.Map<InvoiceDetailDto>(invoice), invoice);
+        }
+
+        private static InvoiceDetailDto EnrichProration(InvoiceDetailDto dto, Invoice invoice)
+        {
+            if (invoice.Contract == null) return dto;
+
+            dto.MoveInDate = invoice.Contract.MoveInDate == default
+                ? invoice.Contract.StartDate
+                : invoice.Contract.MoveInDate;
+            dto.MoveOutDate = invoice.Contract.MoveOutDate;
+
+            DateTime billingMonth;
+            if (invoice.MeterReading != null)
+                billingMonth = invoice.MeterReading.ReadingMonth;
+            else if (invoice.DueDate != default)
+                billingMonth = new DateTime(invoice.DueDate.Year, invoice.DueDate.Month, 1);
+            else
+                billingMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+
+            var calc = RentProrationHelper.Calculate(
+                invoice.Contract.MonthlyRent,
+                billingMonth,
+                invoice.Contract.StartDate,
+                invoice.Contract.EndDate,
+                dto.MoveInDate,
+                dto.MoveOutDate);
+
+            dto.FullMonthlyRent = calc.FullMonthlyRent;
+            dto.DaysInMonth = calc.DaysInMonth;
+            dto.OccupiedDays = calc.OccupiedDays;
+            dto.OccupancyFrom = calc.OccupancyFrom;
+            dto.OccupancyTo = calc.OccupancyTo;
+            dto.IsProrated = calc.IsProrated;
+            dto.RentNote = calc.Note;
+            return dto;
+        }
+
+        public async Task<MeterReadingSummaryDto?> GetLatestReadingAsync(int contractId)
+        {
+            var last = (await _unitOfWork.MeterReadings.FindAsync(m => m.ContractID == contractId))
+                .OrderByDescending(m => m.ReadingMonth)
+                .ThenByDescending(m => m.ReadingID)
+                .FirstOrDefault();
+            if (last == null) return null;
+            return new MeterReadingSummaryDto
+            {
+                ReadingMonth = last.ReadingMonth,
+                OldElectric = last.OldElectric,
+                NewElectric = last.NewElectric,
+                OldWater = last.OldWater,
+                NewWater = last.NewWater
+            };
         }
 
         public async Task<InvoiceDto> GenerateMonthlyInvoiceAsync(GenerateInvoiceDto request)
@@ -44,20 +123,37 @@ namespace RPMS.BLL.Services
                 if (contract == null || contract.Status != "Active")
                     throw new BadRequestException("Hợp đồng không hợp lệ hoặc không còn hiệu lực.");
 
+                var monthStart = new DateTime(request.ReadingMonth.Year, request.ReadingMonth.Month, 1);
+                var monthEnd = monthStart.AddMonths(1);
+                var currentMonthStart = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+                if (monthStart >= currentMonthStart)
+                    throw new BadRequestException(
+                        $"Chỉ được tạo hóa đơn cho tháng đã kết thúc (tháng trước trở về). " +
+                        $"Không tạo hóa đơn tháng {monthStart:MM/yyyy} khi hôm nay mới {DateTime.Today:dd/MM/yyyy}.");
+
+                var already = await _unitOfWork.MeterReadings.ExistsAsync(m =>
+                    m.ContractID == request.ContractID &&
+                    m.ReadingMonth >= monthStart &&
+                    m.ReadingMonth < monthEnd);
+                if (already)
+                    throw new BadRequestException($"Đã có chỉ số / hóa đơn cho tháng {monthStart:MM/yyyy}.");
+
                 var lastReading = (await _unitOfWork.MeterReadings.FindAsync(m => m.ContractID == request.ContractID))
-                    .OrderByDescending(m => m.ReadingMonth).FirstOrDefault();
+                    .OrderByDescending(m => m.ReadingMonth)
+                    .ThenByDescending(m => m.ReadingID)
+                    .FirstOrDefault();
                 decimal oldElectric = lastReading?.NewElectric ?? 0;
                 decimal oldWater = lastReading?.NewWater ?? 0;
 
                 if (request.NewElectric < oldElectric)
-                    throw new BadRequestException($"Chỉ số điện mới ({request.NewElectric}) không được nhỏ hơn chỉ số cũ ({oldElectric}).");
+                    throw new BadRequestException($"Chỉ số điện mới ({request.NewElectric}) không được nhỏ hơn chỉ số tháng trước ({oldElectric}).");
                 if (request.NewWater < oldWater)
-                    throw new BadRequestException($"Chỉ số nước mới ({request.NewWater}) không được nhỏ hơn chỉ số cũ ({oldWater}).");
+                    throw new BadRequestException($"Chỉ số nước mới ({request.NewWater}) không được nhỏ hơn chỉ số tháng trước ({oldWater}).");
 
                 var reading = new MeterReading
                 {
                     ContractID = request.ContractID,
-                    ReadingMonth = request.ReadingMonth,
+                    ReadingMonth = monthStart,
                     OldElectric = oldElectric,
                     NewElectric = request.NewElectric,
                     OldWater = oldWater,
@@ -71,31 +167,51 @@ namespace RPMS.BLL.Services
 
                 decimal electricCost = (request.NewElectric - oldElectric) * contract.ElectricPrice;
                 decimal waterCost = (request.NewWater - oldWater) * contract.WaterPrice;
-                decimal total = contract.MonthlyRent + electricCost + waterCost + request.OtherFee;
+
+                // Tiền nhà theo ngày thực ở trong tháng (prorate)
+                DateTime? moveIn = contract.MoveInDate == default ? contract.StartDate : contract.MoveInDate;
+                DateTime? moveOut = contract.MoveOutDate;
+                var rentCalc = RentProrationHelper.Calculate(
+                    contract.MonthlyRent,
+                    monthStart,
+                    contract.StartDate,
+                    contract.EndDate,
+                    moveIn,
+                    moveOut);
+
+                if (rentCalc.OccupiedDays <= 0)
+                    throw new BadRequestException(
+                        $"Không có ngày ở trong tháng {monthStart:MM/yyyy} để tính tiền nhà " +
+                        $"(nhận phòng {moveIn:dd/MM/yyyy}, trả phòng {(moveOut?.ToString("dd/MM/yyyy") ?? "chưa")}).");
+
+                decimal total = rentCalc.ProratedRent + electricCost + waterCost + request.OtherFee;
 
                 var invoice = new Invoice
                 {
-                    InvoiceCode = "INV" + DateTime.Now.ToString("yyyyMMddHHmmss"),
+                    InvoiceCode = "INV" + DateTime.Now.ToString("yyMMddHHmmss"),
                     ContractID = contract.ContractID,
                     ReadingID = reading.ReadingID,
-                    Rent = contract.MonthlyRent,
+                    Rent = rentCalc.ProratedRent,
                     ElectricCost = electricCost,
                     WaterCost = waterCost,
                     OtherFee = request.OtherFee,
                     Total = total,
                     Status = "Unpaid",
-                    DueDate = request.ReadingMonth.AddDays(5),
+                    DueDate = monthStart.AddMonths(1).AddDays(-1),
                     CreatedDate = DateTime.Now,
                     UpdatedDate = DateTime.Now
                 };
                 await _unitOfWork.Invoices.AddAsync(invoice);
                 await _unitOfWork.SaveChangesAsync();
 
+                string rentNote = rentCalc.IsProrated
+                    ? $" Tiền nhà prorate {rentCalc.OccupiedDays}/{rentCalc.DaysInMonth} ngày = {rentCalc.ProratedRent:N0} đ."
+                    : "";
                 await _unitOfWork.Notifications.AddAsync(new Notification
                 {
                     UserID = contract.TenantID,
                     Title = "Hóa đơn mới",
-                    Content = $"Hóa đơn {invoice.InvoiceCode} đã được tạo. Tổng tiền: {invoice.Total:N0} đ. Hạn thanh toán: {invoice.DueDate:dd/MM/yyyy}.",
+                    Content = $"Hóa đơn {invoice.InvoiceCode} tháng {monthStart:MM/yyyy} đã được tạo. Tổng: {invoice.Total:N0} đ.{rentNote} Hạn TT: {invoice.DueDate:dd/MM/yyyy}.",
                     IsRead = false,
                     CreatedDate = DateTime.Now,
                     UpdatedDate = DateTime.Now
@@ -122,6 +238,19 @@ namespace RPMS.BLL.Services
                 if (invoice == null) throw new NotFoundException("Hóa đơn", invoiceId);
                 if (invoice.Status == "Paid")
                     throw new BadRequestException("Hóa đơn này đã được thanh toán.");
+                // Có payment Completed sẵn (sample lệch) → đồng bộ Paid
+                var existingPaid = await _unitOfWork.Payments.ExistsAsync(
+                    p => p.InvoiceID == invoiceId && p.Status == "Completed");
+                if (existingPaid)
+                {
+                    invoice.Status = "Paid";
+                    invoice.PaidDate ??= DateTime.Now;
+                    invoice.UpdatedDate = DateTime.Now;
+                    _unitOfWork.Invoices.Update(invoice);
+                    await _unitOfWork.SaveChangesAsync();
+                    await _unitOfWork.CommitTransactionAsync();
+                    return true;
+                }
                 if (request.Amount < invoice.Total)
                     throw new BadRequestException("Số tiền thanh toán không đủ.");
 

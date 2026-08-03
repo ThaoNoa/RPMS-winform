@@ -8,6 +8,7 @@ namespace RPMS.WinForms.Controls
     public class SidebarButton : Button
     {
         private bool _isActive;
+        private static readonly Font MenuFont = new Font("Segoe UI", 10F, FontStyle.Regular, GraphicsUnit.Point);
 
         public SidebarButton()
         {
@@ -15,12 +16,14 @@ namespace RPMS.WinForms.Controls
             FlatAppearance.BorderSize = 0;
             BackColor = AppColors.Sidebar;
             ForeColor = Color.FromArgb(226, 232, 240);
-            Font = AppTypography.Body;
+            // Clone — không gán lại Font khi active/inactive
+            Font = (Font)MenuFont.Clone();
             TextAlign = ContentAlignment.MiddleLeft;
             Padding = new Padding(20, 0, 0, 0);
             Size = new Size(250, 44);
             Cursor = Cursors.Hand;
             Margin = new Padding(0);
+            SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer, true);
         }
 
         public bool IsActive
@@ -28,18 +31,26 @@ namespace RPMS.WinForms.Controls
             get => _isActive;
             set
             {
+                if (_isActive == value) return;
                 _isActive = value;
-                if (_isActive)
+                SuspendLayout();
+                try
                 {
-                    BackColor = AppColors.Primary;
-                    ForeColor = Color.White;
-                    Font = AppTypography.BodyBold;
+                    if (_isActive)
+                    {
+                        BackColor = AppColors.Primary;
+                        ForeColor = Color.White;
+                    }
+                    else
+                    {
+                        BackColor = AppColors.Sidebar;
+                        ForeColor = Color.FromArgb(226, 232, 240);
+                    }
                 }
-                else
+                finally
                 {
-                    BackColor = AppColors.Sidebar;
-                    ForeColor = Color.FromArgb(226, 232, 240);
-                    Font = AppTypography.Body;
+                    ResumeLayout(false);
+                    Invalidate();
                 }
             }
         }
@@ -48,14 +59,20 @@ namespace RPMS.WinForms.Controls
         {
             base.OnMouseEnter(e);
             if (!_isActive)
+            {
                 BackColor = AppColors.SidebarHover;
+                Invalidate();
+            }
         }
 
         protected override void OnMouseLeave(EventArgs e)
         {
             base.OnMouseLeave(e);
             if (!_isActive)
+            {
                 BackColor = AppColors.Sidebar;
+                Invalidate();
+            }
         }
     }
 }

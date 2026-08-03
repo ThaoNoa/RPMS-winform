@@ -10,15 +10,20 @@ namespace RPMS.DAL
         {
             await context.Database.EnsureCreatedAsync();
 
+            // Cột mở rộng Reviews (script SQL gốc chưa có)
             await ExecAsync(context, @"
-IF COL_LENGTH('Reviews', 'LandlordReply') IS NULL
-    ALTER TABLE Reviews ADD LandlordReply nvarchar(max) NULL;
-IF COL_LENGTH('Reviews', 'LandlordReplyDate') IS NULL
-    ALTER TABLE Reviews ADD LandlordReplyDate datetime NULL;
+IF OBJECT_ID('Reviews', 'U') IS NOT NULL
+BEGIN
+    IF COL_LENGTH('Reviews', 'LandlordReply') IS NULL
+        ALTER TABLE Reviews ADD LandlordReply nvarchar(max) NULL;
+    IF COL_LENGTH('Reviews', 'LandlordReplyDate') IS NULL
+        ALTER TABLE Reviews ADD LandlordReplyDate datetime NULL;
+END
 ");
 
+            // Chat (app có, script SQL gốc chưa có)
             await ExecAsync(context, @"
-IF OBJECT_ID('ChatConversations', 'U') IS NULL
+IF OBJECT_ID('Users', 'U') IS NOT NULL AND OBJECT_ID('ChatConversations', 'U') IS NULL
 BEGIN
     CREATE TABLE ChatConversations (
         ConversationID int IDENTITY(1,1) NOT NULL PRIMARY KEY,
@@ -35,7 +40,7 @@ END
 ");
 
             await ExecAsync(context, @"
-IF OBJECT_ID('ChatMessages', 'U') IS NULL
+IF OBJECT_ID('ChatConversations', 'U') IS NOT NULL AND OBJECT_ID('ChatMessages', 'U') IS NULL
 BEGIN
     CREATE TABLE ChatMessages (
         MessageID int IDENTITY(1,1) NOT NULL PRIMARY KEY,

@@ -5,6 +5,7 @@ using RPMS.WinForms.Controls;
 using RPMS.WinForms.UI;
 using System;
 using System.Drawing;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace RPMS.WinForms.Forms.Layout
@@ -92,49 +93,66 @@ namespace RPMS.WinForms.Forms.Layout
             var clickedBtn = sender as SidebarButton;
             if (clickedBtn == null || clickedBtn == _currentActiveButton) return;
 
-            if (_currentActiveButton != null)
-                _currentActiveButton.IsActive = false;
-            clickedBtn.IsActive = true;
-            _currentActiveButton = clickedBtn;
+            try
+            {
+                if (_currentActiveButton != null)
+                    _currentActiveButton.IsActive = false;
+                clickedBtn.IsActive = true;
+                _currentActiveButton = clickedBtn;
 
-            lblPageTitle.Text = clickedBtn.Text;
-            string tag = clickedBtn.Tag?.ToString() ?? "";
-            LoadChildForm(tag);
+                lblPageTitle.Text = clickedBtn.Text;
+                string tag = clickedBtn.Tag?.ToString() ?? "";
+                LoadChildForm(tag);
+            }
+            catch (Exception ex)
+            {
+                AppDialog.ShowError("Không mở được menu: " + ex.Message);
+            }
         }
 
         private void LoadChildForm(string tag)
         {
-            _activeForm?.Close();
-            Form? childForm = tag switch
+            CloseActiveChild();
+
+            Form? childForm = null;
+            try
             {
-                "Dashboard" => Program.ServiceProvider.GetRequiredService<Forms.Dashboard.DashboardForm>(),
-                "Notifications" => Program.ServiceProvider.GetRequiredService<Forms.Shared.NotificationCenterForm>(),
-                "Profile" => Program.ServiceProvider.GetRequiredService<Forms.Shared.ProfileForm>(),
-                "Chat" => Program.ServiceProvider.GetRequiredService<Forms.Shared.ChatForm>(),
-                "Calendar" => Program.ServiceProvider.GetRequiredService<Forms.Shared.CalendarForm>(),
-                "Reports" => Program.ServiceProvider.GetRequiredService<Forms.Shared.ReportForm>(),
-                "Backup" => Program.ServiceProvider.GetRequiredService<Forms.Admin.BackupForm>(),
-                "UserManagement" => Program.ServiceProvider.GetRequiredService<Forms.Admin.UserManagementForm>(),
-                "PostManagement" => Program.ServiceProvider.GetRequiredService<Forms.Admin.PostManagementForm>(),
-                "Assignment" => Program.ServiceProvider.GetRequiredService<Forms.Admin.AssignmentManagementForm>(),
-                "ActivityLog" => Program.ServiceProvider.GetRequiredService<Forms.Admin.ActivityLogForm>(),
-                "AdminReviews" => Program.ServiceProvider.GetRequiredService<Forms.Admin.ReviewManagementForm>(),
-                "LandlordHouse" => Program.ServiceProvider.GetRequiredService<Forms.Landlord.LandlordHouseForm>(),
-                "LandlordRoom" => Program.ServiceProvider.GetRequiredService<Forms.Landlord.LandlordRoomForm>(),
-                "LandlordContract" => Program.ServiceProvider.GetRequiredService<Forms.Landlord.LandlordContractForm>(),
-                "LandlordReviews" => Program.ServiceProvider.GetRequiredService<Forms.Landlord.LandlordReviewForm>(),
-                "TenantHome" => Program.ServiceProvider.GetRequiredService<Forms.Tenant.TenantHomeForm>(),
-                "TenantFavorite" => Program.ServiceProvider.GetRequiredService<Forms.Tenant.TenantFavoriteForm>(),
-                "TenantContract" => Program.ServiceProvider.GetRequiredService<Forms.Tenant.TenantContractForm>(),
-                "TenantReviews" => Program.ServiceProvider.GetRequiredService<Forms.Tenant.TenantReviewForm>(),
-                "ManagerMeter" => Program.ServiceProvider.GetRequiredService<Forms.Manager.ManagerMeterForm>(),
-                "LandlordAppointment" => Program.ServiceProvider.GetRequiredService<Forms.Landlord.LandlordAppointmentForm>(),
-                "LandlordPost" => Program.ServiceProvider.GetRequiredService<Forms.Landlord.LandlordPostForm>(),
-                "TenantInvoice" => Program.ServiceProvider.GetRequiredService<Forms.Tenant.TenantInvoiceForm>(),
-                "TenantMaintenance" => Program.ServiceProvider.GetRequiredService<Forms.Tenant.TenantMaintenanceForm>(),
-                "ManagerMaintenance" => Program.ServiceProvider.GetRequiredService<Forms.Manager.ManagerMaintenanceForm>(),
-                _ => null
-            };
+                childForm = tag switch
+                {
+                    "Dashboard" => Program.ServiceProvider.GetRequiredService<Forms.Dashboard.DashboardForm>(),
+                    "Notifications" => Program.ServiceProvider.GetRequiredService<Forms.Shared.NotificationCenterForm>(),
+                    "Profile" => Program.ServiceProvider.GetRequiredService<Forms.Shared.ProfileForm>(),
+                    "Chat" => Program.ServiceProvider.GetRequiredService<Forms.Shared.ChatForm>(),
+                    "Calendar" => Program.ServiceProvider.GetRequiredService<Forms.Shared.CalendarForm>(),
+                    "Reports" => Program.ServiceProvider.GetRequiredService<Forms.Shared.ReportForm>(),
+                    "Backup" => Program.ServiceProvider.GetRequiredService<Forms.Admin.BackupForm>(),
+                    "UserManagement" => Program.ServiceProvider.GetRequiredService<Forms.Admin.UserManagementForm>(),
+                    "PostManagement" => Program.ServiceProvider.GetRequiredService<Forms.Admin.PostManagementForm>(),
+                    "Assignment" => Program.ServiceProvider.GetRequiredService<Forms.Admin.AssignmentManagementForm>(),
+                    "ActivityLog" => Program.ServiceProvider.GetRequiredService<Forms.Admin.ActivityLogForm>(),
+                    "AdminReviews" => Program.ServiceProvider.GetRequiredService<Forms.Admin.ReviewManagementForm>(),
+                    "LandlordHouse" => Program.ServiceProvider.GetRequiredService<Forms.Landlord.LandlordHouseForm>(),
+                    "LandlordRoom" => Program.ServiceProvider.GetRequiredService<Forms.Landlord.LandlordRoomForm>(),
+                    "LandlordContract" => Program.ServiceProvider.GetRequiredService<Forms.Landlord.LandlordContractForm>(),
+                    "LandlordReviews" => Program.ServiceProvider.GetRequiredService<Forms.Landlord.LandlordReviewForm>(),
+                    "TenantHome" => Program.ServiceProvider.GetRequiredService<Forms.Tenant.TenantHomeForm>(),
+                    "TenantFavorite" => Program.ServiceProvider.GetRequiredService<Forms.Tenant.TenantFavoriteForm>(),
+                    "TenantContract" => Program.ServiceProvider.GetRequiredService<Forms.Tenant.TenantContractForm>(),
+                    "TenantReviews" => Program.ServiceProvider.GetRequiredService<Forms.Tenant.TenantReviewForm>(),
+                    "ManagerMeter" => Program.ServiceProvider.GetRequiredService<Forms.Manager.ManagerMeterForm>(),
+                    "LandlordAppointment" => Program.ServiceProvider.GetRequiredService<Forms.Landlord.LandlordAppointmentForm>(),
+                    "LandlordPost" => Program.ServiceProvider.GetRequiredService<Forms.Landlord.LandlordPostForm>(),
+                    "TenantInvoice" => Program.ServiceProvider.GetRequiredService<Forms.Tenant.TenantInvoiceForm>(),
+                    "TenantMaintenance" => Program.ServiceProvider.GetRequiredService<Forms.Tenant.TenantMaintenanceForm>(),
+                    "ManagerMaintenance" => Program.ServiceProvider.GetRequiredService<Forms.Manager.ManagerMaintenanceForm>(),
+                    _ => null
+                };
+            }
+            catch (Exception ex)
+            {
+                AppDialog.ShowError("Không mở được màn hình: " + ex.Message);
+                return;
+            }
 
             if (childForm != null)
             {
@@ -155,12 +173,35 @@ namespace RPMS.WinForms.Forms.Layout
             }
         }
 
+        private void CloseActiveChild()
+        {
+            if (_activeForm == null) return;
+            try
+            {
+                pnlContent.Controls.Remove(_activeForm);
+                _activeForm.Close();
+                _activeForm.Dispose();
+            }
+            catch
+            {
+                /* child may already be disposed */
+            }
+            finally
+            {
+                _activeForm = null;
+                pnlContent.Tag = null;
+            }
+        }
+
         private void OpenChildForm(Form childForm)
         {
             _activeForm = childForm;
             childForm.TopLevel = false;
             childForm.FormBorderStyle = FormBorderStyle.None;
             childForm.Dock = DockStyle.Fill;
+            // Layout do form con tự Dock/Anchor — tránh AutoScroll form gây khoảng trắng / cắt
+            childForm.AutoScroll = false;
+            childForm.MinimumSize = Size.Empty;
             pnlContent.Controls.Clear();
             pnlContent.Controls.Add(childForm);
             pnlContent.Tag = childForm;
@@ -168,23 +209,36 @@ namespace RPMS.WinForms.Forms.Layout
             childForm.Show();
         }
 
-        private void btnLogout_Click(object sender, EventArgs e)
+        private async void btnLogout_Click(object sender, EventArgs e)
         {
             if (!AppDialog.Confirm("Bạn có chắc chắn muốn đăng xuất?"))
                 return;
 
-            try
+            btnLogout.Enabled = false;
+            Cursor = Cursors.WaitCursor;
+
+            // Đóng form con trước (dừng Chat timer, giải phóng UI) — không chờ DB
+            CloseActiveChild();
+
+            int? userId = UserSession.CurrentUser?.UserID;
+            UserSession.Logout();
+
+            // Ghi log nền, tối đa ~800ms rồi vẫn thoát — không block UI bằng GetResult()
+            if (userId.HasValue)
             {
-                if (UserSession.CurrentUser != null)
+                try
                 {
-                    var logService = Program.ServiceProvider.GetRequiredService<RPMS.BLL.Interfaces.IActivityLogService>();
-                    logService.LogAsync(UserSession.CurrentUser.UserID, "Logout", "Đăng xuất khỏi hệ thống")
-                        .GetAwaiter().GetResult();
+                    using var scope = Program.ServiceProvider.CreateScope();
+                    var logService = scope.ServiceProvider.GetRequiredService<RPMS.BLL.Interfaces.IActivityLogService>();
+                    var logTask = logService.LogAsync(userId.Value, "Logout", "Đăng xuất khỏi hệ thống");
+                    await Task.WhenAny(logTask, Task.Delay(800));
+                }
+                catch
+                {
+                    /* ignore logging errors on logout */
                 }
             }
-            catch { /* ignore logging errors on logout */ }
 
-            UserSession.Logout();
             DialogResult = DialogResult.Retry;
             Close();
         }

@@ -49,12 +49,14 @@ namespace RPMS.WinForms.Forms.Admin
 
             // Form
             this.ClientSize = new Size(580, 450);
+            this.MinimumSize = new Size(480, 400);
             this.Controls.Add(this.lblHeader);
             this.Controls.Add(this.rtxtContent);
             this.Controls.Add(this.btnClose);
-            this.FormBorderStyle = FormBorderStyle.FixedDialog;
-            this.MaximizeBox = false;
-            this.MinimizeBox = false;
+            this.FormBorderStyle = FormBorderStyle.Sizable;
+            this.MaximizeBox = true;
+            this.MinimizeBox = true;
+            this.AutoScroll = true;
             this.StartPosition = FormStartPosition.CenterParent;
             this.BackColor = AppColors.Card;
             this.Text = "Chi tiết Tin Đăng";

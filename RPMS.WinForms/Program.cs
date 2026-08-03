@@ -14,8 +14,13 @@ namespace RPMS.WinForms
     internal static class Program
     {
         public static IServiceProvider ServiceProvider { get; private set; } = null!;
+
+        /// <summary>
+        /// SQL Server Express (script CREATE DATABASE RPMS).
+        /// Instance: .\SQLEXPRESS — đổi nếu bạn dùng tên instance khác.
+        /// </summary>
         public static string ConnectionString { get; private set; } =
-            @"Server=(localdb)\mssqllocaldb;Database=RPMS;Trusted_Connection=True;TrustServerCertificate=True;";
+            @"Server=.\SQLEXPRESS;Database=RPMS;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=True;";
 
         [STAThread]
         static void Main()
@@ -23,6 +28,12 @@ namespace RPMS.WinForms
             Application.SetHighDpiMode(HighDpiMode.SystemAware);
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
+
+            try
+            {
+                RPMS.WinForms.UI.ImagePathHelper.EnsureSampleImages(AppDomain.CurrentDomain.BaseDirectory);
+            }
+            catch { /* không chặn khởi động nếu tạo ảnh demo lỗi */ }
 
             var services = new ServiceCollection();
             ConfigureServices(services);
@@ -39,7 +50,8 @@ namespace RPMS.WinForms
             {
                 MessageBox.Show(
                     "Không thể khởi tạo/cập nhật database.\n" + ex.Message +
-                    "\n\nKiểm tra LocalDB: (localdb)\\mssqllocaldb",
+                    "\n\nKiểm tra SQL Server: .\\SQLEXPRESS\n" +
+                    "Đảm bảo đã chạy script tạo database RPMS.",
                     "Lỗi Database",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
@@ -97,10 +109,13 @@ namespace RPMS.WinForms
             services.AddTransient<Forms.Tenant.TenantContractForm>();
             services.AddTransient<Forms.Tenant.TenantFavoriteForm>();
             services.AddTransient<Forms.Tenant.TenantInvoiceForm>();
+            services.AddTransient<Forms.Tenant.InvoiceDetailForm>();
             services.AddTransient<Forms.Tenant.TenantMaintenanceForm>();
             services.AddTransient<Forms.Tenant.TenantReviewForm>();
+            services.AddTransient<Forms.Tenant.RoomDetailForm>();
             services.AddTransient<Forms.Manager.ManagerMeterForm>();
             services.AddTransient<Forms.Manager.ManagerMaintenanceForm>();
+            services.AddTransient<Forms.Manager.MaintenanceDetailForm>();
             services.AddTransient<Forms.Dashboard.DashboardForm>();
             services.AddTransient<Forms.Shared.NotificationCenterForm>();
             services.AddTransient<Forms.Shared.ProfileForm>();

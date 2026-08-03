@@ -90,7 +90,7 @@ namespace RPMS.BLL.Services
             filter ??= new RoomSearchFilterDto();
             var posts = await _unitOfWork.Posts.FindAsync(
                 p => p.Status == "Approved" && (p.ExpiryDate == null || p.ExpiryDate >= DateTime.Now),
-                "Room.House, Room.RoomAmenities.Amenity, PostImages");
+                "Room.House, Room.RoomAmenities.Amenity, Room.RoomImages, PostImages");
             var query = posts.AsEnumerable();
 
             if (!string.IsNullOrWhiteSpace(filter.Keyword))
@@ -105,7 +105,12 @@ namespace RPMS.BLL.Services
             if (filter.MinPrice.HasValue) query = query.Where(p => p.PriceSnapshot >= filter.MinPrice.Value);
             if (filter.MaxPrice.HasValue) query = query.Where(p => p.PriceSnapshot <= filter.MaxPrice.Value);
             if (filter.Bedrooms.HasValue && filter.Bedrooms.Value > 0)
-                query = query.Where(p => p.Room.Bedroom == filter.Bedrooms.Value);
+            {
+                if (filter.Bedrooms.Value >= 4)
+                    query = query.Where(p => p.Room != null && p.Room.Bedroom >= 4);
+                else
+                    query = query.Where(p => p.Room != null && p.Room.Bedroom == filter.Bedrooms.Value);
+            }
 
             if (filter.AreaFilter.HasValue)
             {

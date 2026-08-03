@@ -31,8 +31,9 @@ namespace RPMS.WinForms.Forms.Shared
             UIHelper.ApplyFormStyle(this);
             Text = "Lịch công việc";
             ClientSize = new Size(1100, 650);
+            AutoScroll = false;
 
-            var pnlLeft = new Panel { Dock = DockStyle.Left, Width = 320, BackColor = AppColors.Card, Padding = new Padding(16) };
+            var pnlLeft = new Panel { Dock = DockStyle.Left, Width = 320, MinimumSize = new Size(280, 0), BackColor = AppColors.Card, Padding = new Padding(16), AutoScroll = true };
             calendar = new MonthCalendar
             {
                 Location = new Point(20, 20),
@@ -75,6 +76,7 @@ namespace RPMS.WinForms.Forms.Shared
 
             dgv = new ModernDataGridView { Dock = DockStyle.Fill };
             dgv.AutoGenerateColumns = false;
+            dgv.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
             dgv.Columns.Add(new DataGridViewTextBoxColumn
             {
                 DataPropertyName = "Date",

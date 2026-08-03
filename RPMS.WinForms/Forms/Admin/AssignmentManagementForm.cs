@@ -52,8 +52,8 @@ namespace RPMS.WinForms.Forms.Admin
             });
 
             cboHouse = new ComboBox { Location = new Point(20, 48), Size = new Size(280, 28), DropDownStyle = ComboBoxStyle.DropDownList };
-            cboManager = new ComboBox { Location = new Point(320, 48), Size = new Size(240, 28), DropDownStyle = ComboBoxStyle.DropDownList };
-            var btnAssign = new ModernButton { Text = "Gán", Location = new Point(580, 44), Size = new Size(100, 36) };
+            cboManager = new ComboBox { Location = new Point(320, 48), Size = new Size(240, 28), DropDownStyle = ComboBoxStyle.DropDownList, Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
+            var btnAssign = new ModernButton { Text = "Gán", Location = new Point(580, 44), Size = new Size(100, 36), Anchor = AnchorStyles.Top | AnchorStyles.Right };
             btnAssign.Click += async (s, e) => await AssignAsync();
             pnlTop.Controls.AddRange(new Control[] { cboHouse, cboManager, btnAssign });
 
@@ -83,6 +83,8 @@ namespace RPMS.WinForms.Forms.Admin
 
             Controls.Add(dgv);
             Controls.Add(pnlTop);
+            UIHelper.WireListPage(this, pnlTop, dgv);
+            MinimumSize = new Size(700, 480);
         }
 
         private async Task LoadAllAsync()

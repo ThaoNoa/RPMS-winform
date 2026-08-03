@@ -20,24 +20,29 @@ namespace RPMS.WinForms.Controls
             this.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
             this.MultiSelect = false;
             this.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            this.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.AllCellsExceptHeaders;
             this.GridColor = AppColors.Border;
             this.EnableHeadersVisualStyles = false;
-            this.RowTemplate.Height = 45;
+            this.RowTemplate.Height = 40;
+            this.Dock = DockStyle.Fill;
 
             this.ColumnHeadersDefaultCellStyle.BackColor = AppColors.Background;
             this.ColumnHeadersDefaultCellStyle.ForeColor = AppColors.TextMain;
             this.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 10.5F, FontStyle.Bold);
             this.ColumnHeadersDefaultCellStyle.SelectionBackColor = AppColors.Background;
             this.ColumnHeadersDefaultCellStyle.SelectionForeColor = AppColors.TextMain;
-            this.ColumnHeadersHeight = 50;
-            this.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
+            this.ColumnHeadersDefaultCellStyle.WrapMode = DataGridViewTriState.True;
+            this.ColumnHeadersHeight = 44;
+            this.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
 
             this.DefaultCellStyle.BackColor = AppColors.Card;
             this.DefaultCellStyle.ForeColor = AppColors.TextMain;
             this.DefaultCellStyle.Font = new Font("Segoe UI", 10F);
             this.DefaultCellStyle.SelectionBackColor = ControlPaint.Light(AppColors.Primary, 0.8F);
             this.DefaultCellStyle.SelectionForeColor = AppColors.TextMain;
-            this.DefaultCellStyle.Padding = new Padding(5, 0, 5, 0);
+            this.DefaultCellStyle.Padding = new Padding(5, 4, 5, 4);
+            this.DefaultCellStyle.WrapMode = DataGridViewTriState.True;
+            this.ScrollBars = ScrollBars.Both;
         }
     }
 }

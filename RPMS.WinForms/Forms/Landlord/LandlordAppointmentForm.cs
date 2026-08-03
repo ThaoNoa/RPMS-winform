@@ -7,6 +7,7 @@ using RPMS.WinForms.UI;
 using System;
 using System.Drawing;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace RPMS.WinForms.Forms.Landlord
@@ -30,9 +31,11 @@ namespace RPMS.WinForms.Forms.Landlord
 
         private void InitializeUI()
         {
+            UIHelper.ApplyFormStyle(this);
             this.ClientSize = new Size(1050, 650);
             this.BackColor = AppColors.Background;
             this.Text = "Quản lý Lịch hẹn Xem phòng";
+            this.AutoScroll = false;
 
             Panel pnlTop = new Panel { Dock = DockStyle.Top, Height = 90, BackColor = AppColors.Card, Padding = new Padding(10) };
             Label lblHouse = new Label { Text = "Tòa nhà:", Location = new Point(20, 25), AutoSize = true };
@@ -49,7 +52,7 @@ namespace RPMS.WinForms.Forms.Landlord
             dtpFrom.Value = DateTime.Now.AddDays(-2);
             dtpTo.Value = DateTime.Now.AddDays(8);
 
-            btnFilter = new ModernButton { Text = "Lọc dữ liệu", Location = new Point(550, 20), Size = new Size(120, 40), BackColor = AppColors.Primary };
+            btnFilter = new ModernButton { Text = "Lọc dữ liệu", Location = new Point(550, 20), Size = new Size(120, 40), BackColor = AppColors.Primary, Anchor = AnchorStyles.Top | AnchorStyles.Right };
             btnFilter.Click += async (s, e) => await LoadDataAsync();
 
             pnlTop.Controls.AddRange(new Control[] { lblHouse, cboHouse, lblStatus, cboStatus, lblDate, dtpFrom, lblTo, dtpTo, btnFilter });
@@ -66,31 +69,55 @@ namespace RPMS.WinForms.Forms.Landlord
 
             this.Controls.Add(dgvAppointments);
             this.Controls.Add(pnlTop);
+            UIHelper.WireListPage(this, pnlTop, dgvAppointments);
         }
 
-        private async void LandlordAppointmentForm_Load(object sender, EventArgs e)
+        private async void LandlordAppointmentForm_Load(object? sender, EventArgs e)
         {
-            var houses = await _houseService.GetHousesByOwnerAsync(UserSession.CurrentUser!.UserID);
-            var houseList = houses.ToList();
-            houseList.Insert(0, new RPMS.DTO.House.HouseDto { HouseID = 0, HouseName = "Tất cả tòa nhà" });
-            cboHouse.DataSource = houseList;
-            cboHouse.DisplayMember = "HouseName";
-            cboHouse.ValueMember = "HouseID";
-            await LoadDataAsync();
+            try
+            {
+                var houses = await _houseService.GetHousesByOwnerAsync(UserSession.CurrentUser!.UserID);
+                if (IsDisposed) return;
+                var houseList = houses.ToList();
+                houseList.Insert(0, new RPMS.DTO.House.HouseDto { HouseID = 0, HouseName = "Tất cả tòa nhà" });
+                cboHouse.DisplayMember = "HouseName";
+                cboHouse.ValueMember = "HouseID";
+                cboHouse.DataSource = houseList;
+                await LoadDataAsync();
+            }
+            catch (Exception ex)
+            {
+                if (!IsDisposed)
+                    AppDialog.ShowError("Lỗi tải lịch hẹn: " + ex.Message);
+            }
         }
 
         private async Task LoadDataAsync()
         {
-            int? houseId = (int)cboHouse.SelectedValue == 0 ? null : (int)cboHouse.SelectedValue;
-            var data = await _landlordService.GetAppointmentsAsync(
-                UserSession.CurrentUser!.UserID, houseId, cboStatus.SelectedItem.ToString(), dtpFrom.Value, dtpTo.Value);
-            dgvAppointments.DataSource = data.ToList();
+            try
+            {
+                if (cboHouse.SelectedValue == null) return;
+                int selectedHouse = Convert.ToInt32(cboHouse.SelectedValue);
+                int? houseId = selectedHouse == 0 ? null : selectedHouse;
+                string status = cboStatus.SelectedItem?.ToString() ?? "All";
+                var data = await _landlordService.GetAppointmentsAsync(
+                    UserSession.CurrentUser!.UserID, houseId, status, dtpFrom.Value, dtpTo.Value);
+                if (IsDisposed) return;
+                dgvAppointments.AutoGenerateColumns = false;
+                dgvAppointments.DataSource = data.ToList();
+            }
+            catch (Exception ex)
+            {
+                if (!IsDisposed)
+                    AppDialog.ShowError("Lỗi lọc lịch hẹn: " + ex.Message);
+            }
         }
 
-        private async void DgvAppointments_CellContentClick(object sender, DataGridViewCellEventArgs e)
+        private async void DgvAppointments_CellContentClick(object? sender, DataGridViewCellEventArgs e)
         {
             if (e.RowIndex < 0) return;
             var app = dgvAppointments.Rows[e.RowIndex].DataBoundItem as AppointmentDto;
+            if (app == null) return;
             string colName = dgvAppointments.Columns[e.ColumnIndex].Name;
             try
             {

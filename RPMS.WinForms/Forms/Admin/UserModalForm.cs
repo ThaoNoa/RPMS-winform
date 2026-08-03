@@ -42,6 +42,7 @@ namespace RPMS.WinForms.Forms.Admin
                 cboStatus.SelectedIndex = 0;
                 cboStatus.Enabled = false;
             }
+            UIHelper.SoftAnchorDialogControls(this);
         }
 
         private async Task LoadRolesAsync()

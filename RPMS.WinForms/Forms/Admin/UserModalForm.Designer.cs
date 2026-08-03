@@ -127,10 +127,12 @@ namespace RPMS.WinForms.Forms.Admin
 
             // Form
             this.ClientSize = new Size(600, 450);
+            this.MinimumSize = new Size(480, 400);
             this.Controls.AddRange(new Control[] { lblTitle, lblUsername, txtUsername, lblPassword, txtPassword, lblFullName, txtFullName, lblEmail, txtEmail, lblPhone, txtPhone, lblAddress, txtAddress, lblRole, cboRole, lblStatus, cboStatus, btnSave, btnCancel });
-            this.FormBorderStyle = FormBorderStyle.FixedDialog;
-            this.MaximizeBox = false;
-            this.MinimizeBox = false;
+            this.FormBorderStyle = FormBorderStyle.Sizable;
+            this.MaximizeBox = true;
+            this.MinimizeBox = true;
+            this.AutoScroll = true;
             this.StartPosition = FormStartPosition.CenterParent;
             this.BackColor = AppColors.Card;
             this.Text = "Chi tiết Người dùng";

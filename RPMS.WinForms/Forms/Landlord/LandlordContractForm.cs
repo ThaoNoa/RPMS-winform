@@ -53,13 +53,16 @@ namespace RPMS.WinForms.Forms.Landlord
             UIHelper.ApplyFormStyle(this);
             Text = "Quản lý hợp đồng";
             ClientSize = new Size(1150, 700);
+            AutoScroll = false;
 
             var pnlCreate = new Panel
             {
                 Dock = DockStyle.Right,
                 Width = 360,
+                MinimumSize = new Size(320, 0),
                 BackColor = AppColors.Card,
-                Padding = new Padding(16)
+                Padding = new Padding(16),
+                AutoScroll = true
             };
 
             int y = 16;
@@ -141,6 +144,11 @@ namespace RPMS.WinForms.Forms.Landlord
             };
             btnCreate.Click += async (s, e) => await CreateContractAsync();
             pnlCreate.Controls.Add(btnCreate);
+            foreach (Control c in pnlCreate.Controls)
+            {
+                if (c is ComboBox or ModernTextBox or DateTimePicker or ModernButton)
+                    c.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            }
 
             var pnlTop = new Panel { Dock = DockStyle.Top, Height = 56, BackColor = AppColors.Card };
             pnlTop.Controls.Add(new Label
@@ -211,6 +219,7 @@ namespace RPMS.WinForms.Forms.Landlord
             Controls.Add(dgv);
             Controls.Add(pnlCreate);
             Controls.Add(pnlTop);
+            UIHelper.WireListPage(this, pnlTop, dgv);
         }
 
         private async Task OnLoadAsync()

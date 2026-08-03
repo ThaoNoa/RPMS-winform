@@ -52,12 +52,23 @@ namespace RPMS.WinForms.Forms.Landlord
 
             Controls.Add(dgv);
             Controls.Add(pnlTop);
+            UIHelper.WireListPage(this, pnlTop, dgv);
+            MinimumSize = new Size(700, 480);
         }
 
         private async System.Threading.Tasks.Task LoadAsync()
         {
-            var list = await _reviewService.GetByLandlordAsync(UserSession.CurrentUser!.UserID);
-            dgv.DataSource = list.ToList();
+            try
+            {
+                var list = await _reviewService.GetByLandlordAsync(UserSession.CurrentUser!.UserID);
+                if (IsDisposed) return;
+                dgv.DataSource = list.ToList();
+            }
+            catch (Exception ex)
+            {
+                if (!IsDisposed)
+                    AppDialog.ShowError("Không tải đánh giá: " + ex.Message);
+            }
         }
 
         private async System.Threading.Tasks.Task OnCellClick(DataGridViewCellEventArgs e)

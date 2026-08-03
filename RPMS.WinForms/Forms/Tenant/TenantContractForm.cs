@@ -60,12 +60,23 @@ namespace RPMS.WinForms.Forms.Tenant
 
             Controls.Add(dgvContracts);
             Controls.Add(pnlTop);
+            UIHelper.WireListPage(this, pnlTop, dgvContracts);
+            MinimumSize = new Size(700, 480);
         }
 
         private async System.Threading.Tasks.Task LoadDataAsync()
         {
-            var contracts = await _contractService.GetContractsByTenantAsync(UserSession.CurrentUser!.UserID);
-            dgvContracts.DataSource = contracts.ToList();
+            try
+            {
+                var contracts = await _contractService.GetContractsByTenantAsync(UserSession.CurrentUser!.UserID);
+                if (IsDisposed) return;
+                dgvContracts.DataSource = contracts.ToList();
+            }
+            catch (Exception ex)
+            {
+                if (!IsDisposed)
+                    AppDialog.ShowError("Không tải được hợp đồng: " + ex.Message);
+            }
         }
 
         private async void DgvContracts_CellContentClick(object sender, DataGridViewCellEventArgs e)

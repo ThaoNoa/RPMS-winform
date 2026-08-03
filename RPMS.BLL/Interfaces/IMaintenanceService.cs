@@ -12,6 +12,7 @@ namespace RPMS.BLL.Interfaces
         Task<bool> UpdateRequestStatusAsync(int requestId, string status, int managerId);
 
         Task<IEnumerable<MaintenanceRequestDto>> GetRequestsForManagerAsync(int managerId);
+        Task<MaintenanceRequestDto> GetRequestByIdAsync(int requestId);
         Task<bool> DeleteRequestAsync(int requestId);
         Task<bool> SendMaintenanceNotificationAsync(int requestId, string message);
     }

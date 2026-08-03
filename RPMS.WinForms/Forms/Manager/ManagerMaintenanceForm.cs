@@ -1,4 +1,5 @@
-﻿using RPMS.BLL.Interfaces;
+﻿using Microsoft.Extensions.DependencyInjection;
+using RPMS.BLL.Interfaces;
 using RPMS.Common.Constants;
 using RPMS.Common.Globals;
 using RPMS.DTO.Maintenance;
@@ -25,9 +26,11 @@ namespace RPMS.WinForms.Forms.Manager
 
         private void InitializeUI()
         {
+            UIHelper.ApplyFormStyle(this);
             ClientSize = new Size(1100, 600);
             BackColor = AppColors.Background;
             Text = "Quản lý Sự cố / Bảo trì";
+            AutoScroll = false;
 
             var pnlTop = new Panel { Dock = DockStyle.Top, Height = 60, BackColor = AppColors.Background };
             pnlTop.Controls.Add(new Label
@@ -38,11 +41,22 @@ namespace RPMS.WinForms.Forms.Manager
                 Location = new Point(20, 15),
                 AutoSize = true
             });
+            var btnRefresh = new ModernButton
+            {
+                Text = "Làm mới",
+                Size = new Size(110, 36),
+                Location = new Point(960, 12),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                BackColor = AppColors.TextMuted
+            };
+            btnRefresh.Click += async (s, e) => await LoadDataAsync();
+            pnlTop.Controls.Add(btnRefresh);
 
             dgvRequests = new ModernDataGridView { Dock = DockStyle.Fill };
             dgvRequests.AutoGenerateColumns = false;
             dgvRequests.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "RequestID", HeaderText = "ID", Width = 50 });
-            dgvRequests.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "RoomNumber", HeaderText = "Phòng", Width = 80 });
+            dgvRequests.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "RoomNumber", HeaderText = "Phòng", Width = 70 });
+            dgvRequests.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "TenantName", HeaderText = "Khách thuê", Width = 130 });
             dgvRequests.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Title", HeaderText = "Tiêu đề sự cố", Width = 200 });
             dgvRequests.Columns.Add(new DataGridViewTextBoxColumn
             {
@@ -52,6 +66,15 @@ namespace RPMS.WinForms.Forms.Manager
                 DefaultCellStyle = new DataGridViewCellStyle { Format = "dd/MM/yyyy HH:mm" }
             });
             dgvRequests.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Status", HeaderText = "Trạng thái", Width = 100 });
+            dgvRequests.Columns.Add(new DataGridViewLinkColumn
+            {
+                Name = "DetailCol",
+                HeaderText = "Chi tiết",
+                Text = "Xem",
+                UseColumnTextForLinkValue = true,
+                Width = 70,
+                LinkColor = AppColors.Primary
+            });
             dgvRequests.Columns.Add(new DataGridViewLinkColumn
             {
                 Name = "ProcessCol",
@@ -80,9 +103,16 @@ namespace RPMS.WinForms.Forms.Manager
                 LinkColor = Color.Red
             });
             dgvRequests.CellContentClick += DgvRequests_CellContentClick!;
+            dgvRequests.CellDoubleClick += (s, e) =>
+            {
+                if (e.RowIndex < 0) return;
+                if (dgvRequests.Rows[e.RowIndex].DataBoundItem is MaintenanceRequestDto req)
+                    OpenDetail(req.RequestID);
+            };
 
             Controls.Add(dgvRequests);
             Controls.Add(pnlTop);
+            UIHelper.WireListPage(this, pnlTop, dgvRequests);
         }
 
         private async System.Threading.Tasks.Task LoadDataAsync()
@@ -98,6 +128,22 @@ namespace RPMS.WinForms.Forms.Manager
             }
         }
 
+        private void OpenDetail(int requestId)
+        {
+            try
+            {
+                var form = Program.ServiceProvider.GetRequiredService<MaintenanceDetailForm>();
+                form.RequestId = requestId;
+                form.ShowDialog(this);
+                if (form.Changed)
+                    _ = LoadDataAsync();
+            }
+            catch (Exception ex)
+            {
+                AppDialog.ShowError("Không mở chi tiết sự cố: " + ex.Message);
+            }
+        }
+
         private async void DgvRequests_CellContentClick(object sender, DataGridViewCellEventArgs e)
         {
             if (e.RowIndex < 0) return;
@@ -107,7 +153,11 @@ namespace RPMS.WinForms.Forms.Manager
 
             try
             {
-                if (col == "ProcessCol")
+                if (col == "DetailCol")
+                {
+                    OpenDetail(req.RequestID);
+                }
+                else if (col == "ProcessCol")
                 {
                     if (req.Status == "Completed")
                     {

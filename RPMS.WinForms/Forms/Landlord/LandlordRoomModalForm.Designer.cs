@@ -236,13 +236,15 @@ namespace RPMS.WinForms.Forms.Landlord
 
             // Form
             this.ClientSize = new Size(780, 570);
+            this.MinimumSize = new Size(480, 400);
             this.Controls.Add(this.lblTitle);
             this.Controls.Add(this.tabMain);
             this.Controls.Add(this.btnSave);
             this.Controls.Add(this.btnCancel);
-            this.FormBorderStyle = FormBorderStyle.FixedDialog;
-            this.MaximizeBox = false;
-            this.MinimizeBox = false;
+            this.FormBorderStyle = FormBorderStyle.Sizable;
+            this.MaximizeBox = true;
+            this.MinimizeBox = true;
+            this.AutoScroll = true;
             this.StartPosition = FormStartPosition.CenterParent;
             this.BackColor = AppColors.Background;
             this.Text = "Chi tiết Phòng";

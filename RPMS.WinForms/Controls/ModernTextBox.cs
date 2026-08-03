@@ -32,8 +32,13 @@ namespace RPMS.WinForms.Controls
             _textBox.Enter += TextBox_Enter!;
             _textBox.Leave += TextBox_Leave!;
             _textBox.TextChanged += (s, e) => OnTextChanged(e);
+            _textBox.KeyDown += (s, e) => InputKeyDown?.Invoke(this, e);
             Controls.Add(_textBox);
         }
+
+        public event KeyEventHandler? InputKeyDown;
+
+        public void FocusInput() => _textBox.Focus();
 
         public string PlaceholderText
         {

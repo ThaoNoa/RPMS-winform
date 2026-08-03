@@ -20,12 +20,30 @@ namespace RPMS.WinForms.Controls
             ForeColor = Color.White;
             Font = AppTypography.Button;
             Cursor = Cursors.Hand;
+            ResizeRedraw = true;
         }
 
         public int BorderRadius
         {
             get => _borderRadius;
-            set { _borderRadius = value; Invalidate(); }
+            set
+            {
+                _borderRadius = value;
+                UpdateRegion();
+                Invalidate();
+            }
+        }
+
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            base.OnHandleCreated(e);
+            UpdateRegion();
+        }
+
+        protected override void OnResize(EventArgs e)
+        {
+            base.OnResize(e);
+            UpdateRegion();
         }
 
         protected override void OnMouseEnter(EventArgs e)
@@ -61,7 +79,7 @@ namespace RPMS.WinForms.Controls
             using (var brush = new SolidBrush(fill))
                 pevent.Graphics.FillPath(brush, path);
 
-            Region = new Region(path);
+            // Không tạo Region trong Paint (tránh leak GDI → crash Font)
             TextRenderer.DrawText(
                 pevent.Graphics,
                 Text,
@@ -69,6 +87,15 @@ namespace RPMS.WinForms.Controls
                 rect,
                 ForeColor,
                 TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+        }
+
+        private void UpdateRegion()
+        {
+            if (!IsHandleCreated || Width <= 0 || Height <= 0) return;
+            using var path = Rounded(ClientRectangle, _borderRadius);
+            var old = Region;
+            Region = new Region(path);
+            old?.Dispose();
         }
 
         private static GraphicsPath Rounded(Rectangle bounds, int radius)

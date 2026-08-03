@@ -25,6 +25,11 @@ namespace RPMS.WinForms.Forms.Admin
             UIHelper.ApplyFormStyle(this);
             Text = "Backup & Restore Database";
             ClientSize = new Size(720, 360);
+            MinimumSize = new Size(480, 360);
+            FormBorderStyle = FormBorderStyle.Sizable;
+            MaximizeBox = true;
+            MinimizeBox = true;
+            AutoScroll = true;
 
             var pnl = new Panel { Dock = DockStyle.Fill, Padding = new Padding(24), BackColor = AppColors.Card };
             pnl.Controls.Add(new Label

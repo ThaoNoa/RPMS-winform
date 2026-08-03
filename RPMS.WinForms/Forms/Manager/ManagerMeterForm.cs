@@ -21,11 +21,27 @@ namespace RPMS.WinForms.Forms.Manager
         private ModernDataGridView dgvContracts = null!;
         private Panel pnlInput = null!;
         private Label lblSelectedRoom = null!;
+        private Label lblBillingMonth = null!;
+        private Label lblPrevMonth = null!;
+        private Label lblOldElectric = null!;
+        private Label lblOldWater = null!;
         private ModernTextBox txtElectric = null!;
         private ModernTextBox txtWater = null!;
         private ModernTextBox txtFee = null!;
         private ModernButton btnGenerateInvoice = null!;
         private int _selectedContractId = 0;
+        private decimal _prevElectric = 0;
+        private decimal _prevWater = 0;
+
+        /// <summary>Tháng hóa đơn = tháng trước (tháng đã kết thúc).</summary>
+        private static DateTime BillingMonthStart
+        {
+            get
+            {
+                var prev = DateTime.Today.AddMonths(-1);
+                return new DateTime(prev.Year, prev.Month, 1);
+            }
+        }
 
         public ManagerMeterForm(IContractService contractService, IInvoiceService invoiceService)
         {
@@ -37,11 +53,14 @@ namespace RPMS.WinForms.Forms.Manager
 
         private void InitializeUI()
         {
+            UIHelper.ApplyFormStyle(this);
+            MinimumSize = new Size(820, 480);
             ClientSize = new Size(1000, 650);
             BackColor = AppColors.Background;
             Text = "Ghi chỉ số Điện Nước";
+            AutoScroll = false;
 
-            pnlInput = new Panel { Dock = DockStyle.Right, Width = 350, BackColor = AppColors.Card, Padding = new Padding(20) };
+            pnlInput = new Panel { Dock = DockStyle.Right, Width = 350, MinimumSize = new Size(300, 0), BackColor = AppColors.Card, Padding = new Padding(20) };
 
             var lblTitle = new Label
             {
@@ -56,30 +75,75 @@ namespace RPMS.WinForms.Forms.Manager
                 Text = "Chưa chọn hợp đồng",
                 Font = new Font("Segoe UI", 11F, FontStyle.Italic),
                 ForeColor = AppColors.TextMuted,
-                Location = new Point(20, 60),
-                AutoSize = true
+                Location = new Point(20, 55),
+                Size = new Size(300, 40)
             };
-            var lblElectric = new Label { Text = "Chỉ số điện MỚI *", Location = new Point(20, 110), AutoSize = true };
-            txtElectric = new ModernTextBox { Location = new Point(20, 135), Size = new Size(300, 35) };
-            var lblWater = new Label { Text = "Chỉ số nước MỚI *", Location = new Point(20, 180), AutoSize = true };
-            txtWater = new ModernTextBox { Location = new Point(20, 205), Size = new Size(300, 35) };
-            var lblFee = new Label { Text = "Phụ phí khác (nếu có)", Location = new Point(20, 250), AutoSize = true };
-            txtFee = new ModernTextBox { Location = new Point(20, 275), Size = new Size(300, 35), Text = "0" };
+
+            lblBillingMonth = new Label
+            {
+                Text = $"Hóa đơn tháng: {BillingMonthStart:MM/yyyy}",
+                Font = new Font("Segoe UI", 10F, FontStyle.Bold),
+                ForeColor = AppColors.Success,
+                Location = new Point(20, 95),
+                Size = new Size(300, 22)
+            };
+
+            lblPrevMonth = new Label
+            {
+                Text = "Chỉ số kỳ trước: —",
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                ForeColor = AppColors.Primary,
+                Location = new Point(20, 120),
+                Size = new Size(300, 22)
+            };
+            lblOldElectric = new Label
+            {
+                Text = "Điện kỳ trước: —",
+                ForeColor = AppColors.TextMuted,
+                Location = new Point(20, 144),
+                Size = new Size(300, 20)
+            };
+            lblOldWater = new Label
+            {
+                Text = "Nước kỳ trước: —",
+                ForeColor = AppColors.TextMuted,
+                Location = new Point(20, 166),
+                Size = new Size(300, 20)
+            };
+
+            var lblElectric = new Label { Text = "Chỉ số điện MỚI *", Location = new Point(20, 200), AutoSize = true };
+            txtElectric = new ModernTextBox { Location = new Point(20, 225), Size = new Size(300, 35) };
+            var lblWater = new Label { Text = "Chỉ số nước MỚI *", Location = new Point(20, 270), AutoSize = true };
+            txtWater = new ModernTextBox { Location = new Point(20, 295), Size = new Size(300, 35) };
+            var lblFee = new Label { Text = "Phụ phí khác (nếu có)", Location = new Point(20, 340), AutoSize = true };
+            txtFee = new ModernTextBox { Location = new Point(20, 365), Size = new Size(300, 35), Text = "0" };
 
             btnGenerateInvoice = new ModernButton
             {
-                Text = "Tạo Hóa Đơn",
-                Location = new Point(20, 340),
+                Text = $"Tạo HĐ tháng {BillingMonthStart:MM/yyyy}",
+                Location = new Point(20, 420),
                 Size = new Size(300, 45),
                 BackColor = AppColors.Primary,
                 Enabled = false
             };
             btnGenerateInvoice.Click += BtnGenerateInvoice_Click!;
 
-            pnlInput.Controls.AddRange(new Control[] { lblTitle, lblSelectedRoom, lblElectric, txtElectric, lblWater, txtWater, lblFee, txtFee, btnGenerateInvoice });
+            pnlInput.Controls.AddRange(new Control[]
+            {
+                lblTitle, lblSelectedRoom, lblBillingMonth, lblPrevMonth, lblOldElectric, lblOldWater,
+                lblElectric, txtElectric, lblWater, txtWater, lblFee, txtFee, btnGenerateInvoice
+            });
+            foreach (Control c in pnlInput.Controls)
+            {
+                if (c is ModernTextBox or ModernButton)
+                    c.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+                else if (c is Label { AutoSize: false })
+                    c.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            }
 
             dgvContracts = new ModernDataGridView { Dock = DockStyle.Fill };
             dgvContracts.AutoGenerateColumns = false;
+            dgvContracts.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
             dgvContracts.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "ContractCode", HeaderText = "Mã hợp đồng", Width = 120 });
             dgvContracts.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "RoomNumber", HeaderText = "Phòng", Width = 100 });
             dgvContracts.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "TenantName", HeaderText = "Khách thuê", Width = 150 });
@@ -109,17 +173,45 @@ namespace RPMS.WinForms.Forms.Manager
             }
         }
 
-        private void DgvContracts_CellClick(object sender, DataGridViewCellEventArgs e)
+        private async void DgvContracts_CellClick(object sender, DataGridViewCellEventArgs e)
         {
-            if (e.RowIndex >= 0)
+            if (e.RowIndex < 0) return;
+            var contract = dgvContracts.Rows[e.RowIndex].DataBoundItem as ContractDto;
+            if (contract == null) return;
+
+            _selectedContractId = contract.ContractID;
+            lblSelectedRoom.Text = $"Phòng {contract.RoomNumber} - {contract.TenantName}";
+            lblBillingMonth.Text = $"Hóa đơn tháng: {BillingMonthStart:MM/yyyy}";
+            btnGenerateInvoice.Text = $"Tạo HĐ tháng {BillingMonthStart:MM/yyyy}";
+            btnGenerateInvoice.Enabled = true;
+            await LoadPreviousReadingAsync(contract.ContractID);
+        }
+
+        private async Task LoadPreviousReadingAsync(int contractId)
+        {
+            try
             {
-                var contract = dgvContracts.Rows[e.RowIndex].DataBoundItem as ContractDto;
-                if (contract != null)
+                var last = await _invoiceService.GetLatestReadingAsync(contractId);
+                if (last == null)
                 {
-                    _selectedContractId = contract.ContractID;
-                    lblSelectedRoom.Text = $"Phòng {contract.RoomNumber} - {contract.TenantName}";
-                    btnGenerateInvoice.Enabled = true;
+                    _prevElectric = 0;
+                    _prevWater = 0;
+                    lblPrevMonth.Text = "Chỉ số kỳ trước: chưa có (lần đầu)";
+                    lblOldElectric.Text = "Điện kỳ trước: 0";
+                    lblOldWater.Text = "Nước kỳ trước: 0";
                 }
+                else
+                {
+                    _prevElectric = last.NewElectric;
+                    _prevWater = last.NewWater;
+                    lblPrevMonth.Text = $"Chỉ số kỳ trước: {last.ReadingMonth:MM/yyyy}";
+                    lblOldElectric.Text = $"Điện kỳ trước (đã chốt): {_prevElectric:N0}";
+                    lblOldWater.Text = $"Nước kỳ trước (đã chốt): {_prevWater:N0}";
+                }
+            }
+            catch (Exception ex)
+            {
+                AppDialog.ShowError("Không tải được chỉ số kỳ trước: " + ex.Message);
             }
         }
 
@@ -134,25 +226,39 @@ namespace RPMS.WinForms.Forms.Manager
                 return;
             }
 
+            if (newElectric < _prevElectric || newWater < _prevWater)
+            {
+                AppDialog.ShowWarning(
+                    $"Chỉ số mới phải ≥ chỉ số kỳ trước.\n" +
+                    $"Điện: ≥ {_prevElectric:N0}, Nước: ≥ {_prevWater:N0}");
+                return;
+            }
+
             btnGenerateInvoice.Enabled = false;
             try
             {
+                var billingMonth = BillingMonthStart;
                 var request = new GenerateInvoiceDto
                 {
                     ContractID = _selectedContractId,
-                    ReadingMonth = DateTime.Now,
+                    ReadingMonth = billingMonth,
                     NewElectric = newElectric,
                     NewWater = newWater,
                     OtherFee = otherFee,
                     CreatedBy = UserSession.CurrentUser!.UserID
                 };
                 await _invoiceService.GenerateMonthlyInvoiceAsync(request);
-                AppDialog.ShowInfo("Tạo hóa đơn thành công! Khách thuê đã có thể xem và thanh toán.");
+                AppDialog.ShowInfo($"Đã tạo hóa đơn tháng {billingMonth:MM/yyyy}. Khách thuê có thể xem và thanh toán.");
                 txtElectric.Text = "";
                 txtWater.Text = "";
                 txtFee.Text = "0";
                 lblSelectedRoom.Text = "Chưa chọn hợp đồng";
+                lblPrevMonth.Text = "Chỉ số kỳ trước: —";
+                lblOldElectric.Text = "Điện kỳ trước: —";
+                lblOldWater.Text = "Nước kỳ trước: —";
                 _selectedContractId = 0;
+                _prevElectric = 0;
+                _prevWater = 0;
                 btnGenerateInvoice.Enabled = false;
                 await LoadActiveContractsAsync();
             }
@@ -166,7 +272,8 @@ namespace RPMS.WinForms.Forms.Manager
             }
             finally
             {
-                btnGenerateInvoice.Enabled = true;
+                if (_selectedContractId > 0)
+                    btnGenerateInvoice.Enabled = true;
             }
         }
     }

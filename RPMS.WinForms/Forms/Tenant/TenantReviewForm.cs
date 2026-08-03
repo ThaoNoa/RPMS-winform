@@ -34,11 +34,14 @@ namespace RPMS.WinForms.Forms.Tenant
             UIHelper.ApplyFormStyle(this);
             Text = "Đánh giá sau thuê";
             ClientSize = new Size(1100, 650);
+            MinimumSize = new Size(900, 480);
+            AutoScroll = false;
 
             var split = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal, SplitterDistance = 280 };
 
             dgvContracts = new ModernDataGridView { Dock = DockStyle.Fill };
             dgvContracts.AutoGenerateColumns = false;
+            dgvContracts.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
             dgvContracts.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "ContractCode", HeaderText = "Mã HĐ", Width = 140 });
             dgvContracts.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "RoomNumber", HeaderText = "Phòng", Width = 100 });
             dgvContracts.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Status", HeaderText = "TT", Width = 100 });
@@ -56,9 +59,9 @@ namespace RPMS.WinForms.Forms.Tenant
             numRating = new NumericUpDown { Location = new Point(80, 18), Minimum = 1, Maximum = 5, Value = 5, Width = 60 };
             pnlCreate.Controls.Add(numRating);
             pnlCreate.Controls.Add(new Label { Text = "Nhận xét", Location = new Point(160, 20), AutoSize = true });
-            txtComment = new TextBox { Location = new Point(230, 18), Size = new Size(620, 50), Multiline = true };
+            txtComment = new TextBox { Location = new Point(230, 18), Size = new Size(620, 50), Multiline = true, Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
             pnlCreate.Controls.Add(txtComment);
-            var btnSubmit = new ModernButton { Text = "Gửi đánh giá", Location = new Point(870, 25), Size = new Size(140, 40) };
+            var btnSubmit = new ModernButton { Text = "Gửi đánh giá", Location = new Point(870, 25), Size = new Size(140, 40), Anchor = AnchorStyles.Top | AnchorStyles.Right };
             btnSubmit.Click += async (s, e) => await SubmitAsync();
             pnlCreate.Controls.Add(btnSubmit);
 
@@ -69,6 +72,7 @@ namespace RPMS.WinForms.Forms.Tenant
 
             dgvReviews = new ModernDataGridView { Dock = DockStyle.Fill };
             dgvReviews.AutoGenerateColumns = false;
+            dgvReviews.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
             dgvReviews.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "ContractCode", HeaderText = "HĐ", Width = 120 });
             dgvReviews.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Rating", HeaderText = "Sao", Width = 50 });
             dgvReviews.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Comment", HeaderText = "Nhận xét", Width = 320 });

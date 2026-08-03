@@ -34,6 +34,7 @@ namespace RPMS.WinForms.Forms.Landlord
                 cboStatus.SelectedIndex = 0;
                 cboStatus.Enabled = false;
             }
+            UIHelper.SoftAnchorDialogControls(this);
         }
 
         private async Task LoadHouseDetailsAsync()

@@ -45,9 +45,9 @@ namespace RPMS.WinForms.Forms.Landlord
                 var houses = await _houseService.GetHousesByOwnerAsync(landlordId);
                 if (houses.Any())
                 {
-                    cboHouses.DataSource = houses.ToList();
                     cboHouses.DisplayMember = "HouseName";
                     cboHouses.ValueMember = "HouseID";
+                    cboHouses.DataSource = houses.ToList();
                 }
                 else
                 {
@@ -88,7 +88,7 @@ namespace RPMS.WinForms.Forms.Landlord
             if (cboHouses.SelectedValue == null) return;
             var modal = Program.ServiceProvider.GetRequiredService<LandlordRoomModalForm>();
             modal.IsEditMode = false;
-            modal.HouseId = (int)cboHouses.SelectedValue;
+            modal.HouseId = Convert.ToInt32(cboHouses.SelectedValue);
             if (modal.ShowDialog() == DialogResult.OK)
                 await LoadRoomsAsync(modal.HouseId);
         }
@@ -118,7 +118,7 @@ namespace RPMS.WinForms.Forms.Landlord
                         await _roomService.DeleteRoomAsync(room.RoomID);
                         AppDialog.ShowInfo("Xóa phòng thành công.");
                         if (cboHouses.SelectedValue != null)
-                            await LoadRoomsAsync((int)cboHouses.SelectedValue);
+                            await LoadRoomsAsync(Convert.ToInt32(cboHouses.SelectedValue));
                     }
                 }
             }

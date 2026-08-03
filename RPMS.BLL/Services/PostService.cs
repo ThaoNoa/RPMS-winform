@@ -40,14 +40,14 @@ namespace RPMS.BLL.Services
         {
             var post = await _unitOfWork.Posts.FirstOrDefaultAsync(
                 p => p.PostID == id,
-                "Room.House, Room.RoomAmenities.Amenity, PostImages");
+                "Room.House, Room.RoomAmenities.Amenity, Room.RoomImages, PostImages");
             if (post == null) throw new NotFoundException("Tin đăng", id);
             return _mapper.Map<PostDetailDto>(post);
         }
 
         public async Task<PostDto> CreatePostAsync(CreatePostDto request)
         {
-            var room = await _unitOfWork.Rooms.FirstOrDefaultAsync(r => r.RoomID == request.RoomID, "House");
+            var room = await _unitOfWork.Rooms.FirstOrDefaultAsync(r => r.RoomID == request.RoomID, "House, RoomImages");
             if (room == null) throw new NotFoundException("Phòng", request.RoomID);
             if (room.Status != "Available")
                 throw new BadRequestException("Chỉ có thể đăng tin cho phòng đang trống.");
@@ -59,14 +59,39 @@ namespace RPMS.BLL.Services
                 PriceSnapshot = request.PriceSnapshot > 0 ? request.PriceSnapshot : room.Price,
                 Status = "Pending",
                 ViewCount = 0,
-                ExpiryDate = DateTime.Now.AddMonths(request.ExpiryMonths),
+                ExpiryDate = DateTime.Now.AddMonths(request.ExpiryMonths > 0 ? request.ExpiryMonths : 1),
                 IsFeatured = false,
                 CreatedDate = DateTime.Now,
                 UpdatedDate = DateTime.Now
             };
             await _unitOfWork.Posts.AddAsync(post);
             await _unitOfWork.SaveChangesAsync();
-            return _mapper.Map<PostDto>(post);
+
+            var imagePaths = (request.ImagePaths != null && request.ImagePaths.Count > 0)
+                ? request.ImagePaths
+                : (room.RoomImages?.OrderBy(x => x.DisplayOrder).Select(x => x.ImagePath).ToList()
+                   ?? new System.Collections.Generic.List<string>());
+
+            int order = 0;
+            foreach (var path in imagePaths.Where(p => !string.IsNullOrWhiteSpace(p)))
+            {
+                await _unitOfWork.PostImages.AddAsync(new PostImage
+                {
+                    PostID = post.PostID,
+                    ImagePath = path.Trim(),
+                    IsMain = order == 0,
+                    DisplayOrder = order++,
+                    CreatedDate = DateTime.Now,
+                    UpdatedDate = DateTime.Now
+                });
+            }
+            if (order > 0)
+                await _unitOfWork.SaveChangesAsync();
+
+            var created = await _unitOfWork.Posts.FirstOrDefaultAsync(
+                p => p.PostID == post.PostID,
+                "Room.House, Room.RoomImages, PostImages");
+            return _mapper.Map<PostDto>(created!);
         }
 
         public async Task<bool> ApprovePostAsync(int postId, int approvedByAdminId)

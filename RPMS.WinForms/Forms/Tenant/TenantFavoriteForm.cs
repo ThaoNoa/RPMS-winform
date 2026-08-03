@@ -61,6 +61,8 @@ namespace RPMS.WinForms.Forms.Tenant
 
             Controls.Add(dgv);
             Controls.Add(pnlTop);
+            UIHelper.WireListPage(this, pnlTop, dgv);
+            MinimumSize = new Size(700, 480);
         }
 
         private async System.Threading.Tasks.Task LoadDataAsync()

@@ -90,10 +90,12 @@ namespace RPMS.WinForms.Forms.Landlord
 
             // Form
             this.ClientSize = new Size(480, 450);
+            this.MinimumSize = new Size(480, 400);
             this.Controls.AddRange(new Control[] { lblTitle, lblName, txtName, lblAddress, txtAddress, lblDescription, txtDescription, lblStatus, cboStatus, btnSave, btnCancel });
-            this.FormBorderStyle = FormBorderStyle.FixedDialog;
-            this.MaximizeBox = false;
-            this.MinimizeBox = false;
+            this.FormBorderStyle = FormBorderStyle.Sizable;
+            this.MaximizeBox = true;
+            this.MinimizeBox = true;
+            this.AutoScroll = true;
             this.StartPosition = FormStartPosition.CenterParent;
             this.BackColor = AppColors.Card;
             this.Text = "Quản lý Nhà";

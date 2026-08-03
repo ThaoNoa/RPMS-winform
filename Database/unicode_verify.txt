@@ -1,0 +1,5 @@
+﻿admin => Quản trị viên
+namlandlord => Nguyễn Văn Nam
+tenant => Trần Văn An
+manager => Lê Thị Mai
+UNICODE_FIX_OK

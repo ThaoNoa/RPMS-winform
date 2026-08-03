@@ -83,9 +83,18 @@ namespace RPMS.BLL.Services
 
             var requests = await _unitOfWork.MaintenanceRequests.FindAsync(
                 m => houseIds.Contains(m.Contract.Room.HouseID),
-                "Contract.Room,Contract.Tenant,Manager");
+                "Contract.Room.House,Contract.Tenant,Manager");
 
             return _mapper.Map<IEnumerable<MaintenanceRequestDto>>(requests.OrderByDescending(r => r.CreatedDate));
+        }
+
+        public async Task<MaintenanceRequestDto> GetRequestByIdAsync(int requestId)
+        {
+            var request = await _unitOfWork.MaintenanceRequests.FirstOrDefaultAsync(
+                m => m.RequestID == requestId,
+                "Contract.Room.House,Contract.Tenant,Manager");
+            if (request == null) throw new NotFoundException("Yêu cầu bảo trì", requestId);
+            return _mapper.Map<MaintenanceRequestDto>(request);
         }
 
         public async Task<bool> DeleteRequestAsync(int requestId)
