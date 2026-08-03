@@ -88,20 +88,22 @@ Hoặc mở `RPMS.sln` trong Visual Studio → đặt startup project `RPMS.WinF
 - Sao lưu / khôi phục DB  
 
 ### Chủ nhà (Landlord)
-- Quản lý nhà, phòng (nhiều ảnh), tiện nghi  
-- Tin đăng, lịch hẹn, hợp đồng  
+- Quản lý nhà, phòng (**nhiều ảnh + video**), tiện nghi  
+- Tin đăng (gallery media), lịch hẹn, hợp đồng (**In/PDF**)  
 - Đánh giá / phản hồi, chat với khách thuê  
+- Dashboard: doanh thu 6 tháng, **tỷ lệ lấp đầy** (biểu đồ)  
 - Báo cáo / lịch  
 
 ### Người thuê (Tenant)
-- Tìm phòng (lọc, xem chi tiết, gallery)  
+- Tìm phòng (**lọc nâng cao**: giá, diện tích, tiện ích, trạng thái, nổi bật…)  
+- Chi tiết phòng + **gallery ảnh/video**  
 - Yêu thích, đặt lịch xem  
-- Hợp đồng, hóa đơn (prorate tiền nhà khi vào giữa tháng), thanh toán  
+- Hợp đồng (In/PDF), hóa đơn (prorate), thanh toán, **Xuất PDF/Excel**  
 - Báo sự cố / bảo trì, đánh giá, chat  
 
 ### Quản lý (Manager)
 - Ghi chỉ số điện/nước → tạo hóa đơn **tháng trước** (tháng đã kết thúc)  
-- Xử lý sự cố: danh sách + **chi tiết** (ảnh, mô tả, tiếp nhận / hoàn thành)  
+- Xử lý sự cố: danh sách + **chi tiết** (ảnh, **timeline trạng thái**, In/PDF phiếu bảo trì)  
 
 ## Nghiệp vụ nổi bật
 
@@ -109,8 +111,15 @@ Hoặc mở `RPMS.sln` trong Visual Studio → đặt startup project `RPMS.WinF
   `MonthlyRent ÷ số ngày trong tháng × số ngày thực ở`  
   (theo ngày nhận/trả phòng giao với tháng hóa đơn).
 - **Hóa đơn**: chỉ tạo cho tháng đã kết thúc; mặc định form ghi chỉ số = tháng trước.
+- **In / PDF**: HTML mở trình duyệt → *Microsoft Print to PDF* (hóa đơn, hợp đồng, phiếu bảo trì).
+- **Excel**: xuất CSV UTF-8 (danh sách hóa đơn, báo cáo).
 - **Chat**: Landlord ↔ Tenant, gửi text/ảnh.
-- **Ảnh**: đường dẫn dạng `/uploads/...` (relative theo thư mục chạy app); sample tự tạo ảnh minh họa nếu thiếu file.
+- **Media**: đường dẫn `/uploads/...`; hỗ trợ ảnh + video; sample tự tạo ảnh minh họa nếu thiếu file.
+- **UX**: loading overlay, empty state, toast thông báo.
+
+## Tài liệu kỹ thuật
+
+Chi tiết kiến trúc, class, luồng nghiệp vụ: [`Docs/TongQuanDuAn_RPMS.doc`](Docs/TongQuanDuAn_RPMS.doc) (mở bằng Word; phiên bản **1.1**).
 
 ## Build & ghi chú
 
