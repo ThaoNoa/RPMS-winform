@@ -12,6 +12,14 @@ namespace RPMS.WinForms.UI
     /// </summary>
     public static class ImagePathHelper
     {
+        /// <summary>True nếu đường dẫn là video.</summary>
+        public static bool IsVideo(string? path)
+        {
+            if (string.IsNullOrWhiteSpace(path)) return false;
+            var ext = Path.GetExtension(path).ToLowerInvariant();
+            return ext is ".mp4" or ".webm" or ".avi" or ".mov" or ".mkv" or ".wmv";
+        }
+
         public static string? ResolvePhysicalPath(string? relativeOrAbsolute)
         {
             if (string.IsNullOrWhiteSpace(relativeOrAbsolute)) return null;
@@ -29,6 +37,12 @@ namespace RPMS.WinForms.UI
 
         public static Image? LoadImage(string? relativeOrAbsolute, int? placeholderW = null, int? placeholderH = null)
         {
+            if (IsVideo(relativeOrAbsolute))
+            {
+                if (placeholderW.HasValue && placeholderH.HasValue)
+                    return CreatePlaceholder(placeholderW.Value, placeholderH.Value, "▶ Video");
+                return null;
+            }
             var physical = ResolvePhysicalPath(relativeOrAbsolute);
             if (physical != null)
             {
@@ -50,11 +64,31 @@ namespace RPMS.WinForms.UI
         {
             pic.Image?.Dispose();
             pic.Image = null;
-            var img = LoadImage(path, pic.Width > 0 ? pic.Width : 280, pic.Height > 0 ? pic.Height : 180);
+            int w = pic.Width > 10 ? pic.Width : 280;
+            int h = pic.Height > 10 ? pic.Height : 180;
+            if (IsVideo(path))
+            {
+                pic.Image = CreatePlaceholder(w, h, "▶ Video — nhấn để mở");
+                pic.SizeMode = PictureBoxSizeMode.Zoom;
+                return;
+            }
+            var img = LoadImage(path, w, h);
             if (img == null)
-                img = CreatePlaceholder(pic.Width > 10 ? pic.Width : 280, pic.Height > 10 ? pic.Height : 180, emptyText);
+                img = CreatePlaceholder(w, h, emptyText);
             pic.SizeMode = PictureBoxSizeMode.Zoom;
             pic.Image = img;
+        }
+
+        /// <summary>Mở video bằng ứng dụng mặc định của Windows.</summary>
+        public static void OpenMedia(string? path)
+        {
+            var physical = ResolvePhysicalPath(path);
+            if (physical == null) return;
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(physical) { UseShellExecute = true });
+            }
+            catch { /* ignore */ }
         }
 
         public static Image CreatePlaceholder(int width, int height, string text)

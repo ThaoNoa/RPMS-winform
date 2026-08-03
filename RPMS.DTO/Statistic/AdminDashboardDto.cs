@@ -12,6 +12,10 @@ namespace RPMS.DTO.Statistic
         public int TotalActiveContracts { get; set; }
         public decimal MonthlyRevenue { get; set; }
         public decimal TotalRevenue { get; set; }
+        public int OccupiedRooms { get; set; }
+        public int AvailableRooms { get; set; }
+        public int MaintenanceRooms { get; set; }
+        public double OccupancyRate { get; set; }
         public List<RevenueChartData> RevenueByMonth { get; set; } = new();
         public List<NamedCountDto> TopLandlords { get; set; } = new();
         public List<NamedCountDto> UsersByRole { get; set; } = new();

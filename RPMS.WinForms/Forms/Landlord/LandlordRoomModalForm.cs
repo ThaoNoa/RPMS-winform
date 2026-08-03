@@ -2,6 +2,7 @@
 using RPMS.BLL.Interfaces;
 using RPMS.DTO.Amenity;
 using RPMS.DTO.Room;
+using RPMS.WinForms.Controls;
 using RPMS.WinForms.UI;
 using System;
 using System.Collections.Generic;
@@ -103,13 +104,14 @@ namespace RPMS.WinForms.Forms.Landlord
             using (OpenFileDialog ofd = new OpenFileDialog())
             {
                 ofd.Multiselect = true;
-                ofd.Filter = "Image Files|*.jpg;*.jpeg;*.png;*.bmp";
-                ofd.Title = "Chọn hình ảnh phòng";
+                ofd.Filter = "Ảnh & Video|*.jpg;*.jpeg;*.png;*.bmp;*.webp;*.mp4;*.webm;*.avi;*.mov;*.mkv;*.wmv|Ảnh|*.jpg;*.jpeg;*.png;*.bmp;*.webp|Video|*.mp4;*.webm;*.avi;*.mov;*.mkv;*.wmv";
+                ofd.Title = "Chọn ảnh / video phòng";
                 if (ofd.ShowDialog() == DialogResult.OK)
                 {
                     foreach (var file in ofd.FileNames)
                         _tempImagePaths.Add(file);
                     UpdateImagesList();
+                    ToastNotifier.Show(this, $"Đã thêm {ofd.FileNames.Length} tệp", ToastKind.Success);
                 }
             }
         }
@@ -128,7 +130,12 @@ namespace RPMS.WinForms.Forms.Landlord
         {
             lstImages.Items.Clear();
             foreach (var path in _tempImagePaths)
-                lstImages.Items.Add(Path.GetFileName(path));
+            {
+                var name = Path.GetFileName(path);
+                if (ImagePathHelper.IsVideo(path))
+                    name = "🎬 " + name;
+                lstImages.Items.Add(name);
+            }
         }
 
         private void lstImages_SelectedIndexChanged(object sender, EventArgs e)
@@ -223,6 +230,7 @@ namespace RPMS.WinForms.Forms.Landlord
                 await _roomService.UploadRoomImagesAsync(roomId, finalImagePaths);
 
                 AppDialog.ShowInfo("Lưu phòng thành công!");
+                ToastNotifier.Show(Owner as Form ?? this, "Đã lưu phòng", ToastKind.Success);
                 this.DialogResult = DialogResult.OK;
                 this.Close();
             }

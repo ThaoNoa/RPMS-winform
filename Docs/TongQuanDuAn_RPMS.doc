@@ -1,0 +1,458 @@
+<html xmlns:o="urn:schemas-microsoft-com:office:office"
+      xmlns:w="urn:schemas-microsoft-com:office:word"
+      xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta charset="utf-8">
+<title>Tài liệu tổng quan dự án RPMS</title>
+<!--[if gte mso 9]>
+<xml>
+  <w:WordDocument>
+    <w:View>Print</w:View>
+    <w:Zoom>100</w:Zoom>
+  </w:WordDocument>
+</xml>
+<![endif]-->
+<style>
+  body { font-family: "Segoe UI", Calibri, Arial, sans-serif; font-size: 11pt; color: #111827; line-height: 1.45; }
+  h1 { font-size: 22pt; color: #2563EB; border-bottom: 2px solid #2563EB; padding-bottom: 6px; }
+  h2 { font-size: 16pt; color: #1E40AF; margin-top: 22pt; border-bottom: 1px solid #E5E7EB; padding-bottom: 4px; }
+  h3 { font-size: 13pt; color: #111827; margin-top: 14pt; }
+  h4 { font-size: 11pt; color: #374151; margin-top: 10pt; }
+  table { border-collapse: collapse; width: 100%; margin: 10px 0 16px 0; font-size: 10pt; }
+  th { background: #EFF6FF; color: #1E40AF; border: 1px solid #E5E7EB; padding: 6px 8px; text-align: left; }
+  td { border: 1px solid #E5E7EB; padding: 6px 8px; vertical-align: top; }
+  code, .mono { font-family: Consolas, "Courier New", monospace; font-size: 9.5pt; background: #F8FAFC; }
+  pre { background: #F8FAFC; border: 1px solid #E5E7EB; padding: 10px 12px; font-family: Consolas, monospace; font-size: 9pt; white-space: pre-wrap; }
+  .muted { color: #6B7280; }
+  .box { border-left: 4px solid #2563EB; background: #F8FAFC; padding: 8px 12px; margin: 10px 0; }
+  ul { margin-top: 4px; }
+  .toc a { color: #2563EB; text-decoration: none; }
+</style>
+</head>
+<body>
+
+<h1>TÀI LIỆU TỔNG QUAN DỰ ÁN RPMS</h1>
+<p class="muted"><b>Rental Property Management System</b> — Tài liệu kỹ thuật dành cho Developer<br>
+Phiên bản tài liệu: 1.0 · Stack: .NET 8 · WinForms · EF Core 8 · SQL Server Express<br>
+Mục đích: giúp developer mới hiểu kiến trúc, class, biến, luồng logic và quy ước đặt tên.</p>
+
+<div class="box">
+<b>Cách dùng file này trong Microsoft Word:</b> Mở file bằng Word → <i>File → Save As → Word Document (*.docx)</i> nếu cần định dạng .docx chuẩn.
+</div>
+
+<h2>Mục lục</h2>
+<ol class="toc">
+  <li>Tổng quan hệ thống</li>
+  <li>Kiến trúc &amp; hướng phụ thuộc</li>
+  <li>Cấu trúc từng layer</li>
+  <li>Khởi động ứng dụng &amp; DI</li>
+  <li>Authentication &amp; Session</li>
+  <li>Vai trò (RoleID) &amp; menu</li>
+  <li>DAL: Entity, Repository, UnitOfWork</li>
+  <li>BLL: Services &amp; logic nghiệp vụ</li>
+  <li>DTO &amp; AutoMapper</li>
+  <li>WinForms: Form / Control / UI helper</li>
+  <li>Database &amp; Seeder</li>
+  <li>Quy ước đặt tên</li>
+  <li>Luồng nghiệp vụ quan trọng</li>
+  <li>Tài khoản demo &amp; chạy dự án</li>
+</ol>
+
+<!-- ============================================================ -->
+<h2>1. Tổng quan hệ thống</h2>
+<p><b>RPMS</b> là ứng dụng Desktop quản lý nhà trọ / cho thuê phòng, phục vụ 4 nhóm người dùng:</p>
+<table>
+  <tr><th>RoleID</th><th>RoleName</th><th>Mô tả</th></tr>
+  <tr><td>1</td><td>Admin</td><td>Quản trị hệ thống, duyệt tin, phân công, nhật ký, backup</td></tr>
+  <tr><td>2</td><td>Landlord</td><td>Chủ nhà: nhà, phòng, tin đăng, hợp đồng, lịch hẹn, chat</td></tr>
+  <tr><td>3</td><td>Tenant</td><td>Người thuê: tìm phòng, HĐ, hóa đơn, sự cố, chat</td></tr>
+  <tr><td>4</td><td>Manager</td><td>Quản lý viên: ghi điện nước, xử lý sự cố</td></tr>
+</table>
+
+<p><b>Công nghệ chính:</b></p>
+<ul>
+  <li>UI: Windows Forms (.NET 8), phong cách Fluent (màu <code>AppColors</code>, font Segoe UI)</li>
+  <li>ORM: Entity Framework Core 8 + SQL Server Express (<code>.\SQLEXPRESS</code>)</li>
+  <li>DI: <code>Microsoft.Extensions.DependencyInjection</code></li>
+  <li>Mapping: AutoMapper</li>
+  <li>Mật khẩu: BCrypt (<code>PasswordHelper</code>)</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2>2. Kiến trúc &amp; hướng phụ thuộc</h2>
+<pre>
+RPMS.WinForms  →  RPMS.BLL  →  RPMS.DAL
+       │              │            │
+       ├──────────────┼────────────┤
+       ▼              ▼            ▼
+  RPMS.Common ←── RPMS.DTO (không phụ thuộc project khác)
+</pre>
+<p class="box"><b>Quy tắc:</b> UI <b>không</b> gọi trực tiếp <code>RPMSContext</code>. Mọi truy cập dữ liệu đi qua <code>I*Service</code> (BLL) → <code>IUnitOfWork</code> / Repository (DAL).</p>
+
+<table>
+  <tr><th>Project</th><th>Trách nhiệm</th></tr>
+  <tr><td><code>RPMS.WinForms</code></td><td>Entry point, Form, Control, DI đăng ký Form</td></tr>
+  <tr><td><code>RPMS.BLL</code></td><td>Business logic, validation, DataSeeder, Helpers</td></tr>
+  <tr><td><code>RPMS.DAL</code></td><td>EF Core, Entity, Repository, UnitOfWork, SchemaUpdater</td></tr>
+  <tr><td><code>RPMS.DTO</code></td><td>DTO request/response giữa UI và BLL</td></tr>
+  <tr><td><code>RPMS.Common</code></td><td><code>UserSession</code>, <code>AppColors</code>, <code>AppTypography</code></td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2>3. Cấu trúc từng layer</h2>
+
+<h3>3.1 RPMS.WinForms</h3>
+<table>
+  <tr><th>Thư mục / file</th><th>Nội dung</th></tr>
+  <tr><td><code>Program.cs</code></td><td>Main, connection string, BuildServiceProvider, seed DB, vòng Login→MainForm</td></tr>
+  <tr><td><code>Forms/Auth/</code></td><td><code>LoginForm</code>, <code>RegisterForm</code></td></tr>
+  <tr><td><code>Forms/Layout/</code></td><td><code>MainForm</code> — sidebar theo RoleID, <code>LoadChildForm(tag)</code></td></tr>
+  <tr><td><code>Forms/Admin|Landlord|Tenant|Manager|Shared|Dashboard/</code></td><td>Các màn hình nghiệp vụ</td></tr>
+  <tr><td><code>Controls/</code></td><td><code>ModernButton</code>, <code>ModernTextBox</code>, <code>ModernDataGridView</code>, <code>RoomCardControl</code>, <code>SidebarButton</code>, <code>SummaryCard</code></td></tr>
+  <tr><td><code>UI/</code></td><td><code>AppDialog</code>, <code>UIHelper</code>, <code>ImagePathHelper</code>, print/export helpers</td></tr>
+</table>
+
+<h3>3.2 RPMS.BLL</h3>
+<table>
+  <tr><th>Thư mục</th><th>Nội dung</th></tr>
+  <tr><td><code>Interfaces/</code></td><td><code>IAuthService</code>, <code>IInvoiceService</code>, …</td></tr>
+  <tr><td><code>Services/</code></td><td>Implementation tương ứng</td></tr>
+  <tr><td><code>Helpers/</code></td><td><code>PasswordHelper</code>, <code>RentProrationHelper</code></td></tr>
+  <tr><td><code>Mappings/MappingProfile.cs</code></td><td>AutoMapper Entity ↔ DTO</td></tr>
+  <tr><td><code>Exceptions/</code></td><td><code>NotFoundException</code>, <code>BadRequestException</code>, <code>UnauthorizedException</code></td></tr>
+  <tr><td><code>DataSeeder.cs</code></td><td>Hash password demo, sửa Unicode, sync timeline sample</td></tr>
+  <tr><td><code>BllDependencyInjection.cs</code></td><td><code>AddBusinessLogicLayer()</code></td></tr>
+</table>
+
+<h3>3.3 RPMS.DAL</h3>
+<table>
+  <tr><th>Thư mục</th><th>Nội dung</th></tr>
+  <tr><td><code>Data/RPMSContext.cs</code></td><td><code>DbSet&lt;T&gt;</code> cho mọi entity</td></tr>
+  <tr><td><code>Entities/</code></td><td>POCO: <code>User</code>, <code>Contract</code>, <code>Invoice</code>, …</td></tr>
+  <tr><td><code>Configurations/</code></td><td>Fluent API: <code>ContractConfiguration</code>, …</td></tr>
+  <tr><td><code>Repositories/</code></td><td><code>IGenericRepository&lt;T&gt;</code> + repo từng entity</td></tr>
+  <tr><td><code>UnitOfWork/</code></td><td><code>IUnitOfWork</code> / <code>UnitOfWork</code></td></tr>
+  <tr><td><code>DatabaseSchemaUpdater.cs</code></td><td>ALTER/CREATE bảng Chat, cột Reviews khi thiếu</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2>4. Khởi động ứng dụng &amp; DI</h2>
+<p>File: <code>RPMS.WinForms/Program.cs</code></p>
+<pre>
+static void Main()
+{
+    // 1. Tạo ảnh demo nếu thiếu
+    ImagePathHelper.EnsureSampleImages(...);
+
+    // 2. Đăng ký DI
+    services.AddDataAccessLayer(ConnectionString);
+    services.AddBusinessLogicLayer();
+    services.AddSingleton&lt;IBackupService&gt;(...);
+    services.AddTransient&lt;LoginForm&gt;(); // + mọi Form
+
+    // 3. Schema + Seed
+    DatabaseSchemaUpdater.EnsureUpdatedAsync(db);
+    DataSeeder.SeedAsync(db);
+
+    // 4. Vòng Login → MainForm (Logout = DialogResult.Retry)
+}
+</pre>
+
+<p><b>Connection string (biến quan trọng):</b></p>
+<pre class="mono">Program.ConnectionString =
+  "Server=.\\SQLEXPRESS;Database=RPMS;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=True;"</pre>
+
+<p><b>Lifetime lifetime:</b></p>
+<ul>
+  <li><code>AddScoped</code>: DbContext, UnitOfWork, Repositories, Services</li>
+  <li><code>AddTransient</code>: mọi Form</li>
+  <li><code>AddSingleton</code>: <code>IBackupService</code></li>
+</ul>
+<p class="muted">Lưu ý: resolve Scoped từ root <code>ServiceProvider</code> khiến DbContext dùng lâu dài — ChatForm đã dùng <code>IServiceScopeFactory.CreateScope()</code> cho mỗi thao tác để tránh lỗi concurrent.</p>
+
+<!-- ============================================================ -->
+<h2>5. Authentication &amp; Session</h2>
+
+<h3>5.1 Class / biến session</h3>
+<table>
+  <tr><th>Thành phần</th><th>Vị trí</th><th>Giải thích</th></tr>
+  <tr><td><code>UserSession</code></td><td><code>RPMS.Common.Globals</code></td><td>Static session sau login</td></tr>
+  <tr><td><code>CurrentUser</code></td><td><code>LoginResponseDto?</code></td><td>User đang đăng nhập</td></tr>
+  <tr><td><code>Login(user)</code> / <code>Logout()</code></td><td>method</td><td>Gán / xóa session</td></tr>
+  <tr><td><code>IsLoggedIn</code></td><td>bool</td><td><code>CurrentUser != null</code></td></tr>
+</table>
+
+<h3>5.2 LoginResponseDto — các property</h3>
+<table>
+  <tr><th>Property</th><th>Kiểu</th><th>Ý nghĩa</th></tr>
+  <tr><td><code>UserID</code></td><td>int</td><td>PK Users</td></tr>
+  <tr><td><code>FullName</code></td><td>string</td><td>Họ tên hiển thị</td></tr>
+  <tr><td><code>Username</code></td><td>string</td><td>Tên đăng nhập</td></tr>
+  <tr><td><code>RoleID</code></td><td>int</td><td>1–4 (xem bảng Role)</td></tr>
+  <tr><td><code>RoleName</code></td><td>string</td><td>Admin / Landlord / Tenant / Manager</td></tr>
+  <tr><td><code>Token</code></td><td>string</td><td>Mock JWT (<code>"JWT_TOKEN_MOCK"</code>) — chưa dùng API</td></tr>
+</table>
+
+<h3>5.3 Luồng Login</h3>
+<ol>
+  <li><code>LoginForm</code> → <code>IAuthService.LoginAsync(LoginRequestDto)</code></li>
+  <li><code>AuthService</code>: tìm User + Role → <code>PasswordHelper.Verify</code> (BCrypt) → check <code>Status == "Active"</code></li>
+  <li>Ghi <code>ActivityLog</code> Action = <code>"Login"</code></li>
+  <li><code>UserSession.Login(response)</code> → mở <code>MainForm</code></li>
+</ol>
+
+<!-- ============================================================ -->
+<h2>6. Vai trò &amp; menu (MainForm Tag → Form)</h2>
+<p>Method quan trọng: <code>MainForm.LoadChildForm(string tag)</code> — map Tag → Form class.</p>
+<table>
+  <tr><th>Tag</th><th>Form class</th><th>Role</th></tr>
+  <tr><td>Dashboard</td><td>DashboardForm</td><td>All</td></tr>
+  <tr><td>Notifications</td><td>NotificationCenterForm</td><td>All</td></tr>
+  <tr><td>Profile</td><td>ProfileForm</td><td>All</td></tr>
+  <tr><td>Calendar</td><td>CalendarForm</td><td>All</td></tr>
+  <tr><td>Reports</td><td>ReportForm</td><td>Admin, Landlord</td></tr>
+  <tr><td>Chat</td><td>ChatForm</td><td>Landlord, Tenant</td></tr>
+  <tr><td>UserManagement</td><td>UserManagementForm</td><td>Admin</td></tr>
+  <tr><td>PostManagement</td><td>PostManagementForm</td><td>Admin</td></tr>
+  <tr><td>Assignment</td><td>AssignmentManagementForm</td><td>Admin</td></tr>
+  <tr><td>AdminReviews</td><td>ReviewManagementForm</td><td>Admin</td></tr>
+  <tr><td>ActivityLog</td><td>ActivityLogForm</td><td>Admin</td></tr>
+  <tr><td>Backup</td><td>BackupForm</td><td>Admin</td></tr>
+  <tr><td>LandlordHouse / Room / Contract / Appointment / Post / Reviews</td><td>Landlord*Form</td><td>Landlord</td></tr>
+  <tr><td>TenantHome / Favorite / Contract / Invoice / Maintenance / Reviews</td><td>Tenant*Form</td><td>Tenant</td></tr>
+  <tr><td>ManagerMeter / ManagerMaintenance</td><td>Manager*Form</td><td>Manager</td></tr>
+</table>
+<p><b>Form modal (không qua sidebar):</b> <code>InvoiceDetailForm</code>, <code>RoomDetailForm</code>, <code>MaintenanceDetailForm</code>, <code>UserModalForm</code>, <code>LandlordRoomModalForm</code>, <code>TenantAppointmentModalForm</code>, …</p>
+
+<!-- ============================================================ -->
+<h2>7. DAL — Entity, Repository, UnitOfWork</h2>
+
+<h3>7.1 Danh sách Entity (class name)</h3>
+<table>
+  <tr><th>Entity</th><th>PK</th><th>Ghi chú field quan trọng</th></tr>
+  <tr><td>Role</td><td>RoleID</td><td>RoleName</td></tr>
+  <tr><td>User</td><td>UserID</td><td>Username, Password (BCrypt), RoleID, Status</td></tr>
+  <tr><td>House</td><td>HouseID</td><td>OwnerID → User (Landlord)</td></tr>
+  <tr><td>Room</td><td>RoomID</td><td>HouseID, Price, Area, Status (Available/Occupied/Maintenance)</td></tr>
+  <tr><td>RoomImage</td><td>ImageID</td><td>ImagePath, DisplayOrder</td></tr>
+  <tr><td>Amenity / RoomAmenity</td><td>—</td><td>Tiện nghi phòng</td></tr>
+  <tr><td>Post / PostImage</td><td>PostID</td><td>Status: Pending/Approved/Rejected</td></tr>
+  <tr><td>Favorite</td><td>FavoriteID</td><td>UserID + RoomID</td></tr>
+  <tr><td>Appointment</td><td>AppointmentID</td><td>RoomID, TenantID, AppointmentDate, Status</td></tr>
+  <tr><td>Contract</td><td>ContractID</td><td>xem bảng chi tiết bên dưới</td></tr>
+  <tr><td>MeterReading</td><td>ReadingID</td><td>ReadingMonth, Old/New Electric/Water</td></tr>
+  <tr><td>Invoice</td><td>InvoiceID</td><td>Rent, ElectricCost, WaterCost, OtherFee, Total, Status</td></tr>
+  <tr><td>Payment</td><td>PaymentID</td><td>InvoiceID, Amount, Method, Status</td></tr>
+  <tr><td>MaintenanceRequest</td><td>RequestID</td><td>Title, Description, Image, Status, AssignedManager</td></tr>
+  <tr><td>Assignment</td><td>AssignmentID</td><td>HouseID, ManagerID, Status Active</td></tr>
+  <tr><td>Review</td><td>ReviewID</td><td>Rating, Comment, LandlordReply</td></tr>
+  <tr><td>Notification</td><td>NotificationID</td><td>UserID, Title, Content, IsRead</td></tr>
+  <tr><td>ActivityLog</td><td>LogID</td><td>Action, Details</td></tr>
+  <tr><td>ChatConversation</td><td>ConversationID</td><td>LandlordID, TenantID (unique pair)</td></tr>
+  <tr><td>ChatMessage</td><td>MessageID</td><td>SenderID, Content, ImagePath, IsRead</td></tr>
+</table>
+
+<h3>7.2 Contract — fields quan trọng</h3>
+<table>
+  <tr><th>Property</th><th>Kiểu</th><th>Ý nghĩa</th></tr>
+  <tr><td>ContractCode</td><td>string</td><td>Mã HĐ (VD HD00001)</td></tr>
+  <tr><td>RoomID / TenantID</td><td>int</td><td>FK phòng / khách thuê</td></tr>
+  <tr><td>StartDate / EndDate</td><td>DateTime</td><td>Thời hạn hợp đồng</td></tr>
+  <tr><td>MoveInDate / MoveOutDate</td><td>DateTime / DateTime?</td><td>Ngày nhận / trả phòng — dùng prorate</td></tr>
+  <tr><td>Deposit</td><td>decimal</td><td>Tiền cọc</td></tr>
+  <tr><td>MonthlyRent</td><td>decimal</td><td>Tiền nhà đủ tháng</td></tr>
+  <tr><td>ElectricPrice / WaterPrice</td><td>decimal</td><td>Đơn giá điện / nước</td></tr>
+  <tr><td>Status</td><td>string</td><td>Active / …</td></tr>
+  <tr><td>CreatedBy</td><td>int</td><td>User tạo HĐ (thường Landlord)</td></tr>
+</table>
+
+<h3>7.3 UnitOfWork pattern</h3>
+<pre>
+IUnitOfWork
+  ├── Users, Houses, Rooms, Contracts, Invoices, ...
+  ├── ChatConversations, ChatMessages
+  ├── SaveChangesAsync()
+  └── BeginTransactionAsync / Commit / Rollback
+
+BLL: constructor(IUnitOfWork unitOfWork, IMapper mapper)
+UI:  constructor(IXxxService service)  // không inject UnitOfWork
+</pre>
+<p><code>GenericRepository&lt;T&gt;</code>: <code>FindAsync(predicate, includeProperties)</code> — include dạng chuỗi <code>"Contract.Room,Manager"</code>.</p>
+
+<!-- ============================================================ -->
+<h2>8. BLL — Services &amp; trách nhiệm</h2>
+<table>
+  <tr><th>Interface</th><th>Class</th><th>Trách nhiệm</th></tr>
+  <tr><td>IAuthService</td><td>AuthService</td><td>Login, đổi mật khẩu</td></tr>
+  <tr><td>IUserService</td><td>UserService</td><td>CRUD user, lọc role</td></tr>
+  <tr><td>IRoleService</td><td>RoleService</td><td>Danh sách role</td></tr>
+  <tr><td>IHouseService</td><td>HouseService</td><td>CRUD nhà theo OwnerID</td></tr>
+  <tr><td>IRoomService</td><td>RoomService</td><td>CRUD phòng, ảnh, amenities</td></tr>
+  <tr><td>IAmenityService</td><td>AmenityService</td><td>Danh mục tiện nghi</td></tr>
+  <tr><td>IPostService</td><td>PostService</td><td>Tin đăng, duyệt, view count</td></tr>
+  <tr><td>IContractService</td><td>ContractService</td><td>Tạo/gia hạn/chấm dứt HĐ</td></tr>
+  <tr><td>IInvoiceService</td><td>InvoiceService</td><td>Hóa đơn, prorate, thanh toán</td></tr>
+  <tr><td>IMaintenanceService</td><td>MaintenanceService</td><td>Sự cố bảo trì</td></tr>
+  <tr><td>IStatisticService</td><td>StatisticService</td><td>Dashboard numbers</td></tr>
+  <tr><td>ITenantService</td><td>TenantService</td><td>Search phòng, dashboard tenant</td></tr>
+  <tr><td>ITenantInteractionService</td><td>TenantInteractionService</td><td>Favorite, đặt lịch</td></tr>
+  <tr><td>ILandlordService</td><td>LandlordService</td><td>Quản lý appointment phía chủ</td></tr>
+  <tr><td>INotificationService</td><td>NotificationService</td><td>Thông báo in-app</td></tr>
+  <tr><td>IAssignmentService</td><td>AssignmentService</td><td>Gán Manager ↔ House</td></tr>
+  <tr><td>IActivityLogService</td><td>ActivityLogService</td><td>Nhật ký hệ thống</td></tr>
+  <tr><td>IReviewService</td><td>ReviewService</td><td>Đánh giá + phản hồi</td></tr>
+  <tr><td>IChatService</td><td>ChatService</td><td>Hội thoại / tin nhắn</td></tr>
+  <tr><td>ICalendarService</td><td>CalendarService</td><td>Sự kiện lịch theo role</td></tr>
+  <tr><td>IReportService</td><td>ReportService</td><td>Báo cáo tổng hợp</td></tr>
+  <tr><td>IBackupService</td><td>BackupService</td><td>Backup/Restore SQL</td></tr>
+</table>
+
+<h3>8.1 Exception nghiệp vụ</h3>
+<ul>
+  <li><code>BadRequestException</code> — validation / rule (message tiếng Việt) → UI hiện Warning</li>
+  <li><code>NotFoundException</code> — không tìm thấy entity</li>
+  <li><code>UnauthorizedException</code> — đăng nhập thất bại / không đủ quyền</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2>9. DTO &amp; AutoMapper</h2>
+<p>Quy ước tên DTO:</p>
+<ul>
+  <li><code>*Dto</code> — đọc/list (VD <code>InvoiceDto</code>)</li>
+  <li><code>*DetailDto</code> — chi tiết đầy đủ (<code>InvoiceDetailDto</code>, <code>RoomDetailDto</code>)</li>
+  <li><code>Create*Dto</code> / <code>Update*Dto</code> — input ghi</li>
+  <li><code>LoginRequestDto</code> / <code>LoginResponseDto</code> — auth</li>
+</ul>
+<p>Mapping tập trung tại <code>RPMS.BLL/Mappings/MappingProfile.cs</code>. Ví dụ:</p>
+<ul>
+  <li><code>Post → PostDto</code>: <code>MainImage</code> lấy PostImages (IsMain) hoặc fallback RoomImages</li>
+  <li><code>MaintenanceRequest → MaintenanceRequestDto</code>: map <code>Image → ImagePath</code>, TenantName, HouseName, …</li>
+  <li><code>Invoice → InvoiceDetailDto</code>: kèm MeterReading, Tenant, Room, Contract</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2>10. WinForms — Form / Control / Helper</h2>
+
+<h3>10.1 UI constants</h3>
+<table>
+  <tr><th>Class</th><th>Ví dụ</th></tr>
+  <tr><td>AppColors</td><td>Primary #2563EB, Background #F8FAFC, Card White, Border #E5E7EB, Success/Warning/Danger, TextMain/TextMuted</td></tr>
+  <tr><td>AppTypography</td><td>Segoe UI — Heading, Subtitle, Body</td></tr>
+</table>
+
+<h3>10.2 Helper layout</h3>
+<ul>
+  <li><code>UIHelper.ApplyFormStyle</code> / <code>ApplyResizableDialog</code> — form Sizable, MinimumSize</li>
+  <li><code>UIHelper.WireListPage(form, header, content)</code> — header Dock Top, DGV Dock Fill</li>
+  <li><code>UIHelper.SoftAnchorDialogControls</code> — gắn Anchor cho TextBox/PictureBox trên modal Designer</li>
+  <li><code>ImagePathHelper</code> — resolve <code>/uploads/...</code>, placeholder, sample images</li>
+  <li><code>AppDialog</code> — ShowInfo / ShowError / ShowWarning / Confirm / Prompt</li>
+</ul>
+
+<h3>10.3 OpenChildForm</h3>
+<pre>
+childForm.TopLevel = false;
+childForm.FormBorderStyle = None;
+childForm.Dock = Fill;
+childForm.AutoScroll = false;   // form con tự layout Dock/Anchor
+pnlContent.Controls.Add(childForm);
+</pre>
+
+<!-- ============================================================ -->
+<h2>11. Database &amp; Seeder</h2>
+<table>
+  <tr><th>Thành phần</th><th>File</th><th>Vai trò</th></tr>
+  <tr><td>Script đầy đủ</td><td>Database/RPMS_Full.sql</td><td>CREATE DB + schema + sample</td></tr>
+  <tr><td>Schema updater</td><td>DatabaseSchemaUpdater.cs</td><td>Chat tables, Review reply columns</td></tr>
+  <tr><td>DataSeeder</td><td>DataSeeder.cs</td><td>BCrypt hash, Unicode fix, SyncSampleTimeline</td></tr>
+</table>
+<p><b>SyncSampleTimelineAsync (biến ý tưởng):</b> Contract #1 nhận phòng ngày <b>15</b> của tháng T-3; tạo 3 MeterReading + Invoice cho T-3, T-2, T-1; tháng gần nhất Unpaid để demo thanh toán; xóa hóa đơn nhầm của tháng hiện tại.</p>
+<p>Chạy SQL UTF-8: <code>sqlcmd -S .\SQLEXPRESS -E -f 65001 -i Database\RPMS_Full.sql</code></p>
+
+<!-- ============================================================ -->
+<h2>12. Quy ước đặt tên (bắt buộc khi code mới)</h2>
+<table>
+  <tr><th>Loại</th><th>Quy ước</th><th>Ví dụ</th></tr>
+  <tr><td>Entity PK/FK</td><td>{Entity}ID</td><td>UserID, ContractID, RoomID</td></tr>
+  <tr><td>Service</td><td>I{Domain}Service / {Domain}Service</td><td>IInvoiceService</td></tr>
+  <tr><td>Repository</td><td>I{Entity}Repository</td><td>IContractRepository</td></tr>
+  <tr><td>Async method</td><td>hậu tố Async</td><td>GenerateMonthlyInvoiceAsync</td></tr>
+  <tr><td>Form</td><td>{Role}{Feature}Form</td><td>TenantInvoiceForm</td></tr>
+  <tr><td>Modal / Detail</td><td>*ModalForm / *DetailForm</td><td>MaintenanceDetailForm</td></tr>
+  <tr><td>Status string</td><td>Pascal Case tiếng Anh</td><td>Pending, Unpaid, Occupied</td></tr>
+  <tr><td>Private field UI</td><td>_camel hoặc null! field</td><td>_invoiceService, dgvRequests</td></tr>
+  <tr><td>DTO property</td><td>PascalCase khớp domain</td><td>MonthlyRent, ReadingMonth</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2>13. Luồng nghiệp vụ quan trọng</h2>
+
+<h3>13.1 Hóa đơn &amp; prorate tiền nhà</h3>
+<p><b>Class:</b> <code>RentProrationHelper</code>, <code>InvoiceService.GenerateMonthlyInvoiceAsync</code></p>
+<p><b>Công thức:</b></p>
+<pre>ProratedRent = Round(MonthlyRent × OccupiedDays / DaysInMonth, AwayFromZero)
+Total = ProratedRent + ElectricCost + WaterCost + OtherFee</pre>
+<p><b>OccupiedDays:</b> giao khoảng [MoveInDate .. MoveOutDate|EndDate] với tháng <code>ReadingMonth</code>.</p>
+<p><b>Ràng buộc:</b></p>
+<ul>
+  <li>Chỉ tạo HĐ đơn cho <b>tháng đã kết thúc</b> (không tạo tháng hiện tại khi mới ngày 4)</li>
+  <li>UI Manager: <code>BillingMonthStart = Today.AddMonths(-1)</code> (tháng trước)</li>
+  <li>Chỉ số mới ≥ chỉ số kỳ trước</li>
+  <li>Mỗi contract/tháng chỉ 1 MeterReading</li>
+</ul>
+<p><b>Biến DTO chi tiết:</b> <code>FullMonthlyRent</code>, <code>DaysInMonth</code>, <code>OccupiedDays</code>, <code>IsProrated</code>, <code>RentNote</code> (enrich trong <code>GetInvoiceByIdAsync</code>).</p>
+
+<h3>13.2 Thanh toán</h3>
+<p><code>ProcessPaymentAsync</code>: tạo <code>Payment</code> Status=<code>Completed</code> → Invoice Status=<code>Paid</code>, set <code>PaidDate</code>. Sample lệch Unpaid+Completed sẽ được sync về Paid khi load danh sách.</p>
+
+<h3>13.3 Chat</h3>
+<ul>
+  <li><code>GetOrCreateConversationAsync(landlordId, tenantId)</code> — unique pair</li>
+  <li><code>SendMessageAsync(SendMessageDto)</code>: ConversationID, SenderID, Content, ImagePath</li>
+  <li>UI: <code>ChatForm</code> dùng scope riêng mỗi request + poll timer</li>
+</ul>
+
+<h3>13.4 Bảo trì / sự cố</h3>
+<ul>
+  <li>Tenant tạo: Status = <code>Pending</code>, có thể kèm <code>Image</code></li>
+  <li>Manager: Pending → <code>Processing</code> (gán AssignedManager) → <code>Completed</code> (CompletedDate)</li>
+  <li>Chi tiết: <code>MaintenanceDetailForm</code> + <code>GetRequestByIdAsync</code></li>
+  <li>Manager chỉ thấy request thuộc House có Assignment Active</li>
+</ul>
+
+<h3>13.5 Hợp đồng &amp; phòng</h3>
+<ul>
+  <li>Tạo HĐ trên phòng Available → Room.Status = Occupied</li>
+  <li>Tin đăng chỉ hiện Approved &amp; chưa ExpiryDate</li>
+</ul>
+
+<h3>13.6 Tìm phòng (Tenant)</h3>
+<p><code>TenantService.SearchRoomsAsync(RoomSearchFilterDto)</code> — Keyword, Min/MaxPrice, City, District, AreaFilter, Bedrooms, amenities flags, MinRating, SortBy.</p>
+<p>UI: <code>TenantHomeForm</code> → <code>RoomCardControl</code> → click → <code>RoomDetailForm</code>.</p>
+
+<!-- ============================================================ -->
+<h2>14. Tài khoản demo &amp; chạy dự án</h2>
+<table>
+  <tr><th>Username</th><th>Password</th><th>Role</th></tr>
+  <tr><td>admin</td><td>admin123</td><td>Admin</td></tr>
+  <tr><td>namlandlord</td><td>123456</td><td>Landlord</td></tr>
+  <tr><td>tenant</td><td>123456</td><td>Tenant</td></tr>
+  <tr><td>manager</td><td>123456</td><td>Manager</td></tr>
+</table>
+
+<pre>
+# Tạo DB
+sqlcmd -S .\SQLEXPRESS -E -f 65001 -i Database\RPMS_Full.sql
+
+# Chạy app
+dotnet restore RPMS.sln
+dotnet run --project RPMS.WinForms
+</pre>
+
+<p class="box"><b>README ngắn:</b> xem thêm <code>README.md</code> ở thư mục gốc repo.</p>
+
+<hr>
+<p class="muted">— Hết tài liệu tổng quan RPMS — Dành cho developer onboard. Cập nhật khi thay đổi kiến trúc hoặc nghiệp vụ cốt lõi.</p>
+
+</body>
+</html>

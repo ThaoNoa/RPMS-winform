@@ -1,6 +1,7 @@
 using RPMS.Common.Constants;
 using RPMS.DTO.Calendar;
 using System;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
@@ -71,6 +72,25 @@ th{{background:#F8FAFC}}
             }
             path = "";
             return false;
+        }
+
+        /// <summary>Mở HTML để in / lưu PDF qua trình duyệt (Print Preview).</summary>
+        public static void OpenPrintPreview(string html, string filePrefix)
+        {
+            var folder = Path.Combine(Path.GetTempPath(), "RPMS_Print");
+            Directory.CreateDirectory(folder);
+            var path = Path.Combine(folder, $"{filePrefix}_{DateTime.Now:yyyyMMdd_HHmmss}.html");
+            File.WriteAllText(path, html, new UTF8Encoding(true));
+            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+        }
+
+        public static void ExportExcelCsv(string defaultName, string[] headers, System.Collections.Generic.IEnumerable<string[]> rows)
+        {
+            if (!SaveFile("Excel CSV (*.csv)|*.csv", defaultName, out var path))
+                return;
+            ExportCsv(path, headers, rows);
+            try { Process.Start(new ProcessStartInfo(path) { UseShellExecute = true }); } catch { /* ignore */ }
+            AppDialog.ShowInfo("Đã xuất Excel (CSV):\n" + path);
         }
     }
 }

@@ -18,10 +18,11 @@ namespace RPMS.WinForms.Forms.Tenant
         private Panel pnlFilter = null!;
         private FlowLayoutPanel flpRooms = null!;
         private Label lblResult = null!;
-        private Label lblEmpty = null!;
         private ModernTextBox txtSearch = null!, txtMinPrice = null!, txtMaxPrice = null!, txtCity = null!, txtDistrict = null!;
-        private ComboBox cboArea = null!, cboBedrooms = null!, cboSort = null!, cboRating = null!;
-        private CheckBox chkAc = null!, chkWifi = null!, chkWasher = null!, chkFurniture = null!, chkPet = null!, chkParking = null!;
+        private ComboBox cboArea = null!, cboBedrooms = null!, cboSort = null!, cboRating = null!, cboStatus = null!;
+        private CheckBox chkAc = null!, chkWifi = null!, chkWasher = null!, chkFurniture = null!, chkPet = null!, chkParking = null!, chkFeatured = null!;
+        private LoadingPanel _loading = null!;
+        private EmptyStatePanel _empty = null!;
 
         public TenantHomeForm(ITenantService tenantService, ITenantInteractionService interactionService)
         {
@@ -43,8 +44,8 @@ namespace RPMS.WinForms.Forms.Tenant
             pnlFilter = new Panel
             {
                 Dock = DockStyle.Top,
-                Height = 210,
-                MinimumSize = new Size(0, 200),
+                Height = 230,
+                MinimumSize = new Size(0, 210),
                 AutoScroll = true,
                 BackColor = AppColors.Card,
                 Padding = new Padding(16)
@@ -132,10 +133,23 @@ namespace RPMS.WinForms.Forms.Tenant
             cboSort.Items.AddRange(new object[] { "Mới nhất", "Giá tăng", "Giá giảm", "Nổi bật" });
             cboSort.SelectedIndex = 0;
 
+            AddFieldLabel(pnlFilter, "Trạng thái", 930, 100);
+            cboStatus = new ComboBox
+            {
+                Location = new Point(930, 120),
+                Size = new Size(120, 28),
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Font = AppTypography.Body
+            };
+            cboStatus.Items.AddRange(new object[] { "Tất cả", "Còn trống", "Đã thuê" });
+            cboStatus.SelectedIndex = 1;
+
+            chkFeatured = MkCheck("Chỉ tin nổi bật", 1060, 122);
+
             var btnSearch = new ModernButton
             {
                 Text = "Tìm kiếm",
-                Location = new Point(930, 114),
+                Location = new Point(20, 158),
                 Size = new Size(120, 40),
                 BackColor = AppColors.Primary
             };
@@ -144,7 +158,7 @@ namespace RPMS.WinForms.Forms.Tenant
             var btnClear = new ModernButton
             {
                 Text = "Xóa lọc",
-                Location = new Point(1060, 114),
+                Location = new Point(150, 158),
                 Size = new Size(100, 40),
                 BackColor = AppColors.Border,
                 ForeColor = AppColors.TextMain
@@ -160,6 +174,8 @@ namespace RPMS.WinForms.Forms.Tenant
                 cboBedrooms.SelectedIndex = 0;
                 cboSort.SelectedIndex = 0;
                 cboRating.SelectedIndex = 0;
+                cboStatus.SelectedIndex = 1;
+                chkFeatured.Checked = false;
                 chkAc.Checked = chkWifi.Checked = chkWasher.Checked = false;
                 chkFurniture.Checked = chkPet.Checked = chkParking.Checked = false;
                 await PerformSearchAsync();
@@ -167,7 +183,7 @@ namespace RPMS.WinForms.Forms.Tenant
 
             lblResult = new Label
             {
-                Location = new Point(20, 168),
+                Location = new Point(270, 168),
                 AutoSize = true,
                 Font = new Font("Segoe UI", 9F),
                 ForeColor = AppColors.TextMuted,
@@ -178,7 +194,7 @@ namespace RPMS.WinForms.Forms.Tenant
             {
                 lblHead, txtSearch, txtMinPrice, txtMaxPrice, txtCity, txtDistrict,
                 cboArea, cboBedrooms, chkAc, chkWifi, chkWasher, chkFurniture, chkPet, chkParking,
-                cboRating, cboSort, btnSearch, btnClear, lblResult
+                cboRating, cboSort, cboStatus, chkFeatured, btnSearch, btnClear, lblResult
             });
 
             flpRooms = new FlowLayoutPanel
@@ -190,18 +206,12 @@ namespace RPMS.WinForms.Forms.Tenant
                 BackColor = AppColors.Background
             };
 
-            lblEmpty = new Label
-            {
-                Text = "Không tìm thấy phòng phù hợp.\nThử đổi bộ lọc hoặc xóa lọc.",
-                Font = new Font("Segoe UI", 12F),
-                ForeColor = AppColors.TextMuted,
-                Dock = DockStyle.Fill,
-                TextAlign = ContentAlignment.MiddleCenter,
-                Visible = false
-            };
+            _empty = new EmptyStatePanel();
+            _loading = new LoadingPanel();
 
+            Controls.Add(_loading);
             Controls.Add(flpRooms);
-            Controls.Add(lblEmpty);
+            Controls.Add(_empty);
             Controls.Add(pnlFilter);
 
             AcceptButton = null;
@@ -248,6 +258,8 @@ namespace RPMS.WinForms.Forms.Tenant
             try
             {
                 lblResult.Text = "Đang tìm…";
+                _loading.ShowLoading("Đang tìm phòng…");
+                _empty.HideEmpty();
                 var filter = new RoomSearchFilterDto
                 {
                     Keyword = txtSearch.Text,
@@ -264,6 +276,13 @@ namespace RPMS.WinForms.Forms.Tenant
                     AllowPet = chkPet.Checked ? true : null,
                     HasParking = chkParking.Checked ? true : null,
                     MinRating = cboRating.SelectedIndex switch { 1 => 3, 2 => 4, 3 => 5, _ => null },
+                    RoomStatus = cboStatus.SelectedIndex switch
+                    {
+                        1 => "Available",
+                        2 => "Occupied",
+                        _ => null
+                    },
+                    FeaturedOnly = chkFeatured.Checked ? true : null,
                     SortBy = cboSort.SelectedIndex switch
                     {
                         1 => "PriceAsc",
@@ -305,7 +324,7 @@ namespace RPMS.WinForms.Forms.Tenant
                         {
                             var isFav = await _interactionService.ToggleFavoriteAsync(UserSession.CurrentUser!.UserID, p.RoomID);
                             if (!IsDisposed)
-                                AppDialog.ShowInfo(isFav ? "Đã thêm vào yêu thích" : "Đã xóa khỏi yêu thích");
+                                ToastNotifier.Show(this, isFav ? "Đã thêm yêu thích" : "Đã bỏ yêu thích", ToastKind.Success);
                         }
                         catch (Exception ex)
                         {
@@ -317,14 +336,27 @@ namespace RPMS.WinForms.Forms.Tenant
                 }
                 flpRooms.ResumeLayout();
 
-                lblEmpty.Visible = count == 0;
-                flpRooms.Visible = count > 0;
-                lblResult.Text = count == 0 ? "Không có kết quả" : $"Tìm thấy {count} phòng";
+                if (count == 0)
+                {
+                    flpRooms.Visible = false;
+                    _empty.ShowEmpty("Không tìm thấy phòng phù hợp", "Thử đổi giá, diện tích, tiện ích hoặc xóa bộ lọc.");
+                    lblResult.Text = "Không có kết quả";
+                }
+                else
+                {
+                    _empty.HideEmpty();
+                    flpRooms.Visible = true;
+                    lblResult.Text = $"Tìm thấy {count} phòng";
+                }
             }
             catch (Exception ex)
             {
                 if (!IsDisposed)
                     AppDialog.ShowError("Không tìm được phòng: " + ex.Message);
+            }
+            finally
+            {
+                _loading.HideLoading();
             }
         }
 

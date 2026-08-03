@@ -17,6 +17,7 @@ namespace RPMS.WinForms.Forms.Tenant
         private readonly IContractService _contractService;
         private readonly IInvoiceService _invoiceService;
         private ModernDataGridView dgvInvoices = null!;
+        private System.Collections.Generic.List<InvoiceDto> _invoices = new();
 
         public TenantInvoiceForm(IContractService contractService, IInvoiceService invoiceService)
         {
@@ -42,6 +43,17 @@ namespace RPMS.WinForms.Forms.Tenant
                 Location = new Point(20, 14),
                 AutoSize = true
             });
+            var btnExcel = new ModernButton
+            {
+                Text = "Xuất Excel",
+                Size = new Size(120, 36),
+                BackColor = AppColors.Success,
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                Location = new Point(860, 10)
+            };
+            btnExcel.Click += (s, e) => ExportExcel();
+            pnlTop.Resize += (s, e) => btnExcel.Left = Math.Max(200, pnlTop.Width - btnExcel.Width - 16);
+            pnlTop.Controls.Add(btnExcel);
 
             dgvInvoices = new ModernDataGridView { Dock = DockStyle.Fill };
             dgvInvoices.AutoGenerateColumns = false;
@@ -64,6 +76,26 @@ namespace RPMS.WinForms.Forms.Tenant
             UIHelper.WireListPage(this, pnlTop, dgvInvoices);
         }
 
+        private void ExportExcel()
+        {
+            if (_invoices.Count == 0)
+            {
+                ToastNotifier.Show(this, "Chưa có hóa đơn để xuất", ToastKind.Warning);
+                return;
+            }
+            ExportHelper.ExportExcelCsv(
+                $"HoaDon_{DateTime.Now:yyyyMMdd}.csv",
+                new[] { "Mã HĐ", "Phòng", "Tổng tiền", "Trạng thái", "Hạn TT" },
+                _invoices.Select(i => new[]
+                {
+                    i.InvoiceCode ?? "",
+                    i.RoomNumber ?? "",
+                    i.Total.ToString("0"),
+                    i.Status ?? "",
+                    i.DueDate?.ToString("dd/MM/yyyy") ?? ""
+                }));
+        }
+
         private async System.Threading.Tasks.Task LoadDataAsync()
         {
             try
@@ -77,7 +109,8 @@ namespace RPMS.WinForms.Forms.Tenant
                     invoices.AddRange(invs);
                 }
                 if (IsDisposed) return;
-                dgvInvoices.DataSource = invoices.OrderByDescending(i => i.InvoiceID).ToList();
+                _invoices = invoices.OrderByDescending(i => i.InvoiceID).ToList();
+                dgvInvoices.DataSource = _invoices;
             }
             catch (Exception ex)
             {

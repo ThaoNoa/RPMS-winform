@@ -9,6 +9,8 @@ namespace RPMS.DTO.Statistic
         public int TotalRooms { get; set; }
         public int OccupiedRooms { get; set; }
         public int AvailableRooms { get; set; }
+        public int MaintenanceRooms { get; set; }
+        public double OccupancyRate { get; set; }
         public int TodayAppointments { get; set; }
         public int ExpiringContracts { get; set; }
         public int UnpaidInvoices { get; set; }
