@@ -120,8 +120,8 @@ namespace RPMS.BLL.Services
             try
             {
                 var contract = await _unitOfWork.Contracts.GetByIdAsync(request.ContractID);
-                if (contract == null || contract.Status != "Active")
-                    throw new BadRequestException("Hợp đồng không hợp lệ hoặc không còn hiệu lực.");
+                if (contract == null || contract.Status != "Active" || !contract.TenantID.HasValue)
+                    throw new BadRequestException("Hợp đồng không hợp lệ, chưa có khách thuê, hoặc không còn hiệu lực.");
 
                 var monthStart = new DateTime(request.ReadingMonth.Year, request.ReadingMonth.Month, 1);
                 var monthEnd = monthStart.AddMonths(1);
@@ -207,16 +207,19 @@ namespace RPMS.BLL.Services
                 string rentNote = rentCalc.IsProrated
                     ? $" Tiền nhà prorate {rentCalc.OccupiedDays}/{rentCalc.DaysInMonth} ngày = {rentCalc.ProratedRent:N0} đ."
                     : "";
-                await _unitOfWork.Notifications.AddAsync(new Notification
+                if (contract.TenantID.HasValue)
                 {
-                    UserID = contract.TenantID,
-                    Title = "Hóa đơn mới",
-                    Content = $"Hóa đơn {invoice.InvoiceCode} tháng {monthStart:MM/yyyy} đã được tạo. Tổng: {invoice.Total:N0} đ.{rentNote} Hạn TT: {invoice.DueDate:dd/MM/yyyy}.",
-                    IsRead = false,
-                    CreatedDate = DateTime.Now,
-                    UpdatedDate = DateTime.Now
-                });
-                await _unitOfWork.SaveChangesAsync();
+                    await _unitOfWork.Notifications.AddAsync(new Notification
+                    {
+                        UserID = contract.TenantID.Value,
+                        Title = "Hóa đơn mới",
+                        Content = $"Hóa đơn {invoice.InvoiceCode} tháng {monthStart:MM/yyyy} đã được tạo. Tổng: {invoice.Total:N0} đ.{rentNote} Hạn TT: {invoice.DueDate:dd/MM/yyyy}.",
+                        IsRead = false,
+                        CreatedDate = DateTime.Now,
+                        UpdatedDate = DateTime.Now
+                    });
+                    await _unitOfWork.SaveChangesAsync();
+                }
                 await _unitOfWork.CommitTransactionAsync();
 
                 var createdInvoice = await _unitOfWork.Invoices.FirstOrDefaultAsync(i => i.InvoiceID == invoice.InvoiceID, "Contract.Room");

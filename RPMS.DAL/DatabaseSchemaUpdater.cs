@@ -56,6 +56,25 @@ BEGIN
     CREATE INDEX IX_ChatMessages_ConversationID ON ChatMessages(ConversationID);
 END
 ");
+
+            // Hợp đồng nháp: TenantID nullable + Status Draft
+            await ExecAsync(context, @"
+IF OBJECT_ID('Contracts', 'U') IS NOT NULL
+BEGIN
+    IF EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = 'CK_Contracts_Status' AND parent_object_id = OBJECT_ID('Contracts'))
+        ALTER TABLE Contracts DROP CONSTRAINT CK_Contracts_Status;
+
+    ALTER TABLE Contracts WITH NOCHECK ADD CONSTRAINT CK_Contracts_Status
+        CHECK ([Status] IN (N'Draft', N'Active', N'Expired', N'Terminated'));
+
+    IF EXISTS (
+        SELECT 1 FROM sys.columns
+        WHERE object_id = OBJECT_ID('Contracts') AND name = 'TenantID' AND is_nullable = 0)
+    BEGIN
+        ALTER TABLE Contracts ALTER COLUMN TenantID int NULL;
+    END
+END
+");
         }
 
         private static async Task ExecAsync(RPMSContext context, string sql)

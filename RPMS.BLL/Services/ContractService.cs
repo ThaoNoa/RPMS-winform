@@ -74,15 +74,32 @@ namespace RPMS.BLL.Services
                 if (request.EndDate <= request.StartDate)
                     throw new BadRequestException("Ngày kết thúc phải lớn hơn ngày bắt đầu.");
 
-                room.Status = "Occupied";
-                room.UpdatedDate = DateTime.Now;
-                _unitOfWork.Rooms.Update(room);
+                var openContract = await _unitOfWork.Contracts.FirstOrDefaultAsync(
+                    c => c.RoomID == request.RoomID && (c.Status == "Active" || c.Status == "Draft"));
+                if (openContract != null)
+                    throw new BadRequestException("Phòng này đã có hợp đồng nháp hoặc đang hiệu lực.");
+
+                int? tenantId = request.TenantID is > 0 ? request.TenantID : null;
+                if (tenantId.HasValue)
+                {
+                    var tenant = await _unitOfWork.Users.GetByIdAsync(tenantId.Value);
+                    if (tenant == null || tenant.Status != "Active")
+                        throw new BadRequestException("Khách thuê không hợp lệ hoặc không còn hoạt động.");
+                }
+
+                bool hasTenant = tenantId.HasValue;
+                if (hasTenant)
+                {
+                    room.Status = "Occupied";
+                    room.UpdatedDate = DateTime.Now;
+                    _unitOfWork.Rooms.Update(room);
+                }
 
                 var contract = new Contract
                 {
                     ContractCode = "HD" + DateTime.Now.ToString("yyyyMMddHHmmss"),
                     RoomID = request.RoomID,
-                    TenantID = request.TenantID,
+                    TenantID = tenantId,
                     StartDate = request.StartDate,
                     EndDate = request.EndDate,
                     MoveInDate = request.StartDate,
@@ -90,7 +107,7 @@ namespace RPMS.BLL.Services
                     MonthlyRent = request.MonthlyRent,
                     ElectricPrice = request.ElectricPrice,
                     WaterPrice = request.WaterPrice,
-                    Status = "Active",
+                    Status = hasTenant ? "Active" : "Draft",
                     CreatedBy = createdById,
                     CreatedDate = DateTime.Now,
                     UpdatedDate = DateTime.Now
@@ -98,15 +115,86 @@ namespace RPMS.BLL.Services
                 await _unitOfWork.Contracts.AddAsync(contract);
                 await _unitOfWork.SaveChangesAsync();
 
+                if (hasTenant)
+                {
+                    await _unitOfWork.Notifications.AddAsync(new Notification
+                    {
+                        UserID = tenantId!.Value,
+                        Title = "Hợp đồng thuê mới",
+                        Content = $"Bạn đã được tạo hợp đồng {contract.ContractCode} cho phòng {room.RoomNumber}.",
+                        IsRead = false,
+                        CreatedDate = DateTime.Now,
+                        UpdatedDate = DateTime.Now
+                    });
+                    await _unitOfWork.SaveChangesAsync();
+                }
+
+                await _unitOfWork.CommitTransactionAsync();
+
+                var result = await _unitOfWork.Contracts.FirstOrDefaultAsync(c => c.ContractID == contract.ContractID, "Room, Tenant");
+                return _mapper.Map<ContractDto>(result);
+            }
+            catch
+            {
+                await _unitOfWork.RollbackTransactionAsync();
+                throw;
+            }
+        }
+
+        public async Task<ContractDto> AssignTenantAsync(AssignTenantDto request, int actorUserId)
+        {
+            using var transaction = await _unitOfWork.BeginTransactionAsync();
+            try
+            {
+                var contract = await _unitOfWork.Contracts.FirstOrDefaultAsync(
+                    c => c.ContractID == request.ContractID, "Room, Tenant");
+                if (contract == null) throw new NotFoundException("Hợp đồng", request.ContractID);
+                if (contract.TenantID.HasValue)
+                    throw new BadRequestException("Hợp đồng đã có khách thuê.");
+                if (contract.Status != "Draft" && contract.Status != "Active")
+                    throw new BadRequestException("Chỉ gán khách cho hợp đồng nháp hoặc đang hiệu lực.");
+
+                var tenant = await _unitOfWork.Users.GetByIdAsync(request.TenantID);
+                if (tenant == null || tenant.Status != "Active")
+                    throw new BadRequestException("Khách thuê không hợp lệ hoặc không còn hoạt động.");
+
+                if (contract.Room == null)
+                    throw new NotFoundException("Phòng", contract.RoomID);
+                if (contract.Room.Status == "Occupied")
+                {
+                    var other = await _unitOfWork.Contracts.FirstOrDefaultAsync(
+                        c => c.RoomID == contract.RoomID && c.ContractID != contract.ContractID && c.Status == "Active");
+                    if (other != null)
+                        throw new BadRequestException("Phòng đã được thuê bởi hợp đồng khác.");
+                }
+
+                contract.TenantID = request.TenantID;
+                contract.Status = "Active";
+                contract.UpdatedDate = DateTime.Now;
+                _unitOfWork.Contracts.Update(contract);
+
+                contract.Room.Status = "Occupied";
+                contract.Room.UpdatedDate = DateTime.Now;
+                _unitOfWork.Rooms.Update(contract.Room);
+
                 await _unitOfWork.Notifications.AddAsync(new Notification
                 {
                     UserID = request.TenantID,
                     Title = "Hợp đồng thuê mới",
-                    Content = $"Bạn đã được tạo hợp đồng {contract.ContractCode} cho phòng {room.RoomNumber}.",
+                    Content = $"Bạn đã được gắn vào hợp đồng {contract.ContractCode} cho phòng {contract.Room.RoomNumber}.",
                     IsRead = false,
                     CreatedDate = DateTime.Now,
                     UpdatedDate = DateTime.Now
                 });
+
+                await _unitOfWork.ActivityLogs.AddAsync(new ActivityLog
+                {
+                    UserID = actorUserId,
+                    Action = "AssignTenant",
+                    Details = $"Gán khách #{request.TenantID} vào {contract.ContractCode}",
+                    CreatedDate = DateTime.Now
+                });
+
                 await _unitOfWork.SaveChangesAsync();
                 await _unitOfWork.CommitTransactionAsync();
 
@@ -127,14 +215,14 @@ namespace RPMS.BLL.Services
             {
                 var contract = await _unitOfWork.Contracts.FirstOrDefaultAsync(c => c.ContractID == contractId, "Room");
                 if (contract == null) throw new NotFoundException("Hợp đồng", contractId);
-                if (contract.Status != "Active")
-                    throw new BadRequestException("Chỉ có thể kết thúc hợp đồng đang có hiệu lực.");
+                if (contract.Status != "Active" && contract.Status != "Draft")
+                    throw new BadRequestException("Chỉ có thể kết thúc hợp đồng nháp hoặc đang có hiệu lực.");
                 contract.Status = "Terminated";
                 contract.MoveOutDate = DateTime.Now;
                 contract.UpdatedDate = DateTime.Now;
                 _unitOfWork.Contracts.Update(contract);
 
-                if (contract.Room != null)
+                if (contract.Room != null && contract.Room.Status == "Occupied")
                 {
                     contract.Room.Status = "Available";
                     contract.Room.UpdatedDate = DateTime.Now;
@@ -156,8 +244,8 @@ namespace RPMS.BLL.Services
             var contract = await _unitOfWork.Contracts.FirstOrDefaultAsync(
                 c => c.ContractID == contractId, "Room, Tenant");
             if (contract == null) throw new NotFoundException("Hợp đồng", contractId);
-            if (contract.Status != "Active")
-                throw new BadRequestException("Chỉ gia hạn hợp đồng đang Active.");
+            if (contract.Status != "Active" || !contract.TenantID.HasValue)
+                throw new BadRequestException("Chỉ gia hạn hợp đồng Active đã có khách thuê.");
             if (newEndDate.Date <= contract.EndDate.Date)
                 throw new BadRequestException("Ngày kết thúc mới phải sau ngày kết thúc hiện tại.");
 
@@ -168,7 +256,7 @@ namespace RPMS.BLL.Services
 
             await _unitOfWork.Notifications.AddAsync(new Notification
             {
-                UserID = contract.TenantID,
+                UserID = contract.TenantID.Value,
                 Title = "Hợp đồng được gia hạn",
                 Content = $"Hợp đồng {contract.ContractCode} gia hạn từ {oldEnd:dd/MM/yyyy} đến {newEndDate:dd/MM/yyyy}.",
                 IsRead = false,

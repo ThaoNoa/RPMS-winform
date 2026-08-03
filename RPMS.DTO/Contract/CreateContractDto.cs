@@ -5,7 +5,8 @@ namespace RPMS.DTO.Contract
     public class CreateContractDto
     {
         public int RoomID { get; set; }
-        public int TenantID { get; set; }
+        /// <summary>Null = lưu nháp chưa có khách thuê.</summary>
+        public int? TenantID { get; set; }
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
         public decimal Deposit { get; set; }

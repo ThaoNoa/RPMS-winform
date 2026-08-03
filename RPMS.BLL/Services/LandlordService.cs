@@ -4,6 +4,7 @@ using RPMS.BLL.Interfaces;
 using RPMS.DAL.Entities;
 using RPMS.DAL.UnitOfWork.Interfaces;
 using RPMS.DTO.Tenant;
+using RPMS.DTO.User;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -50,6 +51,35 @@ namespace RPMS.BLL.Services
             });
         }
 
+        public async Task<IEnumerable<UserDto>> GetAppointmentTenantsAsync(int landlordId, int? roomId = null)
+        {
+            var appointments = await _unitOfWork.Appointments.FindAsync(
+                a => a.Room.House.OwnerID == landlordId
+                     && a.Status != "Rejected"
+                     && a.Status != "Cancelled",
+                "Room.House,Tenant");
+
+            if (roomId is > 0)
+                appointments = appointments.Where(a => a.RoomID == roomId.Value);
+
+            return appointments
+                .Where(a => a.Tenant != null && a.Tenant.Status == "Active")
+                .GroupBy(a => a.TenantID)
+                .Select(g => g.First().Tenant!)
+                .OrderBy(t => t.FullName)
+                .Select(t => new UserDto
+                {
+                    UserID = t.UserID,
+                    FullName = t.FullName,
+                    Phone = t.Phone ?? "",
+                    Email = t.Email ?? "",
+                    Username = t.Username,
+                    Status = t.Status,
+                    RoleID = t.RoleID
+                })
+                .ToList();
+        }
+
         public async Task<bool> UpdateAppointmentStatusAsync(int appointmentId, string status)
         {
             var app = await _unitOfWork.Appointments.GetByIdAsync(appointmentId);
@@ -77,7 +107,11 @@ namespace RPMS.BLL.Services
             if (houseId.HasValue && houseId > 0)
                 contracts = contracts.Where(c => c.Room.HouseID == houseId);
 
-            var tenantIds = contracts.Select(c => c.TenantID).Distinct().ToList();
+            var tenantIds = contracts
+                .Where(c => c.TenantID.HasValue)
+                .Select(c => c.TenantID!.Value)
+                .Distinct()
+                .ToList();
             var notifications = tenantIds.Select(tid => new Notification
             {
                 UserID = tid,

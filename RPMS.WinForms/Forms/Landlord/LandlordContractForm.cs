@@ -21,7 +21,7 @@ namespace RPMS.WinForms.Forms.Landlord
         private readonly IContractService _contractService;
         private readonly IHouseService _houseService;
         private readonly IRoomService _roomService;
-        private readonly IUserService _userService;
+        private readonly ILandlordService _landlordService;
 
         private ModernDataGridView dgv = null!;
         private ComboBox cboHouse = null!;
@@ -33,17 +33,18 @@ namespace RPMS.WinForms.Forms.Landlord
         private ModernTextBox txtRent = null!;
         private ModernTextBox txtElectric = null!;
         private ModernTextBox txtWater = null!;
+        private List<UserDto> _tenants = new();
 
         public LandlordContractForm(
             IContractService contractService,
             IHouseService houseService,
             IRoomService roomService,
-            IUserService userService)
+            ILandlordService landlordService)
         {
             _contractService = contractService;
             _houseService = houseService;
             _roomService = roomService;
-            _userService = userService;
+            _landlordService = landlordService;
             InitializeUI();
             Load += async (s, e) => await OnLoadAsync();
         }
@@ -90,17 +91,25 @@ namespace RPMS.WinForms.Forms.Landlord
 
             AddLabel("Nhà");
             cboHouse = new ComboBox { Location = new Point(16, y), Size = new Size(320, 28), DropDownStyle = ComboBoxStyle.DropDownList };
-            cboHouse.SelectedIndexChanged += async (s, e) => await LoadRoomsAsync();
+            cboHouse.SelectedIndexChanged += async (s, e) =>
+            {
+                await LoadRoomsAsync();
+                await LoadAppointmentTenantsAsync();
+            };
             pnlCreate.Controls.Add(cboHouse);
             y += 40;
 
             AddLabel("Phòng trống");
             cboRoom = new ComboBox { Location = new Point(16, y), Size = new Size(320, 28), DropDownStyle = ComboBoxStyle.DropDownList };
-            cboRoom.SelectedIndexChanged += CboRoom_SelectedIndexChanged;
+            cboRoom.SelectedIndexChanged += async (s, e) =>
+            {
+                CboRoom_SelectedIndexChanged(s, e);
+                await LoadAppointmentTenantsAsync();
+            };
             pnlCreate.Controls.Add(cboRoom);
             y += 40;
 
-            AddLabel("Khách thuê");
+            AddLabel("Khách đã đặt lịch xem (để trống nếu chưa có)");
             cboTenant = new ComboBox { Location = new Point(16, y), Size = new Size(320, 28), DropDownStyle = ComboBoxStyle.DropDownList };
             pnlCreate.Controls.Add(cboTenant);
             y += 40;
@@ -137,7 +146,7 @@ namespace RPMS.WinForms.Forms.Landlord
 
             var btnCreate = new ModernButton
             {
-                Text = "Tạo hợp đồng",
+                Text = "Lưu hợp đồng",
                 Location = new Point(16, y),
                 Size = new Size(320, 40),
                 BackColor = AppColors.Primary
@@ -186,7 +195,16 @@ namespace RPMS.WinForms.Forms.Landlord
                 Width = 110,
                 DefaultCellStyle = new DataGridViewCellStyle { Format = "N0" }
             });
-            dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Status", HeaderText = "TT", Width = 90 });
+            dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Status", HeaderText = "TT", Width = 80 });
+            dgv.Columns.Add(new DataGridViewLinkColumn
+            {
+                Name = "AssignCol",
+                HeaderText = "",
+                Text = "Gán khách",
+                UseColumnTextForLinkValue = true,
+                Width = 80,
+                LinkColor = AppColors.Primary
+            });
             dgv.Columns.Add(new DataGridViewLinkColumn
             {
                 Name = "PrintCol",
@@ -232,21 +250,66 @@ namespace RPMS.WinForms.Forms.Landlord
                 cboHouse.DisplayMember = nameof(HouseDto.HouseName);
                 cboHouse.ValueMember = nameof(HouseDto.HouseID);
 
-                // RoleID 3 = Tenant (theo MainForm)
-                var tenants = (await _userService.GetUsersByRoleAsync(3))
-                    .Where(u => u.Status == "Active")
-                    .ToList();
-                cboTenant.DataSource = tenants;
-                cboTenant.DisplayMember = nameof(UserDto.FullName);
-                cboTenant.ValueMember = nameof(UserDto.UserID);
-
                 await LoadRoomsAsync();
+                await LoadAppointmentTenantsAsync();
                 await LoadContractsAsync();
             }
             catch (Exception ex)
             {
                 AppDialog.ShowError(ex.Message);
             }
+        }
+
+        private async Task LoadAppointmentTenantsAsync()
+        {
+            int? roomId = null;
+            if (cboRoom.SelectedValue != null &&
+                int.TryParse(cboRoom.SelectedValue.ToString(), out int rid) &&
+                rid > 0)
+            {
+                roomId = rid;
+            }
+
+            _tenants = (await _landlordService.GetAppointmentTenantsAsync(
+                UserSession.CurrentUser!.UserID, roomId)).ToList();
+
+            // Nếu phòng chưa có ai đặt lịch, vẫn hiện khách đã đặt lịch các phòng khác của chủ
+            if (roomId.HasValue && _tenants.Count == 0)
+            {
+                _tenants = (await _landlordService.GetAppointmentTenantsAsync(
+                    UserSession.CurrentUser!.UserID, null)).ToList();
+            }
+
+            BindTenantCombo(cboTenant, includeEmpty: true);
+        }
+
+        private void BindTenantCombo(ComboBox cbo, bool includeEmpty)
+        {
+            var items = new List<UserDto>();
+            if (includeEmpty)
+                items.Add(new UserDto { UserID = 0, FullName = "(Chưa có khách — lưu nháp)" });
+            foreach (var t in _tenants)
+            {
+                var label = string.IsNullOrWhiteSpace(t.Phone)
+                    ? t.FullName
+                    : $"{t.FullName} ({t.Phone})";
+                items.Add(new UserDto
+                {
+                    UserID = t.UserID,
+                    FullName = label,
+                    Phone = t.Phone,
+                    Email = t.Email,
+                    Username = t.Username,
+                    Status = t.Status,
+                    RoleID = t.RoleID
+                });
+            }
+            cbo.DataSource = null;
+            cbo.DataSource = items;
+            cbo.DisplayMember = nameof(UserDto.FullName);
+            cbo.ValueMember = nameof(UserDto.UserID);
+            if (cbo.Items.Count > 0)
+                cbo.SelectedIndex = 0;
         }
 
         private async Task LoadRoomsAsync()
@@ -277,9 +340,9 @@ namespace RPMS.WinForms.Forms.Landlord
 
         private async Task CreateContractAsync()
         {
-            if (cboRoom.SelectedValue == null || cboTenant.SelectedValue == null)
+            if (cboRoom.SelectedValue == null)
             {
-                AppDialog.ShowWarning("Vui lòng chọn phòng và khách thuê.");
+                AppDialog.ShowWarning("Vui lòng chọn phòng.");
                 return;
             }
 
@@ -293,12 +356,20 @@ namespace RPMS.WinForms.Forms.Landlord
                 return;
             }
 
+            int? tenantId = null;
+            if (cboTenant.SelectedValue != null &&
+                int.TryParse(cboTenant.SelectedValue.ToString(), out int tid) &&
+                tid > 0)
+            {
+                tenantId = tid;
+            }
+
             try
             {
-                await _contractService.CreateContractAsync(new CreateContractDto
+                var created = await _contractService.CreateContractAsync(new CreateContractDto
                 {
                     RoomID = Convert.ToInt32(cboRoom.SelectedValue),
-                    TenantID = Convert.ToInt32(cboTenant.SelectedValue),
+                    TenantID = tenantId,
                     StartDate = dtpStart.Value.Date,
                     EndDate = dtpEnd.Value.Date,
                     Deposit = deposit,
@@ -307,7 +378,15 @@ namespace RPMS.WinForms.Forms.Landlord
                     WaterPrice = water
                 }, UserSession.CurrentUser!.UserID);
 
-                AppDialog.ShowInfo("Tạo hợp đồng thành công.");
+                if (tenantId.HasValue)
+                    AppDialog.ShowInfo("Tạo hợp đồng thành công (đã gắn khách thuê).");
+                else
+                    AppDialog.ShowInfo("Đã lưu hợp đồng nháp. Khi có khách, bấm \"Gán khách\" trên danh sách.");
+
+                ToastNotifier.Show(this,
+                    created.Status == "Draft" ? "Đã lưu hợp đồng nháp" : "Đã tạo hợp đồng Active",
+                    ToastKind.Success);
+
                 await LoadRoomsAsync();
                 await LoadContractsAsync();
             }
@@ -333,14 +412,19 @@ namespace RPMS.WinForms.Forms.Landlord
                     return;
                 }
 
-                if (contract.Status != "Active")
+                if (col == "AssignCol")
                 {
-                    AppDialog.ShowWarning("Chỉ thao tác gia hạn/hủy với hợp đồng Active.");
+                    await AssignTenantAsync(contract);
                     return;
                 }
 
                 if (col == "ExtendCol")
                 {
+                    if (contract.Status != "Active" || !contract.TenantID.HasValue)
+                    {
+                        AppDialog.ShowWarning("Chỉ gia hạn hợp đồng Active đã có khách thuê.");
+                        return;
+                    }
                     var monthsText = AppDialog.Prompt("Gia hạn thêm bao nhiêu tháng?", "Gia hạn hợp đồng", "6");
                     if (string.IsNullOrWhiteSpace(monthsText) || !int.TryParse(monthsText, out int months) || months <= 0)
                     {
@@ -351,9 +435,16 @@ namespace RPMS.WinForms.Forms.Landlord
                     await _contractService.ExtendContractAsync(contract.ContractID, newEnd, UserSession.CurrentUser!.UserID);
                     AppDialog.ShowInfo($"Đã gia hạn đến {newEnd:dd/MM/yyyy}.");
                     await LoadContractsAsync();
+                    return;
                 }
-                else if (col == "TerminateCol")
+
+                if (col == "TerminateCol")
                 {
+                    if (contract.Status != "Active" && contract.Status != "Draft")
+                    {
+                        AppDialog.ShowWarning("Chỉ hủy hợp đồng nháp hoặc Active.");
+                        return;
+                    }
                     if (!AppDialog.Confirm($"Hủy hợp đồng {contract.ContractCode}?"))
                         return;
                     await _contractService.TerminateContractAsync(contract.ContractID);
@@ -366,6 +457,104 @@ namespace RPMS.WinForms.Forms.Landlord
             {
                 AppDialog.ShowError(ex.Message);
             }
+        }
+
+        private async Task AssignTenantAsync(ContractDto contract)
+        {
+            if (contract.TenantID.HasValue)
+            {
+                AppDialog.ShowInfo("Hợp đồng này đã có khách thuê.");
+                return;
+            }
+            if (contract.Status != "Draft" && contract.Status != "Active")
+            {
+                AppDialog.ShowWarning("Không thể gán khách cho hợp đồng đã kết thúc.");
+                return;
+            }
+            if (_tenants.Count == 0)
+            {
+                AppDialog.ShowWarning("Chưa có khách đặt lịch xem phòng liên quan. Khách cần đặt lịch trước khi được gán vào hợp đồng.");
+                return;
+            }
+
+            using var dlg = new Form
+            {
+                Text = $"Gán khách — {contract.ContractCode}",
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                StartPosition = FormStartPosition.CenterParent,
+                ClientSize = new Size(420, 160),
+                MaximizeBox = false,
+                MinimizeBox = false,
+                BackColor = AppColors.Background
+            };
+            var lbl = new Label
+            {
+                Text = $"Phòng {contract.RoomNumber} — khách đã đặt lịch xem:",
+                Location = new Point(16, 16),
+                AutoSize = true,
+                ForeColor = AppColors.TextMain
+            };
+            var cbo = new ComboBox
+            {
+                Location = new Point(16, 48),
+                Size = new Size(380, 28),
+                DropDownStyle = ComboBoxStyle.DropDownList
+            };
+            // Khách đã đặt lịch xem phòng thuộc nhà của landlord
+            var candidates = (await _landlordService.GetAppointmentTenantsAsync(
+                UserSession.CurrentUser!.UserID, null)).ToList();
+            if (candidates.Count == 0)
+            {
+                AppDialog.ShowWarning("Chưa có khách đặt lịch xem phòng của bạn.");
+                return;
+            }
+            cbo.DataSource = candidates.Select(t => new UserDto
+            {
+                UserID = t.UserID,
+                FullName = string.IsNullOrWhiteSpace(t.Phone) ? t.FullName : $"{t.FullName} ({t.Phone})",
+                Phone = t.Phone
+            }).ToList();
+            cbo.DisplayMember = nameof(UserDto.FullName);
+            cbo.ValueMember = nameof(UserDto.UserID);
+
+            var btnOk = new ModernButton
+            {
+                Text = "Gán khách",
+                Size = new Size(120, 36),
+                Location = new Point(160, 100),
+                BackColor = AppColors.Primary,
+                DialogResult = DialogResult.OK
+            };
+            var btnCancel = new ModernButton
+            {
+                Text = "Hủy",
+                Size = new Size(90, 36),
+                Location = new Point(290, 100),
+                BackColor = AppColors.Border,
+                ForeColor = AppColors.TextMain,
+                DialogResult = DialogResult.Cancel
+            };
+            dlg.Controls.AddRange(new Control[] { lbl, cbo, btnOk, btnCancel });
+            dlg.AcceptButton = btnOk;
+            dlg.CancelButton = btnCancel;
+
+            if (dlg.ShowDialog(this) != DialogResult.OK) return;
+            if (cbo.SelectedValue == null || !int.TryParse(cbo.SelectedValue.ToString(), out int tenantId) || tenantId <= 0)
+            {
+                AppDialog.ShowWarning("Vui lòng chọn khách thuê.");
+                return;
+            }
+
+            await _contractService.AssignTenantAsync(new AssignTenantDto
+            {
+                ContractID = contract.ContractID,
+                TenantID = tenantId
+            }, UserSession.CurrentUser!.UserID);
+
+            ToastNotifier.Show(this, "Đã gán khách thuê", ToastKind.Success);
+            AppDialog.ShowInfo("Đã gán khách thuê. Hợp đồng chuyển sang Active, phòng đánh dấu đã thuê.");
+            await LoadRoomsAsync();
+            await LoadContractsAsync();
         }
     }
 }
