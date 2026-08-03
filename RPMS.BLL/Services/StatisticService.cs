@@ -23,6 +23,9 @@ namespace RPMS.BLL.Services
             var totalUsers = await _unitOfWork.Users.CountAsync(u => u.Status == "Active");
             var totalHouses = await _unitOfWork.Houses.CountAsync(h => h.Status == "Active");
             var totalRooms = await _unitOfWork.Rooms.CountAsync(_ => true);
+            var occupiedRooms = await _unitOfWork.Rooms.CountAsync(r => r.Status == "Occupied");
+            var availableRooms = await _unitOfWork.Rooms.CountAsync(r => r.Status == "Available");
+            var maintenanceRooms = await _unitOfWork.Rooms.CountAsync(r => r.Status == "Maintenance");
             var totalPosts = await _unitOfWork.Posts.CountAsync(_ => true);
             var pendingPosts = await _unitOfWork.Posts.CountAsync(p => p.Status == "Pending");
             var activeContracts = await _unitOfWork.Contracts.CountAsync(c => c.Status == "Active");
@@ -69,6 +72,10 @@ namespace RPMS.BLL.Services
                 TotalUsers = totalUsers,
                 TotalHouses = totalHouses,
                 TotalRooms = totalRooms,
+                OccupiedRooms = occupiedRooms,
+                AvailableRooms = availableRooms,
+                MaintenanceRooms = maintenanceRooms,
+                OccupancyRate = totalRooms == 0 ? 0 : Math.Round(100.0 * occupiedRooms / totalRooms, 1),
                 TotalPosts = totalPosts,
                 PendingPosts = pendingPosts,
                 TotalActiveContracts = activeContracts,
@@ -89,6 +96,7 @@ namespace RPMS.BLL.Services
             int totalRooms = allRooms.Count();
             int occupiedRooms = allRooms.Count(r => r.Status == "Occupied");
             int availableRooms = allRooms.Count(r => r.Status == "Available");
+            int maintenanceRooms = allRooms.Count(r => r.Status == "Maintenance");
 
             var contracts = await _unitOfWork.Contracts.FindAsync(
                 c => c.Status == "Active" && houses.Contains(c.Room.HouseID),
@@ -135,6 +143,8 @@ namespace RPMS.BLL.Services
                 TotalRooms = totalRooms,
                 OccupiedRooms = occupiedRooms,
                 AvailableRooms = availableRooms,
+                MaintenanceRooms = maintenanceRooms,
+                OccupancyRate = totalRooms == 0 ? 0 : Math.Round(100.0 * occupiedRooms / totalRooms, 1),
                 TodayAppointments = appointments.Count(),
                 ExpiringContracts = expiring,
                 UnpaidInvoices = unpaid,

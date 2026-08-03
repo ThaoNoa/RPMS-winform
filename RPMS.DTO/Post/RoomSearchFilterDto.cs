@@ -19,6 +19,9 @@ namespace RPMS.DTO.Post
         public bool? AllowPet { get; set; }
         public bool? HasParking { get; set; }
         public int? MinRating { get; set; }
+        /// <summary>Available | Occupied | null = tất cả (theo Room.Status).</summary>
+        public string? RoomStatus { get; set; }
+        public bool? FeaturedOnly { get; set; }
         public string SortBy { get; set; } = "Newest"; // Newest | PriceAsc | PriceDesc | Rating
     }
 }

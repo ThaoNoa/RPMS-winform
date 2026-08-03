@@ -144,6 +144,16 @@ namespace RPMS.BLL.Services
             if (filter.HasFurniture == true)
                 query = query.Where(p => !string.IsNullOrWhiteSpace(p.Room.Furniture));
 
+            if (!string.IsNullOrWhiteSpace(filter.RoomStatus) &&
+                !string.Equals(filter.RoomStatus, "All", StringComparison.OrdinalIgnoreCase))
+            {
+                var st = filter.RoomStatus.Trim();
+                query = query.Where(p => p.Room != null && p.Room.Status == st);
+            }
+
+            if (filter.FeaturedOnly == true)
+                query = query.Where(p => p.IsFeatured);
+
             if (filter.MinRating.HasValue && filter.MinRating.Value > 0)
             {
                 var reviews = await _unitOfWork.Reviews.GetAllAsync("Contract.Room");

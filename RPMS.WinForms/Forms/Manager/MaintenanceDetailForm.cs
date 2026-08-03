@@ -21,7 +21,10 @@ namespace RPMS.WinForms.Forms.Manager
         private Label lblDesc = null!;
         private ModernButton btnProcess = null!;
         private ModernButton btnComplete = null!;
+        private ModernButton btnPrint = null!;
+        private ModernButton btnPdf = null!;
         private ModernButton btnClose = null!;
+        private StatusTimelineControl timeline = null!;
 
         public int RequestId { get; set; }
         public bool Changed { get; private set; }
@@ -78,6 +81,30 @@ namespace RPMS.WinForms.Forms.Manager
                 Margin = new Padding(0, 0, 8, 0)
             };
             btnComplete.Click += async (s, e) => await CompleteAsync();
+            btnPrint = new ModernButton
+            {
+                Text = "In / Preview",
+                Size = new Size(120, 40),
+                BackColor = AppColors.Primary,
+                Margin = new Padding(0, 0, 8, 0)
+            };
+            btnPrint.Click += (s, e) =>
+            {
+                if (_req == null) return;
+                MaintenancePrintHelper.OpenAndPrint(_req);
+            };
+            btnPdf = new ModernButton
+            {
+                Text = "Xuất PDF",
+                Size = new Size(110, 40),
+                BackColor = AppColors.TextMuted,
+                Margin = new Padding(0, 0, 8, 0)
+            };
+            btnPdf.Click += (s, e) =>
+            {
+                if (_req == null) return;
+                MaintenancePrintHelper.SavePdfHtml(_req);
+            };
             btnClose = new ModernButton
             {
                 Text = "Đóng",
@@ -86,8 +113,11 @@ namespace RPMS.WinForms.Forms.Manager
                 ForeColor = AppColors.TextMain
             };
             btnClose.Click += (s, e) => Close();
-            flpButtons.Controls.AddRange(new Control[] { btnProcess, btnComplete, btnClose });
+            flpButtons.Controls.AddRange(new Control[] { btnProcess, btnComplete, btnPrint, btnPdf, btnClose });
             pnlBottom.Controls.Add(flpButtons);
+
+            // Timeline trạng thái
+            timeline = new StatusTimelineControl { Dock = DockStyle.Top, Height = 78 };
 
             // Header
             var pnlHeader = new Panel
@@ -195,6 +225,7 @@ namespace RPMS.WinForms.Forms.Manager
             body.Controls.Add(cardImg, 1, 1);
 
             Controls.Add(body);
+            Controls.Add(timeline);
             Controls.Add(pnlHeader);
             Controls.Add(pnlBottom);
         }
@@ -247,6 +278,7 @@ namespace RPMS.WinForms.Forms.Manager
 
                 lblDesc.Text = string.IsNullOrWhiteSpace(_req.Description) ? "(Không có mô tả)" : _req.Description;
                 ApplyStatusBadge(_req.Status);
+                timeline.SetStatus(_req.Status);
                 ImagePathHelper.ApplyToPictureBox(picImage, _req.ImagePath, "Không có ảnh");
             }
             catch (Exception ex)
@@ -316,7 +348,7 @@ namespace RPMS.WinForms.Forms.Manager
                 await _maintenanceService.UpdateRequestStatusAsync(_req.RequestID, "Processing", UserSession.CurrentUser!.UserID);
                 await _maintenanceService.SendMaintenanceNotificationAsync(_req.RequestID, msg);
                 Changed = true;
-                AppDialog.ShowInfo("Đã tiếp nhận và gửi thông báo.");
+                ToastNotifier.Show(this, "Đã tiếp nhận sự cố", ToastKind.Success);
                 await LoadAsync();
             }
             catch (Exception ex)
@@ -334,7 +366,7 @@ namespace RPMS.WinForms.Forms.Manager
                 await _maintenanceService.UpdateRequestStatusAsync(_req.RequestID, "Completed", UserSession.CurrentUser!.UserID);
                 await _maintenanceService.SendMaintenanceNotificationAsync(_req.RequestID, "Sự cố của bạn đã được khắc phục hoàn tất.");
                 Changed = true;
-                AppDialog.ShowInfo("Đã đánh dấu hoàn thành.");
+                ToastNotifier.Show(this, "Đã hoàn thành sự cố", ToastKind.Success);
                 await LoadAsync();
             }
             catch (Exception ex)

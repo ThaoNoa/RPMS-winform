@@ -95,6 +95,15 @@ namespace RPMS.WinForms.Forms.Manager
             });
             dgvRequests.Columns.Add(new DataGridViewLinkColumn
             {
+                Name = "PrintCol",
+                HeaderText = "In",
+                Text = "In/PDF",
+                UseColumnTextForLinkValue = true,
+                Width = 70,
+                LinkColor = AppColors.Primary
+            });
+            dgvRequests.Columns.Add(new DataGridViewLinkColumn
+            {
                 Name = "DeleteCol",
                 HeaderText = "Xóa",
                 Text = "Xóa",
@@ -156,6 +165,10 @@ namespace RPMS.WinForms.Forms.Manager
                 if (col == "DetailCol")
                 {
                     OpenDetail(req.RequestID);
+                }
+                else if (col == "PrintCol")
+                {
+                    MaintenancePrintHelper.OpenAndPrint(req);
                 }
                 else if (col == "ProcessCol")
                 {

@@ -196,7 +196,7 @@ namespace RPMS.WinForms.Forms.Landlord
             this.tpAmenities.Controls.Add(this.clbAmenities);
 
             // tpImages
-            this.tpImages.Text = "Hình ảnh";
+            this.tpImages.Text = "Ảnh & Video";
             this.tpImages.BackColor = AppColors.Card;
             this.lstImages.Location = new Point(20, 20);
             this.lstImages.Size = new Size(300, 320);
@@ -207,9 +207,9 @@ namespace RPMS.WinForms.Forms.Landlord
             this.picPreview.SizeMode = PictureBoxSizeMode.Zoom;
             this.picPreview.BorderStyle = BorderStyle.FixedSingle;
 
-            this.btnAddImage.Text = "Thêm ảnh";
+            this.btnAddImage.Text = "Thêm ảnh/video";
             this.btnAddImage.Location = new Point(340, 300);
-            this.btnAddImage.Size = new Size(120, 35);
+            this.btnAddImage.Size = new Size(140, 35);
             this.btnAddImage.BackColor = AppColors.Primary;
             this.btnAddImage.Click += new System.EventHandler(this.btnAddImage_Click);
 

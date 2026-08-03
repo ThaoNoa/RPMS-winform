@@ -15,8 +15,9 @@ namespace RPMS.WinForms.Forms.Dashboard
         private readonly IStatisticService _statisticService;
         private readonly ITenantService _tenantService;
         private FlowLayoutPanel flpCards = null!;
-        private Panel pnlCharts = null!;
+        private FlowLayoutPanel flpCharts = null!;
         private Label lblWelcome = null!;
+        private LoadingPanel _loading = null!;
 
         public DashboardForm(IStatisticService statisticService, ITenantService tenantService)
         {
@@ -49,7 +50,7 @@ namespace RPMS.WinForms.Forms.Dashboard
             {
                 Dock = DockStyle.Fill,
                 Orientation = Orientation.Horizontal,
-                SplitterDistance = 300,
+                SplitterDistance = 280,
                 BackColor = AppColors.Background
             };
 
@@ -62,17 +63,20 @@ namespace RPMS.WinForms.Forms.Dashboard
                 BackColor = AppColors.Background
             };
 
-            pnlCharts = new Panel
+            flpCharts = new FlowLayoutPanel
             {
                 Dock = DockStyle.Fill,
-                Padding = new Padding(20),
-                BackColor = AppColors.Background,
-                AutoScroll = true
+                WrapContents = true,
+                Padding = new Padding(16),
+                AutoScroll = true,
+                BackColor = AppColors.Background
             };
 
             split.Panel1.Controls.Add(flpCards);
-            split.Panel2.Controls.Add(pnlCharts);
+            split.Panel2.Controls.Add(flpCharts);
 
+            _loading = new LoadingPanel();
+            Controls.Add(_loading);
             Controls.Add(split);
             Controls.Add(pnlTop);
         }
@@ -83,7 +87,8 @@ namespace RPMS.WinForms.Forms.Dashboard
             if (user == null) return;
             lblWelcome.Text = $"Tổng quan hệ thống - {user.RoleName}";
             flpCards.Controls.Clear();
-            pnlCharts.Controls.Clear();
+            flpCharts.Controls.Clear();
+            _loading.ShowLoading("Đang tải thống kê…");
 
             try
             {
@@ -93,14 +98,16 @@ namespace RPMS.WinForms.Forms.Dashboard
                     AddCard("Người dùng", stats.TotalUsers.ToString(), AppColors.Primary);
                     AddCard("Nhà trọ", stats.TotalHouses.ToString(), AppColors.Success);
                     AddCard("Phòng", stats.TotalRooms.ToString(), AppColors.Primary);
+                    AddCard("Tỷ lệ lấp đầy", $"{stats.OccupancyRate:0.#}%", AppColors.Success);
                     AddCard("Tin đăng", stats.TotalPosts.ToString(), AppColors.Warning);
                     AddCard("Tin chờ duyệt", stats.PendingPosts.ToString(), AppColors.Danger);
                     AddCard("Hợp đồng Active", stats.TotalActiveContracts.ToString(), AppColors.Success);
                     AddCard("Doanh thu tháng", stats.MonthlyRevenue.ToString("N0") + " đ", AppColors.Danger);
                     AddCard("Tổng doanh thu", stats.TotalRevenue.ToString("N0") + " đ", AppColors.Primary);
+                    AddOccupancyChart(stats.OccupiedRooms, stats.AvailableRooms, stats.MaintenanceRooms);
                     RenderBarChart("Doanh thu 6 tháng gần nhất", stats.RevenueByMonth.Select(x => ($"T{x.Month}", x.Total)).ToList());
-                    RenderList("Top Landlord (theo số phòng)", stats.TopLandlords.Select(x => $"{x.Name}: {x.Count} phòng").ToList(), 420);
-                    RenderList("User theo Role", stats.UsersByRole.Select(x => $"{x.Name}: {x.Count}").ToList(), 700);
+                    RenderList("Top Landlord (theo số phòng)", stats.TopLandlords.Select(x => $"{x.Name}: {x.Count} phòng").ToList());
+                    RenderList("User theo Role", stats.UsersByRole.Select(x => $"{x.Name}: {x.Count}").ToList());
                 }
                 else if (user.RoleID == 2)
                 {
@@ -109,10 +116,12 @@ namespace RPMS.WinForms.Forms.Dashboard
                     AddCard("Tổng phòng", stats.TotalRooms.ToString(), AppColors.Primary);
                     AddCard("Đã thuê", stats.OccupiedRooms.ToString(), AppColors.Success);
                     AddCard("Trống", stats.AvailableRooms.ToString(), AppColors.Warning);
+                    AddCard("Tỷ lệ lấp đầy", $"{stats.OccupancyRate:0.#}%", AppColors.Success);
                     AddCard("Lịch hẹn hôm nay", stats.TodayAppointments.ToString(), AppColors.Primary);
                     AddCard("HĐ sắp hết hạn", stats.ExpiringContracts.ToString(), AppColors.Danger);
                     AddCard("HĐ chưa thanh toán", stats.UnpaidInvoices.ToString(), AppColors.Warning);
                     AddCard("Thực thu tháng", stats.ActualCollectedRevenue.ToString("N0") + " đ", AppColors.Success);
+                    AddOccupancyChart(stats.OccupiedRooms, stats.AvailableRooms, stats.MaintenanceRooms);
                     RenderBarChart("Doanh thu 6 tháng", stats.RevenueByMonth.Select(x => ($"T{x.Month}", x.Total)).ToList());
                 }
                 else if (user.RoleID == 3)
@@ -138,10 +147,16 @@ namespace RPMS.WinForms.Forms.Dashboard
                     AddCard("Hóa đơn chưa trả", stats.UnpaidInvoices.ToString(), AppColors.Danger);
                     AddCard("Công việc hôm nay", stats.TodayTasks.ToString(), AppColors.Primary);
                 }
+
+                ToastNotifier.Show(this, "Đã cập nhật thống kê", ToastKind.Success, 1800);
             }
             catch (Exception ex)
             {
                 AppDialog.ShowError("Lỗi tải thống kê: " + ex.Message);
+            }
+            finally
+            {
+                _loading.HideLoading();
             }
         }
 
@@ -150,13 +165,24 @@ namespace RPMS.WinForms.Forms.Dashboard
             flpCards.Controls.Add(new SummaryCard { Title = title, Value = value, ThemeColor = color });
         }
 
+        private void AddOccupancyChart(int occupied, int available, int maintenance)
+        {
+            var chart = new OccupancyChartPanel
+            {
+                ChartTitle = "Tỷ lệ lấp đầy phòng",
+                Margin = new Padding(8)
+            };
+            chart.SetData(occupied, available, maintenance);
+            flpCharts.Controls.Add(chart);
+        }
+
         private void RenderBarChart(string title, System.Collections.Generic.List<(string Label, decimal Value)> data)
         {
             var panel = new Panel
             {
-                Location = new Point(20, 10),
-                Size = new Size(380, 220),
-                BackColor = AppColors.Card
+                Size = new Size(400, 220),
+                BackColor = AppColors.Card,
+                Margin = new Padding(8)
             };
             panel.Paint += (s, e) =>
             {
@@ -180,24 +206,31 @@ namespace RPMS.WinForms.Forms.Dashboard
                     using var brush = new SolidBrush(AppColors.Primary);
                     g.FillRectangle(brush, x, baseY - h, barWidth, h);
                     g.DrawString(data[i].Label, captionFont, mutedBrush, x, baseY + 4);
+                    if (data[i].Value > 0)
+                    {
+                        var shortVal = data[i].Value >= 1_000_000
+                            ? $"{data[i].Value / 1_000_000m:0.#}M"
+                            : data[i].Value.ToString("N0");
+                        g.DrawString(shortVal, captionFont, mutedBrush, x - 4, baseY - h - 16);
+                    }
                 }
             };
-            pnlCharts.Controls.Add(panel);
+            flpCharts.Controls.Add(panel);
         }
 
-        private void RenderList(string title, System.Collections.Generic.List<string> lines, int x)
+        private void RenderList(string title, System.Collections.Generic.List<string> lines)
         {
             var lbl = new Label
             {
                 Text = title + "\n\n" + string.Join("\n", lines),
-                Location = new Point(x, 10),
-                Size = new Size(250, 220),
+                Size = new Size(260, 220),
                 BackColor = AppColors.Card,
                 Padding = new Padding(12),
                 ForeColor = AppColors.TextMain,
-                Font = AppTypography.Body
+                Font = AppTypography.Body,
+                Margin = new Padding(8)
             };
-            pnlCharts.Controls.Add(lbl);
+            flpCharts.Controls.Add(lbl);
         }
     }
 }
