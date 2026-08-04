@@ -164,7 +164,9 @@ namespace RPMS.WinForms.Forms.Manager
             try
             {
                 var contracts = await _contractService.GetContractsByManagerAsync(UserSession.CurrentUser!.UserID);
-                var activeContracts = contracts.Where(c => c.Status == "Active").ToList();
+                var activeContracts = contracts
+                    .Where(c => c.Status == "Active" && c.TenantID.HasValue)
+                    .ToList();
                 dgvContracts.DataSource = activeContracts;
             }
             catch (Exception ex)

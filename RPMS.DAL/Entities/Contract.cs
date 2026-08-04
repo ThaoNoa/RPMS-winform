@@ -15,7 +15,7 @@ namespace RPMS.DAL.Entities
         public int ContractID { get; set; }
         public string ContractCode { get; set; } = "";
         public int RoomID { get; set; }
-        public int TenantID { get; set; }
+        public int? TenantID { get; set; }
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
         public DateTime MoveInDate { get; set; }
@@ -30,7 +30,7 @@ namespace RPMS.DAL.Entities
         public DateTime UpdatedDate { get; set; }
 
         public virtual Room Room { get; set; } = null!;
-        public virtual User Tenant { get; set; } = null!;
+        public virtual User? Tenant { get; set; }
         public virtual User CreatedByUser { get; set; } = null!;
         public virtual Review? Review { get; set; }
         public virtual ICollection<MeterReading> MeterReadings { get; set; }

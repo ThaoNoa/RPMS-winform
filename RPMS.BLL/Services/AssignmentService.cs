@@ -50,11 +50,37 @@ namespace RPMS.BLL.Services
             if (manager == null) throw new NotFoundException("Quản lý", request.ManagerID);
             if (manager.Role?.RoleName != "Manager" && manager.RoleID != 4)
                 throw new BadRequestException("Người được gán phải có vai trò Manager.");
+            if (manager.Status != "Active")
+                throw new BadRequestException("Tài khoản Manager không còn hoạt động.");
 
-            var exists = await _unitOfWork.Assignments.FirstOrDefaultAsync(
-                a => a.HouseID == request.HouseID && a.ManagerID == request.ManagerID && a.Status == "Active");
-            if (exists != null)
-                throw new BadRequestException("Manager này đã được gán cho nhà này.");
+            // Unique (HouseID, ManagerID): nếu đã ngưng thì kích hoạt lại, không insert trùng
+            var existing = await _unitOfWork.Assignments.FirstOrDefaultAsync(
+                a => a.HouseID == request.HouseID && a.ManagerID == request.ManagerID);
+            if (existing != null)
+            {
+                if (existing.Status == "Active")
+                    throw new BadRequestException("Manager này đã được gán Active cho nhà này.");
+
+                existing.Status = "Active";
+                existing.AssignedDate = DateTime.Now;
+                existing.UpdatedDate = DateTime.Now;
+                _unitOfWork.Assignments.Update(existing);
+
+                await _unitOfWork.Notifications.AddAsync(new Notification
+                {
+                    UserID = request.ManagerID,
+                    Title = "Được gán quản lý nhà",
+                    Content = $"Bạn được gán lại quản lý nhà: {house.HouseName} ({house.Address}).",
+                    IsRead = false,
+                    CreatedDate = DateTime.Now,
+                    UpdatedDate = DateTime.Now
+                });
+                await _unitOfWork.SaveChangesAsync();
+
+                var reactivated = await _unitOfWork.Assignments.FirstOrDefaultAsync(
+                    a => a.AssignmentID == existing.AssignmentID, "House, Manager");
+                return Map(reactivated!);
+            }
 
             var entity = new Assignment
             {

@@ -76,15 +76,18 @@ namespace RPMS.BLL.Services
             review.UpdatedDate = DateTime.Now;
             _unitOfWork.Reviews.Update(review);
 
-            await _unitOfWork.Notifications.AddAsync(new Notification
+            if (review.Contract?.TenantID is int tenantId)
             {
-                UserID = review.Contract.TenantID,
-                Title = "Chủ nhà phản hồi đánh giá",
-                Content = review.LandlordReply,
-                IsRead = false,
-                CreatedDate = DateTime.Now,
-                UpdatedDate = DateTime.Now
-            });
+                await _unitOfWork.Notifications.AddAsync(new Notification
+                {
+                    UserID = tenantId,
+                    Title = "Chủ nhà phản hồi đánh giá",
+                    Content = review.LandlordReply,
+                    IsRead = false,
+                    CreatedDate = DateTime.Now,
+                    UpdatedDate = DateTime.Now
+                });
+            }
 
             await _unitOfWork.SaveChangesAsync();
             return true;

@@ -113,12 +113,12 @@ namespace RPMS.BLL.Services
         {
             var request = await _unitOfWork.MaintenanceRequests.FirstOrDefaultAsync(
                 m => m.RequestID == requestId, "Contract.Room");
-            if (request != null)
+            if (request != null && request.Contract?.TenantID is int tenantId)
             {
                 string roomLabel = request.Contract?.Room?.RoomNumber ?? request.ContractID.ToString();
                 var notif = new Notification
                 {
-                    UserID = request.Contract.TenantID,
+                    UserID = tenantId,
                     Title = "Phản hồi Yêu cầu Bảo trì",
                     Content = $"Phòng {roomLabel}: {message}",
                     IsRead = false,

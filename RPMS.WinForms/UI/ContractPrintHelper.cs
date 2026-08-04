@@ -31,7 +31,7 @@ td{{padding:6px;border-bottom:1px solid #ddd;vertical-align:top}}
 <div class='meta'>
 <table>
 <tr><td>Phòng</td><td><b>{c.RoomNumber}</b></td></tr>
-<tr><td>Bên thuê</td><td><b>{c.TenantName}</b></td></tr>
+<tr><td>Bên thuê</td><td><b>{(string.IsNullOrWhiteSpace(c.TenantName) ? "(Chưa có khách)" : c.TenantName)}</b></td></tr>
 <tr><td>Ngày bắt đầu</td><td>{c.StartDate:dd/MM/yyyy}</td></tr>
 <tr><td>Ngày kết thúc</td><td>{c.EndDate:dd/MM/yyyy}</td></tr>
 <tr><td>Ngày nhận phòng</td><td>{(c.MoveInDate?.ToString("dd/MM/yyyy") ?? "-")}</td></tr>
