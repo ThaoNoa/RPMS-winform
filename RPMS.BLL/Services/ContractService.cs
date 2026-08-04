@@ -44,15 +44,18 @@ namespace RPMS.BLL.Services
 
         public async Task<IEnumerable<ContractDto>> GetContractsByManagerAsync(int managerId)
         {
-            var assignments = await _unitOfWork.Assignments.FindAsync(a => a.ManagerID == managerId && a.Status == "Active");
-            var houseIds = assignments.Select(a => a.HouseID).ToList();
+            var assignments = await _unitOfWork.Assignments.FindAsync(
+                a => a.ManagerID == managerId && a.Status == "Active");
+            var houseIds = assignments.Select(a => a.HouseID).Distinct().ToList();
             if (houseIds.Count == 0)
                 return Array.Empty<ContractDto>();
 
+            // Join qua Room.HouseID — lấy mọi HĐ thuộc nhà đang được phân Active
             var contracts = await _unitOfWork.Contracts.FindAsync(
-                c => houseIds.Contains(c.Room.HouseID),
+                c => c.Room != null && houseIds.Contains(c.Room.HouseID),
                 "Room.House, Tenant");
-            return _mapper.Map<IEnumerable<ContractDto>>(contracts);
+            return _mapper.Map<IEnumerable<ContractDto>>(
+                contracts.OrderBy(c => c.Room?.RoomNumber).ThenBy(c => c.ContractCode));
         }
 
         public async Task<ContractDetailDto> GetContractByIdAsync(int id)

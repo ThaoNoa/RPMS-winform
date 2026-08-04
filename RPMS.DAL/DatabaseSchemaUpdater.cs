@@ -57,48 +57,52 @@ BEGIN
 END
 ");
 
-            // Hợp đồng nháp: TenantID nullable + Status Draft
+            // Hợp đồng nháp: TenantID nullable (tách riêng — không phụ thuộc CHECK)
             await ExecAsync(context, @"
 IF OBJECT_ID('Contracts', 'U') IS NOT NULL
+AND EXISTS (
+    SELECT 1 FROM sys.columns
+    WHERE object_id = OBJECT_ID('Contracts') AND name = 'TenantID' AND is_nullable = 0)
 BEGIN
-    IF EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = 'CK_Contracts_Status' AND parent_object_id = OBJECT_ID('Contracts'))
-        ALTER TABLE Contracts DROP CONSTRAINT CK_Contracts_Status;
+    ALTER TABLE Contracts ALTER COLUMN TenantID int NULL;
+END
+");
 
+            // Status cho phép Draft — chỉ đổi khi định nghĩa cũ thiếu Draft
+            await ExecAsync(context, @"
+IF OBJECT_ID('Contracts', 'U') IS NOT NULL
+AND EXISTS (
+    SELECT 1 FROM sys.check_constraints
+    WHERE name = 'CK_Contracts_Status'
+      AND parent_object_id = OBJECT_ID('Contracts')
+      AND definition NOT LIKE N'%Draft%')
+BEGIN
+    ALTER TABLE Contracts DROP CONSTRAINT CK_Contracts_Status;
     ALTER TABLE Contracts WITH NOCHECK ADD CONSTRAINT CK_Contracts_Status
         CHECK ([Status] IN (N'Draft', N'Active', N'Expired', N'Terminated'));
-
-    IF EXISTS (
-        SELECT 1 FROM sys.columns
-        WHERE object_id = OBJECT_ID('Contracts') AND name = 'TenantID' AND is_nullable = 0)
-    BEGIN
-        ALTER TABLE Contracts ALTER COLUMN TenantID int NULL;
-    END
-
-    IF COL_LENGTH('Contracts', 'PendingMonthlyRent') IS NULL
-        ALTER TABLE Contracts ADD PendingMonthlyRent decimal(18,2) NULL;
-    IF COL_LENGTH('Contracts', 'PendingElectricPrice') IS NULL
-        ALTER TABLE Contracts ADD PendingElectricPrice decimal(18,2) NULL;
-    IF COL_LENGTH('Contracts', 'PendingWaterPrice') IS NULL
-        ALTER TABLE Contracts ADD PendingWaterPrice decimal(18,2) NULL;
-    IF COL_LENGTH('Contracts', 'PendingDeposit') IS NULL
-        ALTER TABLE Contracts ADD PendingDeposit decimal(18,2) NULL;
-    IF COL_LENGTH('Contracts', 'PendingEndDate') IS NULL
-        ALTER TABLE Contracts ADD PendingEndDate date NULL;
-    IF COL_LENGTH('Contracts', 'PendingEditStatus') IS NULL
-        ALTER TABLE Contracts ADD PendingEditStatus nvarchar(20) NULL;
-    IF COL_LENGTH('Contracts', 'PendingEditNote') IS NULL
-        ALTER TABLE Contracts ADD PendingEditNote nvarchar(500) NULL;
-    IF COL_LENGTH('Contracts', 'PendingEditAt') IS NULL
-        ALTER TABLE Contracts ADD PendingEditAt datetime NULL;
-    IF COL_LENGTH('Contracts', 'PreviousMonthlyRent') IS NULL
-        ALTER TABLE Contracts ADD PreviousMonthlyRent decimal(18,2) NULL;
-    IF COL_LENGTH('Contracts', 'PreviousElectricPrice') IS NULL
-        ALTER TABLE Contracts ADD PreviousElectricPrice decimal(18,2) NULL;
-    IF COL_LENGTH('Contracts', 'PreviousWaterPrice') IS NULL
-        ALTER TABLE Contracts ADD PreviousWaterPrice decimal(18,2) NULL;
-    IF COL_LENGTH('Contracts', 'PriceEffectiveDate') IS NULL
-        ALTER TABLE Contracts ADD PriceEffectiveDate datetime NULL;
 END
+");
+
+            // Cột sửa HĐ / đổi giá — mỗi cột một lệnh để không bị rollback cả batch
+            await EnsureContractColumnAsync(context, "PendingMonthlyRent", "decimal(18,2) NULL");
+            await EnsureContractColumnAsync(context, "PendingElectricPrice", "decimal(18,2) NULL");
+            await EnsureContractColumnAsync(context, "PendingWaterPrice", "decimal(18,2) NULL");
+            await EnsureContractColumnAsync(context, "PendingDeposit", "decimal(18,2) NULL");
+            await EnsureContractColumnAsync(context, "PendingEndDate", "date NULL");
+            await EnsureContractColumnAsync(context, "PendingEditStatus", "nvarchar(20) NULL");
+            await EnsureContractColumnAsync(context, "PendingEditNote", "nvarchar(500) NULL");
+            await EnsureContractColumnAsync(context, "PendingEditAt", "datetime NULL");
+            await EnsureContractColumnAsync(context, "PreviousMonthlyRent", "decimal(18,2) NULL");
+            await EnsureContractColumnAsync(context, "PreviousElectricPrice", "decimal(18,2) NULL");
+            await EnsureContractColumnAsync(context, "PreviousWaterPrice", "decimal(18,2) NULL");
+            await EnsureContractColumnAsync(context, "PriceEffectiveDate", "datetime NULL");
+        }
+
+        private static async Task EnsureContractColumnAsync(RPMSContext context, string columnName, string sqlType)
+        {
+            await ExecAsync(context, $@"
+IF OBJECT_ID('Contracts', 'U') IS NOT NULL AND COL_LENGTH('Contracts', '{columnName}') IS NULL
+    ALTER TABLE Contracts ADD [{columnName}] {sqlType};
 ");
         }
 

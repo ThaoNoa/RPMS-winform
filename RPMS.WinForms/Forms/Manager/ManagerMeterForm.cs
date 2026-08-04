@@ -1,4 +1,5 @@
-﻿using RPMS.BLL.Exceptions;
+﻿using Microsoft.Extensions.DependencyInjection;
+using RPMS.BLL.Exceptions;
 using RPMS.BLL.Interfaces;
 using RPMS.Common.Constants;
 using RPMS.Common.Globals;
@@ -16,10 +17,11 @@ namespace RPMS.WinForms.Forms.Manager
 {
     public class ManagerMeterForm : Form
     {
-        private readonly IContractService _contractService;
-        private readonly IInvoiceService _invoiceService;
+        private readonly IServiceScopeFactory _scopeFactory;
         private ModernDataGridView dgvContracts = null!;
+        private Panel pnlList = null!;
         private Panel pnlInput = null!;
+        private EmptyStatePanel emptyState = null!;
         private Label lblSelectedRoom = null!;
         private Label lblBillingMonth = null!;
         private Label lblPrevMonth = null!;
@@ -43,10 +45,9 @@ namespace RPMS.WinForms.Forms.Manager
             }
         }
 
-        public ManagerMeterForm(IContractService contractService, IInvoiceService invoiceService)
+        public ManagerMeterForm(IServiceScopeFactory scopeFactory)
         {
-            _contractService = contractService;
-            _invoiceService = invoiceService;
+            _scopeFactory = scopeFactory;
             InitializeUI();
             Load += ManagerMeterForm_Load!;
         }
@@ -64,7 +65,7 @@ namespace RPMS.WinForms.Forms.Manager
 
             var lblTitle = new Label
             {
-                Text = "Chốt số & Tạo Hóa đơn",
+                Text = "Chốt số & Tạo hóa đơn",
                 Font = new Font("Segoe UI", 14F, FontStyle.Bold),
                 ForeColor = AppColors.TextMain,
                 Location = new Point(20, 20),
@@ -120,7 +121,7 @@ namespace RPMS.WinForms.Forms.Manager
 
             btnGenerateInvoice = new ModernButton
             {
-                Text = $"Tạo HĐ tháng {BillingMonthStart:MM/yyyy}",
+                Text = $"Tạo hóa đơn {BillingMonthStart:MM/yyyy}",
                 Location = new Point(20, 420),
                 Size = new Size(300, 45),
                 BackColor = AppColors.Primary,
@@ -141,16 +142,48 @@ namespace RPMS.WinForms.Forms.Manager
                     c.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             }
 
+            var pnlTop = new Panel { Dock = DockStyle.Top, Height = 52, BackColor = AppColors.Background };
+            pnlTop.Controls.Add(new Label
+            {
+                Text = "Hợp đồng Active (có khách) tại nhà được phân công",
+                Font = new Font("Segoe UI", 11F, FontStyle.Bold),
+                ForeColor = AppColors.TextMain,
+                Location = new Point(12, 14),
+                AutoSize = true
+            });
+            var btnRefresh = new ModernButton
+            {
+                Text = "Làm mới",
+                Size = new Size(100, 34),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                BackColor = AppColors.TextMuted
+            };
+            btnRefresh.Click += async (s, e) => await LoadActiveContractsAsync();
+            pnlTop.Controls.Add(btnRefresh);
+            pnlTop.Resize += (s, e) => btnRefresh.Location = new Point(Math.Max(12, pnlTop.ClientSize.Width - 112), 9);
+
             dgvContracts = new ModernDataGridView { Dock = DockStyle.Fill };
             dgvContracts.AutoGenerateColumns = false;
             dgvContracts.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
-            dgvContracts.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "ContractCode", HeaderText = "Mã hợp đồng", Width = 120 });
-            dgvContracts.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "RoomNumber", HeaderText = "Phòng", Width = 100 });
-            dgvContracts.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "TenantName", HeaderText = "Khách thuê", Width = 150 });
-            dgvContracts.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "MonthlyRent", HeaderText = "Tiền thuê", Width = 100 });
+            dgvContracts.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "ContractCode", HeaderText = "Mã hợp đồng", FillWeight = 18 });
+            dgvContracts.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "RoomNumber", HeaderText = "Phòng", FillWeight = 14 });
+            dgvContracts.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "TenantName", HeaderText = "Khách thuê", FillWeight = 28 });
+            dgvContracts.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "MonthlyRent", HeaderText = "Tiền thuê", FillWeight = 16 });
+            dgvContracts.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Status", HeaderText = "TT", FillWeight = 12 });
             dgvContracts.CellClick += DgvContracts_CellClick!;
 
-            Controls.Add(dgvContracts);
+            emptyState = new EmptyStatePanel
+            {
+                Dock = DockStyle.Fill,
+                Visible = false
+            };
+
+            pnlList = new Panel { Dock = DockStyle.Fill };
+            pnlList.Controls.Add(dgvContracts);
+            pnlList.Controls.Add(emptyState);
+            pnlList.Controls.Add(pnlTop);
+
+            Controls.Add(pnlList);
             Controls.Add(pnlInput);
         }
 
@@ -163,11 +196,50 @@ namespace RPMS.WinForms.Forms.Manager
         {
             try
             {
-                var contracts = await _contractService.GetContractsByManagerAsync(UserSession.CurrentUser!.UserID);
-                var activeContracts = contracts
-                    .Where(c => c.Status == "Active" && c.TenantID.HasValue)
+                using var scope = _scopeFactory.CreateScope();
+                var contractService = scope.ServiceProvider.GetRequiredService<IContractService>();
+                var assignmentService = scope.ServiceProvider.GetRequiredService<IAssignmentService>();
+                int managerId = UserSession.CurrentUser!.UserID;
+
+                var assignments = (await assignmentService.GetByManagerAsync(managerId))
+                    .Where(a => string.Equals(a.Status, "Active", StringComparison.OrdinalIgnoreCase))
                     .ToList();
+
+                var contracts = (await contractService.GetContractsByManagerAsync(managerId)).ToList();
+                var activeContracts = contracts
+                    .Where(c => string.Equals(c.Status, "Active", StringComparison.OrdinalIgnoreCase) && c.TenantID.HasValue)
+                    .ToList();
+
+                dgvContracts.DataSource = null;
                 dgvContracts.DataSource = activeContracts;
+
+                if (activeContracts.Count == 0)
+                {
+                    dgvContracts.Visible = false;
+                    if (assignments.Count == 0)
+                    {
+                        emptyState.ShowEmpty(
+                            "Chưa được phân công nhà",
+                            "Chủ nhà cần gán bạn (theo UserID) trong menu Phân công Manager trước khi ghi chỉ số.");
+                    }
+                    else if (contracts.Count == 0)
+                    {
+                        emptyState.ShowEmpty(
+                            "Nhà đã gán chưa có hợp đồng",
+                            $"Bạn đang quản lý {assignments.Count} nhà. Chủ nhà cần tạo hợp đồng Active có khách cho phòng thuộc nhà đó.");
+                    }
+                    else
+                    {
+                        emptyState.ShowEmpty(
+                            "Chưa có hợp đồng Active có khách",
+                            $"Có {contracts.Count} hợp đồng tại nhà được gán, nhưng chưa có HĐ Active + đã gán khách để ghi điện/nước.");
+                    }
+                }
+                else
+                {
+                    emptyState.HideEmpty();
+                    dgvContracts.Visible = true;
+                }
             }
             catch (Exception ex)
             {
@@ -184,7 +256,7 @@ namespace RPMS.WinForms.Forms.Manager
             _selectedContractId = contract.ContractID;
             lblSelectedRoom.Text = $"Phòng {contract.RoomNumber} - {contract.TenantName}";
             lblBillingMonth.Text = $"Hóa đơn tháng: {BillingMonthStart:MM/yyyy}";
-            btnGenerateInvoice.Text = $"Tạo HĐ tháng {BillingMonthStart:MM/yyyy}";
+            btnGenerateInvoice.Text = $"Tạo hóa đơn {BillingMonthStart:MM/yyyy}";
             btnGenerateInvoice.Enabled = true;
             await LoadPreviousReadingAsync(contract.ContractID);
         }
@@ -193,7 +265,9 @@ namespace RPMS.WinForms.Forms.Manager
         {
             try
             {
-                var last = await _invoiceService.GetLatestReadingAsync(contractId);
+                using var scope = _scopeFactory.CreateScope();
+                var invoiceService = scope.ServiceProvider.GetRequiredService<IInvoiceService>();
+                var last = await invoiceService.GetLatestReadingAsync(contractId);
                 if (last == null)
                 {
                     _prevElectric = 0;
@@ -249,7 +323,11 @@ namespace RPMS.WinForms.Forms.Manager
                     OtherFee = otherFee,
                     CreatedBy = UserSession.CurrentUser!.UserID
                 };
-                await _invoiceService.GenerateMonthlyInvoiceAsync(request);
+                using (var scope = _scopeFactory.CreateScope())
+                {
+                    var invoiceService = scope.ServiceProvider.GetRequiredService<IInvoiceService>();
+                    await invoiceService.GenerateMonthlyInvoiceAsync(request);
+                }
                 AppDialog.ShowInfo($"Đã tạo hóa đơn tháng {billingMonth:MM/yyyy}. Khách thuê có thể xem và thanh toán.");
                 txtElectric.Text = "";
                 txtWater.Text = "";
