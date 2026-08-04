@@ -35,7 +35,7 @@ namespace RPMS.DAL.Configurations
                 .HasForeignKey(c => c.CreatedBy)
                 .OnDelete(DeleteBehavior.Restrict)
                 .HasConstraintName("FK_Contracts_CreatedBy");
-            builder.HasCheckConstraint("CK_Contracts_Status", "[Status] IN (N'Draft', N'Active', N'Expired', N'Terminated')");
+            builder.HasCheckConstraint("CK_Contracts_Status", "[Status] IN (N'Draft', N'PendingConfirm', N'Active', N'Expired', N'Terminated')");
             builder.HasCheckConstraint("CK_Contracts_Date", "EndDate >= StartDate");
             builder.HasCheckConstraint("CK_Contracts_MoveOut", "MoveOutDate IS NULL OR MoveOutDate >= MoveInDate");
             builder.HasCheckConstraint("CK_Contracts_Deposit", "Deposit >= 0");

@@ -92,14 +92,20 @@ namespace RPMS.BLL.Services
             var now = DateTime.Now;
             var houseEntities = (await _unitOfWork.Houses.FindAsync(h => h.OwnerID == landlordId)).ToList();
             var houses = houseEntities.Select(h => h.HouseID).ToList();
-            var allRooms = await _unitOfWork.Rooms.FindAsync(r => houses.Contains(r.HouseID));
-            int totalRooms = allRooms.Count();
+            var allRooms = (await _unitOfWork.Rooms.FindAsync(r => houses.Contains(r.HouseID))).ToList();
+            int totalRooms = allRooms.Count;
             int occupiedRooms = allRooms.Count(r => r.Status == "Occupied");
             int availableRooms = allRooms.Count(r => r.Status == "Available");
             int maintenanceRooms = allRooms.Count(r => r.Status == "Maintenance");
+            var roomIds = allRooms.Select(r => r.RoomID).ToList();
+
+            var pendingConfirm = roomIds.Count == 0
+                ? 0
+                : await _unitOfWork.Contracts.CountAsync(
+                    c => c.Status == "PendingConfirm" && roomIds.Contains(c.RoomID));
 
             var contracts = await _unitOfWork.Contracts.FindAsync(
-                c => c.Status == "Active" && houses.Contains(c.Room.HouseID),
+                c => c.Status == "Active" && roomIds.Contains(c.RoomID),
                 "Room");
             decimal expectedRevenue = contracts.Sum(c => c.MonthlyRent);
 
@@ -144,6 +150,7 @@ namespace RPMS.BLL.Services
                 OccupiedRooms = occupiedRooms,
                 AvailableRooms = availableRooms,
                 MaintenanceRooms = maintenanceRooms,
+                PendingConfirmContracts = pendingConfirm,
                 OccupancyRate = totalRooms == 0 ? 0 : Math.Round(100.0 * occupiedRooms / totalRooms, 1),
                 TodayAppointments = appointments.Count(),
                 ExpiringContracts = expiring,

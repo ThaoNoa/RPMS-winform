@@ -50,12 +50,20 @@ namespace RPMS.BLL.Services
             if (houseIds.Count == 0)
                 return Array.Empty<ContractDto>();
 
-            // Join qua Room.HouseID — lấy mọi HĐ thuộc nhà đang được phân Active
+            // Lấy RoomID trước (tránh filter navigation Room.HouseID bị miss / dịch SQL kém)
+            var roomIds = (await _unitOfWork.Rooms.FindAsync(r => houseIds.Contains(r.HouseID)))
+                .Select(r => r.RoomID)
+                .ToList();
+            if (roomIds.Count == 0)
+                return Array.Empty<ContractDto>();
+
             var contracts = await _unitOfWork.Contracts.FindAsync(
-                c => c.Room != null && houseIds.Contains(c.Room.HouseID),
+                c => roomIds.Contains(c.RoomID),
                 "Room.House, Tenant");
             return _mapper.Map<IEnumerable<ContractDto>>(
-                contracts.OrderBy(c => c.Room?.RoomNumber).ThenBy(c => c.ContractCode));
+                contracts.OrderBy(c => c.Room?.House?.HouseName)
+                    .ThenBy(c => c.Room?.RoomNumber)
+                    .ThenBy(c => c.ContractCode));
         }
 
         public async Task<ContractDetailDto> GetContractByIdAsync(int id)
@@ -78,9 +86,10 @@ namespace RPMS.BLL.Services
                     throw new BadRequestException("Ngày kết thúc phải lớn hơn ngày bắt đầu.");
 
                 var openContract = await _unitOfWork.Contracts.FirstOrDefaultAsync(
-                    c => c.RoomID == request.RoomID && (c.Status == "Active" || c.Status == "Draft"));
+                    c => c.RoomID == request.RoomID
+                         && (c.Status == "Active" || c.Status == "Draft" || c.Status == "PendingConfirm"));
                 if (openContract != null)
-                    throw new BadRequestException("Phòng này đã có hợp đồng nháp hoặc đang hiệu lực.");
+                    throw new BadRequestException("Phòng này đã có hợp đồng nháp, chờ xác nhận hoặc đang hiệu lực.");
 
                 int? tenantId = request.TenantID is > 0 ? request.TenantID : null;
                 if (tenantId.HasValue)
@@ -91,13 +100,7 @@ namespace RPMS.BLL.Services
                 }
 
                 bool hasTenant = tenantId.HasValue;
-                if (hasTenant)
-                {
-                    room.Status = "Occupied";
-                    room.UpdatedDate = DateTime.Now;
-                    _unitOfWork.Rooms.Update(room);
-                }
-
+                // Có khách → chờ khách xác nhận; chưa Occupied cho đến khi Accept
                 var contract = new Contract
                 {
                     ContractCode = $"HD{DateTime.Now:yyyyMMddHHmmss}{request.RoomID:D4}",
@@ -110,7 +113,7 @@ namespace RPMS.BLL.Services
                     MonthlyRent = request.MonthlyRent,
                     ElectricPrice = request.ElectricPrice,
                     WaterPrice = request.WaterPrice,
-                    Status = hasTenant ? "Active" : "Draft",
+                    Status = hasTenant ? "PendingConfirm" : "Draft",
                     CreatedBy = createdById,
                     CreatedDate = DateTime.Now,
                     UpdatedDate = DateTime.Now
@@ -123,8 +126,8 @@ namespace RPMS.BLL.Services
                     await _unitOfWork.Notifications.AddAsync(new Notification
                     {
                         UserID = tenantId!.Value,
-                        Title = "Hợp đồng thuê mới",
-                        Content = $"Bạn đã được tạo hợp đồng {contract.ContractCode} cho phòng {room.RoomNumber}.",
+                        Title = "Đề nghị thuê phòng — cần xác nhận",
+                        Content = $"Chủ nhà mời bạn thuê phòng {room.RoomNumber} (HĐ {contract.ContractCode}). Vào «Hợp đồng của tôi» để Đồng ý hoặc Từ chối.",
                         IsRead = false,
                         CreatedDate = DateTime.Now,
                         UpdatedDate = DateTime.Now
@@ -168,7 +171,7 @@ namespace RPMS.BLL.Services
 
             var openRoomIds = (await _unitOfWork.Contracts.FindAsync(
                     c => c.Room.HouseID == request.HouseID
-                         && (c.Status == "Active" || c.Status == "Draft")))
+                         && (c.Status == "Active" || c.Status == "Draft" || c.Status == "PendingConfirm")))
                 .Select(c => c.RoomID)
                 .ToHashSet();
 
@@ -247,10 +250,10 @@ namespace RPMS.BLL.Services
                 var contract = await _unitOfWork.Contracts.FirstOrDefaultAsync(
                     c => c.ContractID == request.ContractID, "Room, Tenant");
                 if (contract == null) throw new NotFoundException("Hợp đồng", request.ContractID);
-                if (contract.TenantID.HasValue)
-                    throw new BadRequestException("Hợp đồng đã có khách thuê.");
-                if (contract.Status != "Draft" && contract.Status != "Active")
-                    throw new BadRequestException("Chỉ gán khách cho hợp đồng nháp hoặc đang hiệu lực.");
+                if (contract.TenantID.HasValue && contract.Status != "Draft")
+                    throw new BadRequestException("Hợp đồng đã có khách thuê hoặc đang chờ xác nhận.");
+                if (contract.Status != "Draft")
+                    throw new BadRequestException("Chỉ gán khách cho hợp đồng nháp (Draft).");
 
                 var tenant = await _unitOfWork.Users.FirstOrDefaultAsync(u => u.UserID == request.TenantID);
                 if (tenant == null || !string.Equals(tenant.Status, "Active", StringComparison.OrdinalIgnoreCase))
@@ -268,20 +271,24 @@ namespace RPMS.BLL.Services
                         throw new BadRequestException("Phòng đã được thuê bởi hợp đồng khác.");
                 }
 
+                var otherPending = await _unitOfWork.Contracts.FirstOrDefaultAsync(
+                    c => c.RoomID == contract.RoomID
+                         && c.ContractID != contract.ContractID
+                         && c.Status == "PendingConfirm");
+                if (otherPending != null)
+                    throw new BadRequestException("Phòng đang có đề nghị thuê chờ khách khác xác nhận.");
+
+                // Chờ khách xác nhận — chưa Occupied / chưa Active
                 contract.TenantID = request.TenantID;
-                contract.Status = "Active";
+                contract.Status = "PendingConfirm";
                 contract.UpdatedDate = DateTime.Now;
                 _unitOfWork.Contracts.Update(contract);
-
-                contract.Room.Status = "Occupied";
-                contract.Room.UpdatedDate = DateTime.Now;
-                _unitOfWork.Rooms.Update(contract.Room);
 
                 await _unitOfWork.Notifications.AddAsync(new Notification
                 {
                     UserID = request.TenantID,
-                    Title = "Hợp đồng thuê mới",
-                    Content = $"Bạn đã được gắn vào hợp đồng {contract.ContractCode} cho phòng {contract.Room.RoomNumber}.",
+                    Title = "Đề nghị thuê phòng — cần xác nhận",
+                    Content = $"Chủ nhà mời bạn thuê phòng {contract.Room.RoomNumber} (HĐ {contract.ContractCode}). Vào «Hợp đồng của tôi» bấm Đồng ý thuê hoặc Từ chối.",
                     IsRead = false,
                     CreatedDate = DateTime.Now,
                     UpdatedDate = DateTime.Now
@@ -291,7 +298,7 @@ namespace RPMS.BLL.Services
                 {
                     UserID = actorUserId,
                     Action = "AssignTenant",
-                    Details = $"Gán khách #{request.TenantID} vào {contract.ContractCode}",
+                    Details = $"Gửi đề nghị thuê cho khách #{request.TenantID} — {contract.ContractCode} (PendingConfirm)",
                     CreatedDate = DateTime.Now
                 });
 
@@ -308,6 +315,124 @@ namespace RPMS.BLL.Services
             }
         }
 
+        public async Task<bool> AcceptRentalOfferAsync(int contractId, int tenantId)
+        {
+            using var transaction = await _unitOfWork.BeginTransactionAsync();
+            try
+            {
+                var contract = await _unitOfWork.Contracts.FirstOrDefaultAsync(
+                    c => c.ContractID == contractId, "Room, Room.House, Tenant");
+                if (contract == null) throw new NotFoundException("Hợp đồng", contractId);
+                if (!string.Equals(contract.Status, "PendingConfirm", StringComparison.OrdinalIgnoreCase))
+                    throw new BadRequestException("Hợp đồng không đang chờ xác nhận thuê.");
+                if (contract.TenantID != tenantId)
+                    throw new BadRequestException("Bạn không phải khách được mời trên hợp đồng này.");
+                if (contract.Room == null)
+                    throw new NotFoundException("Phòng", contract.RoomID);
+                if (contract.Room.Status == "Occupied")
+                {
+                    var other = await _unitOfWork.Contracts.FirstOrDefaultAsync(
+                        c => c.RoomID == contract.RoomID && c.ContractID != contract.ContractID && c.Status == "Active");
+                    if (other != null)
+                        throw new BadRequestException("Phòng đã được thuê. Không thể xác nhận.");
+                }
+
+                contract.Status = "Active";
+                contract.MoveInDate = DateTime.Today;
+                contract.UpdatedDate = DateTime.Now;
+                _unitOfWork.Contracts.Update(contract);
+
+                contract.Room.Status = "Occupied";
+                contract.Room.UpdatedDate = DateTime.Now;
+                _unitOfWork.Rooms.Update(contract.Room);
+
+                int? landlordId = contract.Room.House?.OwnerID;
+                if (landlordId is > 0)
+                {
+                    await _unitOfWork.Notifications.AddAsync(new Notification
+                    {
+                        UserID = landlordId.Value,
+                        Title = "Khách đã đồng ý thuê",
+                        Content = $"Khách đã xác nhận thuê phòng {contract.Room.RoomNumber} (HĐ {contract.ContractCode}). Phòng đã Occupied — Dashboard «Đã thuê» cập nhật.",
+                        IsRead = false,
+                        CreatedDate = DateTime.Now,
+                        UpdatedDate = DateTime.Now
+                    });
+                }
+
+                await _unitOfWork.ActivityLogs.AddAsync(new ActivityLog
+                {
+                    UserID = tenantId,
+                    Action = "AcceptRental",
+                    Details = $"Khách đồng ý thuê {contract.ContractCode}",
+                    CreatedDate = DateTime.Now
+                });
+
+                await _unitOfWork.SaveChangesAsync();
+                await _unitOfWork.CommitTransactionAsync();
+                return true;
+            }
+            catch
+            {
+                await _unitOfWork.RollbackTransactionAsync();
+                throw;
+            }
+        }
+
+        public async Task<bool> RejectRentalOfferAsync(int contractId, int tenantId)
+        {
+            using var transaction = await _unitOfWork.BeginTransactionAsync();
+            try
+            {
+                var contract = await _unitOfWork.Contracts.FirstOrDefaultAsync(
+                    c => c.ContractID == contractId, "Room, Room.House, Tenant");
+                if (contract == null) throw new NotFoundException("Hợp đồng", contractId);
+                if (!string.Equals(contract.Status, "PendingConfirm", StringComparison.OrdinalIgnoreCase))
+                    throw new BadRequestException("Hợp đồng không đang chờ xác nhận thuê.");
+                if (contract.TenantID != tenantId)
+                    throw new BadRequestException("Bạn không phải khách được mời trên hợp đồng này.");
+
+                string roomNo = contract.Room?.RoomNumber ?? "";
+                string code = contract.ContractCode;
+                int? landlordId = contract.Room?.House?.OwnerID;
+
+                contract.TenantID = null;
+                contract.Status = "Draft";
+                contract.UpdatedDate = DateTime.Now;
+                _unitOfWork.Contracts.Update(contract);
+
+                if (landlordId is > 0)
+                {
+                    await _unitOfWork.Notifications.AddAsync(new Notification
+                    {
+                        UserID = landlordId.Value,
+                        Title = "Khách từ chối thuê",
+                        Content = $"Khách đã từ chối đề nghị thuê phòng {roomNo} (HĐ {code}). Hợp đồng trở lại nháp.",
+                        IsRead = false,
+                        CreatedDate = DateTime.Now,
+                        UpdatedDate = DateTime.Now
+                    });
+                }
+
+                await _unitOfWork.ActivityLogs.AddAsync(new ActivityLog
+                {
+                    UserID = tenantId,
+                    Action = "RejectRental",
+                    Details = $"Khách từ chối thuê {code}",
+                    CreatedDate = DateTime.Now
+                });
+
+                await _unitOfWork.SaveChangesAsync();
+                await _unitOfWork.CommitTransactionAsync();
+                return true;
+            }
+            catch
+            {
+                await _unitOfWork.RollbackTransactionAsync();
+                throw;
+            }
+        }
+
         public async Task<bool> TerminateContractAsync(int contractId)
         {
             using var transaction = await _unitOfWork.BeginTransactionAsync();
@@ -315,19 +440,22 @@ namespace RPMS.BLL.Services
             {
                 var contract = await _unitOfWork.Contracts.FirstOrDefaultAsync(c => c.ContractID == contractId, "Room");
                 if (contract == null) throw new NotFoundException("Hợp đồng", contractId);
-                if (contract.Status != "Active" && contract.Status != "Draft")
-                    throw new BadRequestException("Chỉ có thể kết thúc hợp đồng nháp hoặc đang có hiệu lực.");
+                if (contract.Status != "Active" && contract.Status != "Draft" && contract.Status != "PendingConfirm")
+                    throw new BadRequestException("Chỉ có thể kết thúc hợp đồng nháp, chờ xác nhận hoặc đang hiệu lực.");
+
+                bool wasOccupied = contract.Room != null && contract.Room.Status == "Occupied";
                 contract.Status = "Terminated";
                 contract.MoveOutDate = DateTime.Now;
                 contract.UpdatedDate = DateTime.Now;
                 _unitOfWork.Contracts.Update(contract);
 
-                if (contract.Room != null && contract.Room.Status == "Occupied")
+                if (wasOccupied && contract.Room != null)
                 {
                     contract.Room.Status = "Available";
                     contract.Room.UpdatedDate = DateTime.Now;
                     _unitOfWork.Rooms.Update(contract.Room);
                 }
+
                 await _unitOfWork.SaveChangesAsync();
                 await _unitOfWork.CommitTransactionAsync();
                 return true;

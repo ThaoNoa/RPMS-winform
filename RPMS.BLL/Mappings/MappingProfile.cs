@@ -68,6 +68,10 @@ namespace RPMS.BLL.Mappings
                         : new System.Collections.Generic.List<string>()));
 
             CreateMap<Contract, ContractDto>()
+                .ForMember(dest => dest.HouseID, opt => opt.MapFrom(src =>
+                    src.Room != null ? src.Room.HouseID : 0))
+                .ForMember(dest => dest.HouseName, opt => opt.MapFrom(src =>
+                    src.Room != null && src.Room.House != null ? src.Room.House.HouseName : ""))
                 .ForMember(dest => dest.RoomNumber, opt => opt.MapFrom(src => src.Room != null ? src.Room.RoomNumber : ""))
                 .ForMember(dest => dest.TenantName, opt => opt.MapFrom(src =>
                     src.Tenant != null ? src.Tenant.FullName : "(Chưa có khách)"));

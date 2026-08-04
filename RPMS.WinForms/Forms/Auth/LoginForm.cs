@@ -83,5 +83,10 @@ namespace RPMS.WinForms.Forms.Auth
                 AppDialog.ShowInfo("Đăng ký thành công. Hãy đăng nhập bằng tài khoản vừa tạo.");
             }
         }
+
+        private void lblBrandDesc_Click(object sender, EventArgs e)
+        {
+
+        }
     }
 }

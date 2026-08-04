@@ -122,6 +122,7 @@ namespace RPMS.WinForms.Forms.Dashboard
                     AddCard("Nhà quản lý", stats.TotalHouses.ToString(), AppColors.Primary);
                     AddCard("Tổng phòng", stats.TotalRooms.ToString(), AppColors.Primary);
                     AddCard("Đã thuê", stats.OccupiedRooms.ToString(), AppColors.Success);
+                    AddCard("Chờ khách xác nhận", stats.PendingConfirmContracts.ToString(), AppColors.Warning);
                     AddCard("Trống", stats.AvailableRooms.ToString(), AppColors.Warning);
                     AddCard("Tỷ lệ lấp đầy", $"{stats.OccupancyRate:0.#}%", AppColors.Success);
                     AddCard("Lịch hẹn hôm nay", stats.TodayAppointments.ToString(), AppColors.Primary);

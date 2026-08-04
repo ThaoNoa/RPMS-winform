@@ -28,28 +28,47 @@ namespace RPMS.WinForms.Forms.Tenant
         private void InitializeUI()
         {
             Text = "Hợp đồng của tôi";
-            ClientSize = new Size(1100, 600);
+            ClientSize = new Size(1180, 620);
 
             var header = UIHelper.CreatePageHeader("Hợp đồng thuê phòng");
 
             dgvContracts = new ModernDataGridView();
-            dgvContracts.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "ContractCode", HeaderText = "Mã Hợp Đồng", FillWeight = 12 });
+            dgvContracts.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "ContractCode", HeaderText = "Mã HĐ", FillWeight = 11 });
+            dgvContracts.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "HouseName", HeaderText = "Nhà", FillWeight = 12 });
             dgvContracts.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "RoomNumber", HeaderText = "Phòng", FillWeight = 7 });
             dgvContracts.Columns.Add(new DataGridViewTextBoxColumn
             {
                 DataPropertyName = "EndDate",
-                HeaderText = "Ngày kết thúc",
-                FillWeight = 10,
+                HeaderText = "Hết hạn",
+                FillWeight = 9,
                 DefaultCellStyle = new DataGridViewCellStyle { Format = "dd/MM/yyyy" }
             });
-            dgvContracts.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Status", HeaderText = "Trạng thái", FillWeight = 8 });
+            dgvContracts.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Status", HeaderText = "TT", FillWeight = 10 });
+            dgvContracts.Columns.Add(new DataGridViewLinkColumn
+            {
+                Name = "AcceptOfferCol",
+                HeaderText = "",
+                Text = "Đồng ý thuê",
+                UseColumnTextForLinkValue = true,
+                FillWeight = 10,
+                LinkColor = AppColors.Success
+            });
+            dgvContracts.Columns.Add(new DataGridViewLinkColumn
+            {
+                Name = "RejectOfferCol",
+                HeaderText = "",
+                Text = "Từ chối thuê",
+                UseColumnTextForLinkValue = true,
+                FillWeight = 10,
+                LinkColor = AppColors.Danger
+            });
             dgvContracts.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "PendingEditStatus", HeaderText = "Sửa HĐ", FillWeight = 7 });
             dgvContracts.Columns.Add(new DataGridViewLinkColumn { Name = "ViewPendingCol", HeaderText = "", Text = "Xem đề xuất", UseColumnTextForLinkValue = true, FillWeight = 9, LinkColor = AppColors.Primary });
             dgvContracts.Columns.Add(new DataGridViewLinkColumn { Name = "ConfirmCol", HeaderText = "", Text = "Xác nhận sửa", UseColumnTextForLinkValue = true, FillWeight = 9, LinkColor = AppColors.Success });
-            dgvContracts.Columns.Add(new DataGridViewLinkColumn { Name = "RejectCol", HeaderText = "", Text = "Từ chối", UseColumnTextForLinkValue = true, FillWeight = 7, LinkColor = AppColors.Danger });
+            dgvContracts.Columns.Add(new DataGridViewLinkColumn { Name = "RejectCol", HeaderText = "", Text = "Từ chối sửa", UseColumnTextForLinkValue = true, FillWeight = 8, LinkColor = AppColors.Danger });
             dgvContracts.Columns.Add(new DataGridViewLinkColumn { Name = "PrintCol", HeaderText = "", Text = "In/PDF", UseColumnTextForLinkValue = true, FillWeight = 7, LinkColor = AppColors.Primary });
-            dgvContracts.Columns.Add(new DataGridViewLinkColumn { Name = "ExtendCol", HeaderText = "Gia hạn", Text = "Xin Gia hạn", UseColumnTextForLinkValue = true, FillWeight = 9, LinkColor = Color.Blue });
-            dgvContracts.Columns.Add(new DataGridViewLinkColumn { Name = "CancelCol", HeaderText = "Hủy thuê", Text = "Xin Hủy thuê", UseColumnTextForLinkValue = true, FillWeight = 9, LinkColor = Color.Red });
+            dgvContracts.Columns.Add(new DataGridViewLinkColumn { Name = "ExtendCol", HeaderText = "", Text = "Xin gia hạn", UseColumnTextForLinkValue = true, FillWeight = 9, LinkColor = Color.Blue });
+            dgvContracts.Columns.Add(new DataGridViewLinkColumn { Name = "CancelCol", HeaderText = "", Text = "Xin hủy thuê", UseColumnTextForLinkValue = true, FillWeight = 9, LinkColor = Color.Red });
             dgvContracts.CellContentClick += DgvContracts_CellContentClick!;
 
             Controls.Add(dgvContracts);
@@ -81,6 +100,38 @@ namespace RPMS.WinForms.Forms.Tenant
 
             try
             {
+                if (col == "AcceptOfferCol")
+                {
+                    if (!string.Equals(contract.Status, "PendingConfirm", StringComparison.OrdinalIgnoreCase))
+                    {
+                        AppDialog.ShowInfo("Chỉ xác nhận khi hợp đồng đang chờ (PendingConfirm).");
+                        return;
+                    }
+                    if (!AppDialog.Confirm(
+                        $"Đồng ý thuê phòng {contract.RoomNumber}?\n\nSau khi đồng ý, hợp đồng Active và phòng được đánh dấu đã thuê."))
+                        return;
+                    await _contractService.AcceptRentalOfferAsync(contract.ContractID, UserSession.CurrentUser!.UserID);
+                    AppDialog.ShowInfo("Bạn đã đồng ý thuê. Hợp đồng đang Active.");
+                    ToastNotifier.Show(this, "Đã thuê thành công", ToastKind.Success);
+                    await LoadDataAsync();
+                    return;
+                }
+
+                if (col == "RejectOfferCol")
+                {
+                    if (!string.Equals(contract.Status, "PendingConfirm", StringComparison.OrdinalIgnoreCase))
+                    {
+                        AppDialog.ShowInfo("Chỉ từ chối khi hợp đồng đang chờ (PendingConfirm).");
+                        return;
+                    }
+                    if (!AppDialog.Confirm($"Từ chối đề nghị thuê phòng {contract.RoomNumber}?"))
+                        return;
+                    await _contractService.RejectRentalOfferAsync(contract.ContractID, UserSession.CurrentUser!.UserID);
+                    AppDialog.ShowInfo("Đã từ chối. Chủ nhà sẽ nhận thông báo.");
+                    await LoadDataAsync();
+                    return;
+                }
+
                 if (col == "PrintCol")
                 {
                     var detail = await _contractService.GetContractByIdAsync(contract.ContractID);
@@ -135,7 +186,7 @@ namespace RPMS.WinForms.Forms.Tenant
 
                 if (contract.Status != "Active")
                 {
-                    AppDialog.ShowInfo("Chỉ có thể thao tác với hợp đồng đang Active.");
+                    AppDialog.ShowInfo("Gia hạn / hủy thuê chỉ dùng khi hợp đồng đang Active.");
                     return;
                 }
 

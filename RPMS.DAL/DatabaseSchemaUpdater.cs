@@ -68,7 +68,22 @@ BEGIN
 END
 ");
 
-            // Status cho phép Draft — chỉ đổi khi định nghĩa cũ thiếu Draft
+            // Status: Draft / PendingConfirm / Active / Expired / Terminated
+            await ExecAsync(context, @"
+IF OBJECT_ID('Contracts', 'U') IS NOT NULL
+AND EXISTS (
+    SELECT 1 FROM sys.check_constraints
+    WHERE name = 'CK_Contracts_Status'
+      AND parent_object_id = OBJECT_ID('Contracts')
+      AND definition NOT LIKE N'%PendingConfirm%')
+BEGIN
+    ALTER TABLE Contracts DROP CONSTRAINT CK_Contracts_Status;
+    ALTER TABLE Contracts WITH NOCHECK ADD CONSTRAINT CK_Contracts_Status
+        CHECK ([Status] IN (N'Draft', N'PendingConfirm', N'Active', N'Expired', N'Terminated'));
+END
+");
+
+            // Status cho phép Draft — chỉ đổi khi định nghĩa cũ thiếu Draft (legacy)
             await ExecAsync(context, @"
 IF OBJECT_ID('Contracts', 'U') IS NOT NULL
 AND EXISTS (
@@ -79,7 +94,7 @@ AND EXISTS (
 BEGIN
     ALTER TABLE Contracts DROP CONSTRAINT CK_Contracts_Status;
     ALTER TABLE Contracts WITH NOCHECK ADD CONSTRAINT CK_Contracts_Status
-        CHECK ([Status] IN (N'Draft', N'Active', N'Expired', N'Terminated'));
+        CHECK ([Status] IN (N'Draft', N'PendingConfirm', N'Active', N'Expired', N'Terminated'));
 END
 ");
 

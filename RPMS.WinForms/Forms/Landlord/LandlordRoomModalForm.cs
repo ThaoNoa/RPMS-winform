@@ -46,8 +46,11 @@ namespace RPMS.WinForms.Forms.Landlord
                 txtCapacity.Text = "1";
                 txtBedroom.Text = "0";
                 txtBathroom.Text = "0";
+                // Mở sẵn tab Ảnh để chủ nhà thấy chỗ tải ngay khi tạo mới
+                tabMain.SelectedTab = tpImages;
             }
-            UIHelper.SoftAnchorDialogControls(this);
+            // Không gọi SoftAnchorDialogControls — sẽ kéo giãn ListBox/PictureBox
+            // và che mất nút «Thêm ảnh/video».
         }
 
         private async Task LoadAmenitiesAsync()

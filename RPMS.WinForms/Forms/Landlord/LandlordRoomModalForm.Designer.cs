@@ -13,20 +13,18 @@ namespace RPMS.WinForms.Forms.Landlord
         private TabControl tabMain;
         private TabPage tpGeneral, tpAmenities, tpImages;
 
-        // General Controls
         private Label lblRoomNumber, lblFloor, lblArea, lblPrice, lblCapacity, lblBedroom, lblBathroom, lblStatus, lblFurniture, lblDescription;
-        private ModernTextBox txtRoomNumber, txtFloor, txtArea, txtPrice, txtCapacity, txtBedroom, txtBathroom, txtFurniture, txtDescription;
+        private ModernTextBox txtRoomNumber, txtFloor, txtArea, txtPrice, txtCapacity, txtBedroom, txtBathroom, txtFurniture;
+        private TextBox txtDescription;
         private ComboBox cboStatus;
 
-        // Amenities Controls
         private CheckedListBox clbAmenities;
 
-        // Images Controls
         private ListBox lstImages;
         private PictureBox picPreview;
+        private Label lblImageHint;
         private ModernButton btnAddImage, btnRemoveImage;
 
-        // Action Buttons
         private ModernButton btnSave, btnCancel;
 
         protected override void Dispose(bool disposing)
@@ -37,56 +35,58 @@ namespace RPMS.WinForms.Forms.Landlord
 
         private void InitializeComponent()
         {
-            this.lblTitle = new Label();
-            this.tabMain = new TabControl();
-            this.tpGeneral = new TabPage();
-            this.tpAmenities = new TabPage();
-            this.tpImages = new TabPage();
+            lblTitle = new Label();
+            tabMain = new TabControl();
+            tpGeneral = new TabPage();
+            tpAmenities = new TabPage();
+            tpImages = new TabPage();
 
-            this.lblRoomNumber = new Label();
-            this.txtRoomNumber = new ModernTextBox();
-            this.lblFloor = new Label();
-            this.txtFloor = new ModernTextBox();
-            this.lblArea = new Label();
-            this.txtArea = new ModernTextBox();
-            this.lblPrice = new Label();
-            this.txtPrice = new ModernTextBox();
-            this.lblCapacity = new Label();
-            this.txtCapacity = new ModernTextBox();
-            this.lblBedroom = new Label();
-            this.txtBedroom = new ModernTextBox();
-            this.lblBathroom = new Label();
-            this.txtBathroom = new ModernTextBox();
-            this.lblStatus = new Label();
-            this.cboStatus = new ComboBox();
-            this.lblFurniture = new Label();
-            this.txtFurniture = new ModernTextBox();
-            this.lblDescription = new Label();
-            this.txtDescription = new ModernTextBox();
+            lblRoomNumber = new Label();
+            txtRoomNumber = new ModernTextBox();
+            lblFloor = new Label();
+            txtFloor = new ModernTextBox();
+            lblArea = new Label();
+            txtArea = new ModernTextBox();
+            lblPrice = new Label();
+            txtPrice = new ModernTextBox();
+            lblCapacity = new Label();
+            txtCapacity = new ModernTextBox();
+            lblBedroom = new Label();
+            txtBedroom = new ModernTextBox();
+            lblBathroom = new Label();
+            txtBathroom = new ModernTextBox();
+            lblStatus = new Label();
+            cboStatus = new ComboBox();
+            lblFurniture = new Label();
+            txtFurniture = new ModernTextBox();
+            lblDescription = new Label();
+            txtDescription = new TextBox();
 
-            this.clbAmenities = new CheckedListBox();
+            clbAmenities = new CheckedListBox();
 
-            this.lstImages = new ListBox();
-            this.picPreview = new PictureBox();
-            this.btnAddImage = new ModernButton();
-            this.btnRemoveImage = new ModernButton();
+            lstImages = new ListBox();
+            picPreview = new PictureBox();
+            lblImageHint = new Label();
+            btnAddImage = new ModernButton();
+            btnRemoveImage = new ModernButton();
 
-            this.btnSave = UIHelper.PrimaryButton("Lưu thông tin", 130);
-            this.btnCancel = UIHelper.SecondaryButton("Hủy bỏ");
+            btnSave = UIHelper.PrimaryButton("Lưu thông tin", 140);
+            btnCancel = UIHelper.SecondaryButton("Hủy bỏ");
 
-            this.tabMain.SuspendLayout();
-            this.tpGeneral.SuspendLayout();
-            this.tpAmenities.SuspendLayout();
-            this.tpImages.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.picPreview)).BeginInit();
-            this.SuspendLayout();
+            tabMain.SuspendLayout();
+            tpGeneral.SuspendLayout();
+            tpAmenities.SuspendLayout();
+            tpImages.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)picPreview).BeginInit();
+            SuspendLayout();
 
-            this.lblTitle.Text = "Thông tin Phòng trọ";
-            this.lblTitle.Font = AppTypography.Heading;
-            this.lblTitle.ForeColor = AppColors.TextMain;
-            this.lblTitle.Dock = DockStyle.Fill;
-            this.lblTitle.TextAlign = ContentAlignment.MiddleLeft;
-            this.lblTitle.Padding = new Padding(AppLayout.PagePadding, 0, 0, 0);
+            // Header
+            lblTitle.Text = "Thông tin Phòng trọ";
+            lblTitle.Font = AppTypography.Heading;
+            lblTitle.ForeColor = AppColors.TextMain;
+            lblTitle.Dock = DockStyle.Fill;
+            lblTitle.TextAlign = ContentAlignment.MiddleLeft;
+            lblTitle.Padding = new Padding(AppLayout.PagePadding, 0, 0, 0);
 
             var header = new Panel
             {
@@ -95,144 +95,178 @@ namespace RPMS.WinForms.Forms.Landlord
                 BackColor = AppColors.Card,
                 Padding = new Padding(0, 8, 0, 8)
             };
-            header.Controls.Add(this.lblTitle);
+            header.Controls.Add(lblTitle);
 
-            this.tabMain.Controls.Add(this.tpGeneral);
-            this.tabMain.Controls.Add(this.tpAmenities);
-            this.tabMain.Controls.Add(this.tpImages);
-            this.tabMain.Dock = DockStyle.Fill;
-            this.tabMain.Font = AppTypography.Body;
-            this.tabMain.Padding = new Point(AppLayout.PagePadding / 2, AppLayout.PagePadding / 2);
+            // Tabs
+            tabMain.Controls.Add(tpGeneral);
+            tabMain.Controls.Add(tpAmenities);
+            tabMain.Controls.Add(tpImages);
+            tabMain.Dock = DockStyle.Fill;
+            tabMain.Font = AppTypography.Body;
+            tabMain.Padding = new Point(8, 8);
 
-            this.tpGeneral.Text = "Thông tin";
-            this.tpGeneral.BackColor = AppColors.Card;
-            this.tpGeneral.AutoScroll = true;
-            int col1 = 20, col2 = 360, startY = 20, gap = 60;
+            // ===== General (scroll + flow so nothing is clipped) =====
+            tpGeneral.Text = "Thông tin";
+            tpGeneral.BackColor = AppColors.Card;
+            tpGeneral.AutoScroll = true;
+            tpGeneral.Padding = new Padding(AppLayout.PagePadding);
 
-            this.lblRoomNumber.Text = "Mã phòng *";
-            this.lblRoomNumber.Location = new Point(col1, startY);
-            this.lblRoomNumber.AutoSize = true;
-            this.txtRoomNumber.Location = new Point(col1, startY + 20);
-            this.txtRoomNumber.Size = new Size(300, 35);
+            var generalStack = new TableLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                ColumnCount = 2,
+                Padding = new Padding(4),
+                GrowStyle = TableLayoutPanelGrowStyle.AddRows
+            };
+            generalStack.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
+            generalStack.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
 
-            this.lblFloor.Text = "Tầng";
-            this.lblFloor.Location = new Point(col2, startY);
-            this.lblFloor.AutoSize = true;
-            this.txtFloor.Location = new Point(col2, startY + 20);
-            this.txtFloor.Size = new Size(300, 35);
+            int row = 0;
+            void AddRow(Control left, Control right)
+            {
+                generalStack.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+                generalStack.Controls.Add(left, 0, row);
+                if (right != null)
+                    generalStack.Controls.Add(right, 1, row);
+                else
+                    generalStack.SetColumnSpan(left, 2);
+                row++;
+            }
 
-            this.lblArea.Text = "Diện tích (m2) *";
-            this.lblArea.Location = new Point(col1, startY + gap);
-            this.lblArea.AutoSize = true;
-            this.txtArea.Location = new Point(col1, startY + gap + 20);
-            this.txtArea.Size = new Size(300, 35);
+            AddRow(
+                UIHelper.CreateLabeledField("Mã phòng *", txtRoomNumber, 280),
+                UIHelper.CreateLabeledField("Tầng", txtFloor, 280));
+            AddRow(
+                UIHelper.CreateLabeledField("Diện tích (m²) *", txtArea, 280),
+                UIHelper.CreateLabeledField("Giá thuê (VND) *", txtPrice, 280));
+            AddRow(
+                UIHelper.CreateLabeledField("Số người tối đa *", txtCapacity, 280),
+                UIHelper.CreateLabeledField("Số phòng ngủ", txtBedroom, 280));
 
-            this.lblPrice.Text = "Giá thuê (VND) *";
-            this.lblPrice.Location = new Point(col2, startY + gap);
-            this.lblPrice.AutoSize = true;
-            this.txtPrice.Location = new Point(col2, startY + gap + 20);
-            this.txtPrice.Size = new Size(300, 35);
+            cboStatus.DropDownStyle = ComboBoxStyle.DropDownList;
+            cboStatus.Items.AddRange(new object[] { "Available", "Occupied", "Maintenance" });
+            UIHelper.StyleCombo(cboStatus);
+            AddRow(
+                UIHelper.CreateLabeledField("Số phòng tắm", txtBathroom, 280),
+                UIHelper.CreateLabeledField("Trạng thái *", cboStatus, 280));
+            AddRow(UIHelper.CreateLabeledField("Nội thất", txtFurniture, 600), null!);
 
-            this.lblCapacity.Text = "Số người tối đa *";
-            this.lblCapacity.Location = new Point(col1, startY + gap * 2);
-            this.lblCapacity.AutoSize = true;
-            this.txtCapacity.Location = new Point(col1, startY + gap * 2 + 20);
-            this.txtCapacity.Size = new Size(140, 35);
+            lblDescription.Text = "Mô tả thêm";
+            lblDescription.Font = AppTypography.Caption;
+            lblDescription.ForeColor = AppColors.TextMuted;
+            lblDescription.AutoSize = true;
+            txtDescription.Multiline = true;
+            txtDescription.ScrollBars = ScrollBars.Vertical;
+            txtDescription.Height = 90;
+            txtDescription.Width = 600;
+            txtDescription.Font = AppTypography.Body;
+            txtDescription.BorderStyle = BorderStyle.FixedSingle;
+            var descWrap = new Panel
+            {
+                Width = 620,
+                Height = 120,
+                Margin = new Padding(0, 0, AppLayout.FieldGap, 6)
+            };
+            lblDescription.Location = new Point(0, 0);
+            txtDescription.Location = new Point(0, 18);
+            descWrap.Controls.Add(lblDescription);
+            descWrap.Controls.Add(txtDescription);
+            AddRow(descWrap, null!);
 
-            this.lblBedroom.Text = "Số phòng ngủ";
-            this.lblBedroom.Location = new Point(col2, startY + gap * 2);
-            this.lblBedroom.AutoSize = true;
-            this.txtBedroom.Location = new Point(col2, startY + gap * 2 + 20);
-            this.txtBedroom.Size = new Size(140, 35);
+            tpGeneral.Controls.Add(generalStack);
 
-            this.lblBathroom.Text = "Số phòng tắm";
-            this.lblBathroom.Location = new Point(col2 + 160, startY + gap * 2);
-            this.lblBathroom.AutoSize = true;
-            this.txtBathroom.Location = new Point(col2 + 160, startY + gap * 2 + 20);
-            this.txtBathroom.Size = new Size(140, 35);
+            // ===== Amenities =====
+            tpAmenities.Text = "Tiện ích";
+            tpAmenities.BackColor = AppColors.Card;
+            tpAmenities.Padding = new Padding(AppLayout.PagePadding);
+            clbAmenities.Dock = DockStyle.Fill;
+            clbAmenities.BorderStyle = BorderStyle.FixedSingle;
+            clbAmenities.CheckOnClick = true;
+            clbAmenities.Font = AppTypography.Body;
+            tpAmenities.Controls.Add(clbAmenities);
 
-            this.lblStatus.Text = "Trạng thái *";
-            this.lblStatus.Location = new Point(col1, startY + gap * 3);
-            this.lblStatus.AutoSize = true;
-            this.cboStatus.Location = new Point(col1, startY + gap * 3 + 20);
-            this.cboStatus.Size = new Size(300, 35);
-            this.cboStatus.DropDownStyle = ComboBoxStyle.DropDownList;
-            this.cboStatus.Items.AddRange(new object[] { "Available", "Occupied", "Maintenance" });
+            // ===== Images — docked layout, upload always visible =====
+            tpImages.Text = "Ảnh & Video";
+            tpImages.BackColor = AppColors.Card;
+            tpImages.Padding = new Padding(AppLayout.PagePadding);
 
-            this.lblFurniture.Text = "Nội thất";
-            this.lblFurniture.Location = new Point(col2, startY + gap * 3);
-            this.lblFurniture.AutoSize = true;
-            this.txtFurniture.Location = new Point(col2, startY + gap * 3 + 20);
-            this.txtFurniture.Size = new Size(300, 35);
+            var imagesRoot = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 3,
+                Padding = new Padding(0)
+            };
+            imagesRoot.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 42f));
+            imagesRoot.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 58f));
+            imagesRoot.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            imagesRoot.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+            imagesRoot.RowStyles.Add(new RowStyle(SizeType.Absolute, 52));
 
-            this.lblDescription.Text = "Mô tả thêm";
-            this.lblDescription.Location = new Point(col1, startY + gap * 4);
-            this.lblDescription.AutoSize = true;
-            this.txtDescription.Location = new Point(col1, startY + gap * 4 + 20);
-            this.txtDescription.Size = new Size(640, 70);
+            lblImageHint.Text = "Chọn tab này → bấm «Thêm ảnh/video» để tải file từ máy. Có thể chọn nhiều file.";
+            lblImageHint.Font = AppTypography.Caption;
+            lblImageHint.ForeColor = AppColors.TextMuted;
+            lblImageHint.AutoSize = true;
+            lblImageHint.Dock = DockStyle.Fill;
+            lblImageHint.Padding = new Padding(0, 0, 0, 8);
+            imagesRoot.Controls.Add(lblImageHint, 0, 0);
+            imagesRoot.SetColumnSpan(lblImageHint, 2);
 
-            this.tpGeneral.Controls.AddRange(new Control[] {
-                lblRoomNumber, txtRoomNumber, lblFloor, txtFloor,
-                lblArea, txtArea, lblPrice, txtPrice,
-                lblCapacity, txtCapacity, lblBedroom, txtBedroom, lblBathroom, txtBathroom,
-                lblStatus, cboStatus,
-                lblFurniture, txtFurniture,
-                lblDescription, txtDescription
-            });
+            lstImages.Dock = DockStyle.Fill;
+            lstImages.IntegralHeight = false;
+            lstImages.Font = AppTypography.Body;
+            lstImages.SelectedIndexChanged += lstImages_SelectedIndexChanged;
+            imagesRoot.Controls.Add(lstImages, 0, 1);
 
-            this.tpAmenities.Text = "Tiện ích";
-            this.tpAmenities.BackColor = AppColors.Card;
-            this.clbAmenities.Dock = DockStyle.Fill;
-            this.clbAmenities.BorderStyle = BorderStyle.None;
-            this.clbAmenities.Padding = new Padding(20);
-            this.clbAmenities.CheckOnClick = true;
-            this.clbAmenities.Font = AppTypography.Body;
-            this.tpAmenities.Controls.Add(this.clbAmenities);
+            picPreview.Dock = DockStyle.Fill;
+            picPreview.SizeMode = PictureBoxSizeMode.Zoom;
+            picPreview.BorderStyle = BorderStyle.FixedSingle;
+            picPreview.BackColor = Color.WhiteSmoke;
+            imagesRoot.Controls.Add(picPreview, 1, 1);
 
-            this.tpImages.Text = "Ảnh & Video";
-            this.tpImages.BackColor = AppColors.Card;
-            this.lstImages.Location = new Point(20, 20);
-            this.lstImages.Size = new Size(300, 320);
-            this.lstImages.SelectedIndexChanged += new System.EventHandler(this.lstImages_SelectedIndexChanged);
+            var btnBar = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                Padding = new Padding(0, 8, 0, 0)
+            };
+            btnAddImage.Text = "Thêm ảnh/video";
+            btnAddImage.Size = new Size(160, 36);
+            btnAddImage.BackColor = AppColors.Primary;
+            btnAddImage.Click += btnAddImage_Click;
+            btnRemoveImage.Text = "Xóa đã chọn";
+            btnRemoveImage.Size = new Size(130, 36);
+            btnRemoveImage.BackColor = AppColors.Danger;
+            btnRemoveImage.Click += btnRemoveImage_Click;
+            btnBar.Controls.Add(btnAddImage);
+            btnBar.Controls.Add(btnRemoveImage);
+            imagesRoot.Controls.Add(btnBar, 0, 2);
+            imagesRoot.SetColumnSpan(btnBar, 2);
 
-            this.picPreview.Location = new Point(340, 20);
-            this.picPreview.Size = new Size(360, 260);
-            this.picPreview.SizeMode = PictureBoxSizeMode.Zoom;
-            this.picPreview.BorderStyle = BorderStyle.FixedSingle;
+            tpImages.Controls.Add(imagesRoot);
 
-            this.btnAddImage.Text = "Thêm ảnh/video";
-            this.btnAddImage.Location = new Point(340, 300);
-            this.btnAddImage.Size = new Size(140, 35);
-            this.btnAddImage.BackColor = AppColors.Primary;
-            this.btnAddImage.Click += new System.EventHandler(this.btnAddImage_Click);
+            var footer = UIHelper.CreateDialogFooter(btnSave, btnCancel);
+            btnSave.Click += btnSave_Click;
+            btnCancel.Click += btnCancel_Click;
 
-            this.btnRemoveImage.Text = "Xóa ảnh";
-            this.btnRemoveImage.Location = new Point(490, 300);
-            this.btnRemoveImage.Size = new Size(120, 35);
-            this.btnRemoveImage.BackColor = AppColors.Danger;
-            this.btnRemoveImage.Click += new System.EventHandler(this.btnRemoveImage_Click);
+            ClientSize = new Size(860, 640);
+            MinimumSize = new Size(760, 560);
+            Controls.Add(tabMain);
+            Controls.Add(footer);
+            Controls.Add(header);
+            UIHelper.ApplyResizableDialog(this, new Size(760, 560));
+            Text = "Chi tiết Phòng";
+            StartPosition = FormStartPosition.CenterParent;
 
-            this.tpImages.Controls.AddRange(new Control[] { lstImages, picPreview, btnAddImage, btnRemoveImage });
-
-            this.btnSave.Click += new System.EventHandler(this.btnSave_Click);
-            this.btnCancel.Click += new System.EventHandler(this.btnCancel_Click);
-            var footer = UIHelper.CreateDialogFooter(this.btnSave, this.btnCancel);
-
-            this.ClientSize = new Size(780, 570);
-            this.Controls.Add(this.tabMain);
-            this.Controls.Add(footer);
-            this.Controls.Add(header);
-            UIHelper.ApplyResizableDialog(this, AppLayout.DialogMin);
-            this.Text = "Chi tiết Phòng";
-            this.AutoScroll = false;
-
-            this.tabMain.ResumeLayout(false);
-            this.tpGeneral.ResumeLayout(false);
-            this.tpGeneral.PerformLayout();
-            this.tpAmenities.ResumeLayout(false);
-            this.tpImages.ResumeLayout(false);
-            ((System.ComponentModel.ISupportInitialize)(this.picPreview)).EndInit();
-            this.ResumeLayout(false);
+            tabMain.ResumeLayout(false);
+            tpGeneral.ResumeLayout(false);
+            tpAmenities.ResumeLayout(false);
+            tpImages.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)picPreview).EndInit();
+            ResumeLayout(false);
         }
     }
 }

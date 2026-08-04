@@ -45,7 +45,7 @@ namespace RPMS.WinForms.Forms.Landlord
 
             lblHint = new Label
             {
-                Text = "Nhập UserID hoặc Username của Manager → Tìm → chọn nhà → Gán.",
+                Text = "Chỉ gán Manager cho nhà đã có khách đồng ý thuê (HĐ Active). Nhập UserID/Username → Tìm → chọn nhà → Gán.",
                 Font = AppTypography.Caption,
                 ForeColor = AppColors.TextMuted,
                 AutoSize = true,
@@ -149,10 +149,18 @@ namespace RPMS.WinForms.Forms.Landlord
             {
                 using var scope = _scopeFactory.CreateScope();
                 var houses = scope.ServiceProvider.GetRequiredService<IHouseService>();
+                var contracts = scope.ServiceProvider.GetRequiredService<IContractService>();
                 var assignments = scope.ServiceProvider.GetRequiredService<IAssignmentService>();
                 int landlordId = UserSession.CurrentUser!.UserID;
 
-                var houseList = (await houses.GetHousesByOwnerAsync(landlordId))
+                var allHouses = (await houses.GetHousesByOwnerAsync(landlordId)).ToList();
+                var eligibleHouseIds = (await contracts.GetContractsByLandlordAsync(landlordId))
+                    .Where(c => string.Equals(c.Status, "Active", StringComparison.OrdinalIgnoreCase) && c.HouseID > 0)
+                    .Select(c => c.HouseID)
+                    .ToHashSet();
+
+                var houseList = allHouses
+                    .Where(h => eligibleHouseIds.Contains(h.HouseID))
                     .OrderBy(h => h.HouseName)
                     .Select(h => new HousePick
                     {
@@ -169,9 +177,12 @@ namespace RPMS.WinForms.Forms.Landlord
                     cboHouse.SelectedIndex = 0;
 
                 dgv.DataSource = (await assignments.GetByLandlordAsync(landlordId)).ToList();
-                lblHint.Text = houseList.Count == 0
-                    ? "Bạn chưa có nhà — tạo nhà trước rồi gán Manager."
-                    : "Nhập UserID hoặc Username Manager → Tìm → chọn nhà → Gán. Demo: ID 4 / username manager.";
+                if (allHouses.Count == 0)
+                    lblHint.Text = "Bạn chưa có nhà — tạo nhà → gán khách → chờ khách Đồng ý thuê → mới gán Manager.";
+                else if (houseList.Count == 0)
+                    lblHint.Text = "Chưa có nhà nào có HĐ Active. Gán khách và chờ khách bấm «Đồng ý thuê» rồi mới phân công Manager.";
+                else
+                    lblHint.Text = "Nhập UserID hoặc Username Manager → Tìm → chọn nhà (đã có khách thuê) → Gán. Demo: ID 4 / manager.";
                 btnAssign.Enabled = houseList.Count > 0;
             }
             catch (Exception ex)

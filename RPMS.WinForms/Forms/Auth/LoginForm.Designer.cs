@@ -84,6 +84,7 @@ namespace RPMS.WinForms.Forms.Auth
             lblBrandDesc.Size = new Size(268, 69);
             lblBrandDesc.TabIndex = 0;
             lblBrandDesc.Text = "Quản lý nhà trọ, hợp đồng, hóa đơn và bảo trì trên một nền tảng chuyên nghiệp.";
+            lblBrandDesc.Click += lblBrandDesc_Click;
             // 
             // lblBrandTagline
             // 
@@ -277,7 +278,7 @@ namespace RPMS.WinForms.Forms.Auth
             lblDemoHint.Location = new Point(38, 452);
             lblDemoHint.MaximumSize = new Size(340, 0);
             lblDemoHint.Name = "lblDemoHint";
-            lblDemoHint.Size = new Size(326, 40);
+            lblDemoHint.Size = new Size(334, 40);
             lblDemoHint.TabIndex = 11;
             lblDemoHint.Text = "Demo: admin/admin123 | namlandlord | tenant | manager — MK: 123456";
             // 

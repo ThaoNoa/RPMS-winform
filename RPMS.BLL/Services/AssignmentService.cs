@@ -55,6 +55,14 @@ namespace RPMS.BLL.Services
             if (manager.Status != "Active")
                 throw new BadRequestException("Tài khoản Manager không còn hoạt động.");
 
+            // Chỉ gán Manager khi nhà đã có HĐ Active (khách đã Đồng ý thuê)
+            bool hasActiveRental = await _unitOfWork.Contracts.ExistsAsync(
+                c => c.Room.HouseID == request.HouseID && c.Status == "Active");
+            if (!hasActiveRental)
+                throw new BadRequestException(
+                    "Chỉ gán Manager sau khi khách đã đồng ý thuê (hợp đồng Active). " +
+                    "Nhà chưa có phòng đang thuê thì chưa thể phân công.");
+
             // Unique (HouseID, ManagerID): nếu đã ngưng thì kích hoạt lại, không insert trùng
             var existing = await _unitOfWork.Assignments.FirstOrDefaultAsync(
                 a => a.HouseID == request.HouseID && a.ManagerID == request.ManagerID);

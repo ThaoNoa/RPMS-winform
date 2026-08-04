@@ -479,10 +479,12 @@ namespace RPMS.WinForms.Forms.Landlord
                     }, UserSession.CurrentUser!.UserID));
 
                 AppDialog.ShowInfo(tenantId.HasValue
-                    ? "Tạo hợp đồng thành công (đã gắn khách thuê)."
+                    ? "Đã gửi đề nghị thuê. Hợp đồng PendingConfirm — chờ khách Đồng ý mới Active / Đã thuê."
                     : "Đã lưu hợp đồng nháp. Khi có khách, bấm \"Gán khách\" trên danh sách.");
                 ToastNotifier.Show(this,
-                    created.Status == "Draft" ? "Đã lưu hợp đồng nháp" : "Đã tạo hợp đồng Active",
+                    created.Status == "Draft" ? "Đã lưu hợp đồng nháp"
+                    : created.Status == "PendingConfirm" ? "Chờ khách xác nhận thuê"
+                    : "Đã tạo hợp đồng",
                     ToastKind.Success);
 
                 await _uiLoadLock.WaitAsync();
@@ -650,9 +652,9 @@ namespace RPMS.WinForms.Forms.Landlord
 
                 if (col == "TerminateCol")
                 {
-                    if (contract.Status != "Active" && contract.Status != "Draft")
+                    if (contract.Status != "Active" && contract.Status != "Draft" && contract.Status != "PendingConfirm")
                     {
-                        AppDialog.ShowWarning("Chỉ hủy hợp đồng nháp hoặc Active.");
+                        AppDialog.ShowWarning("Chỉ hủy hợp đồng nháp, chờ xác nhận hoặc Active.");
                         return;
                     }
                     if (!AppDialog.Confirm($"Hủy hợp đồng {contract.ContractCode}?"))
@@ -819,9 +821,9 @@ namespace RPMS.WinForms.Forms.Landlord
                 AppDialog.ShowInfo("Hợp đồng này đã có khách thuê.");
                 return;
             }
-            if (contract.Status != "Draft" && contract.Status != "Active")
+            if (contract.Status != "Draft")
             {
-                AppDialog.ShowWarning("Không thể gán khách cho hợp đồng đã kết thúc.");
+                AppDialog.ShowWarning("Chỉ gán khách cho hợp đồng nháp (Draft).");
                 return;
             }
 
@@ -908,7 +910,8 @@ namespace RPMS.WinForms.Forms.Landlord
                 }, UserSession.CurrentUser!.UserID));
 
             ToastNotifier.Show(this, "Đã gán khách thuê", ToastKind.Success);
-            AppDialog.ShowInfo("Đã gán khách thuê. Hợp đồng chuyển sang Active, phòng đánh dấu đã thuê.");
+            AppDialog.ShowInfo("Đã gửi đề nghị thuê cho khách. Hợp đồng ở trạng thái PendingConfirm — Dashboard «Đã thuê» chỉ tăng khi khách bấm Đồng ý thuê.");
+            ToastNotifier.Show(this, "Chờ khách xác nhận thuê", ToastKind.Success);
 
             await _uiLoadLock.WaitAsync();
             try

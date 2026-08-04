@@ -6,6 +6,8 @@ namespace RPMS.DTO.Contract
     {
         public int ContractID { get; set; }
         public string ContractCode { get; set; } = "";
+        public int HouseID { get; set; }
+        public string HouseName { get; set; } = "";
         public string RoomNumber { get; set; } = "";
         public int? TenantID { get; set; }
         public string TenantName { get; set; } = "";

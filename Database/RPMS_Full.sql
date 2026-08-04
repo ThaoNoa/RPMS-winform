@@ -186,7 +186,7 @@ CREATE TABLE Contracts (
  CONSTRAINT FK_Contracts_Room FOREIGN KEY (RoomID) REFERENCES Rooms(RoomID),
  CONSTRAINT FK_Contracts_Tenant FOREIGN KEY (TenantID) REFERENCES Users(UserID),
  CONSTRAINT FK_Contracts_CreatedBy FOREIGN KEY (CreatedBy) REFERENCES Users(UserID),
- CONSTRAINT CK_Contracts_Status CHECK ([Status] IN (N'Draft', N'Active', N'Expired', N'Terminated')),
+ CONSTRAINT CK_Contracts_Status CHECK ([Status] IN (N'Draft', N'PendingConfirm', N'Active', N'Expired', N'Terminated')),
  CONSTRAINT CK_Contracts_Date CHECK (EndDate >= StartDate),
  CONSTRAINT CK_Contracts_MoveOut CHECK (MoveOutDate IS NULL OR MoveOutDate >= MoveInDate),
  CONSTRAINT CK_Contracts_Deposit CHECK (Deposit >= 0),

@@ -1,0 +1,63 @@
+FAIL=55
+34	TIMEOUT
+18	Tên đăng nhập hoặc mật khẩu không chính xác.
+1	Assigned inactive tenant
+1	Empty RoomNumber accepted
+1	Empty new password accepted
+
+---DETAILS---
+TC-ADM-U-001	TIMEOUT after 30s — possible UI/MessageBox hang or DB deadlock
+TC-ADM-P-001	TIMEOUT after 30s — possible UI/MessageBox hang or DB deadlock
+TC-LL-H-001	TIMEOUT after 30s — possible UI/MessageBox hang or DB deadlock
+TC-LL-R-001	TIMEOUT after 30s — possible UI/MessageBox hang or DB deadlock
+TC-LL-A-001	TIMEOUT after 30s — possible UI/MessageBox hang or DB deadlock
+TC-LL-C-001	TIMEOUT after 30s — possible UI/MessageBox hang or DB deadlock
+TC-LL-AP-001	TIMEOUT after 30s — possible UI/MessageBox hang or DB deadlock
+TC-TN-S-001	TIMEOUT after 30s — possible UI/MessageBox hang or DB deadlock
+TC-TN-C-001	TIMEOUT after 30s — possible UI/MessageBox hang or DB deadlock
+TC-TN-I-001	TIMEOUT after 30s — possible UI/MessageBox hang or DB deadlock
+TC-MG-M-001	TIMEOUT after 30s — possible UI/MessageBox hang or DB deadlock
+TC-MG-MT-001	TIMEOUT after 30s — possible UI/MessageBox hang or DB deadlock
+TC-SH-C-002	TIMEOUT after 30s — possible UI/MessageBox hang or DB deadlock
+TC-SH-C-004	TIMEOUT after 30s — possible UI/MessageBox hang or DB deadlock
+TC-SH-D-003	TIMEOUT after 30s — possible UI/MessageBox hang or DB deadlock
+TC-SH-D-004	TIMEOUT after 30s — possible UI/MessageBox hang or DB deadlock
+TC-SH-REP-004	TIMEOUT after 30s — possible UI/MessageBox hang or DB deadlock
+TC-SEC-001	TIMEOUT after 30s — possible UI/MessageBox hang or DB deadlock
+TC-SEC-005	TIMEOUT after 30s — possible UI/MessageBox hang or DB deadlock
+TC-SMOKE-001	TIMEOUT after 30s — possible UI/MessageBox hang or DB deadlock
+TC-SMOKE-002	TIMEOUT after 30s — possible UI/MessageBox hang or DB deadlock
+TC-SMOKE-003	TIMEOUT after 30s — possible UI/MessageBox hang or DB deadlock
+TC-SMOKE-004	TIMEOUT after 30s — possible UI/MessageBox hang or DB deadlock
+TC-EDGE-002	TIMEOUT after 30s — possible UI/MessageBox hang or DB deadlock
+TC-EDGE-003	TIMEOUT after 30s — possible UI/MessageBox hang or DB deadlock
+TC-LL-C-022	Assigned inactive tenant
+TC-SH-C-006	TIMEOUT after 30s — possible UI/MessageBox hang or DB deadlock
+TC-VAL-004	Empty RoomNumber accepted
+TC-REGU-002	TIMEOUT after 30s — possible UI/MessageBox hang or DB deadlock
+TC-REGU-003	TIMEOUT after 30s — possible UI/MessageBox hang or DB deadlock
+TC-REGU-004	TIMEOUT after 30s — possible UI/MessageBox hang or DB deadlock
+TC-REGU-007	TIMEOUT after 30s — possible UI/MessageBox hang or DB deadlock
+TC-PROF-006	Empty new password accepted
+TC-PROF-007	Tên đăng nhập hoặc mật khẩu không chính xác.
+TC-LL-RV-003	Tên đăng nhập hoặc mật khẩu không chính xác.
+TC-ADM-B-001	TIMEOUT after 30s — possible UI/MessageBox hang or DB deadlock
+TC-UX-009	Tên đăng nhập hoặc mật khẩu không chính xác.
+TC-LL-PO-005	Tên đăng nhập hoặc mật khẩu không chính xác.
+TC-LL-PO-006	Tên đăng nhập hoặc mật khẩu không chính xác.
+TC-LL-PO-007	Tên đăng nhập hoặc mật khẩu không chính xác.
+TC-LL-PO-008	Tên đăng nhập hoặc mật khẩu không chính xác.
+TC-LL-PO-009	Tên đăng nhập hoặc mật khẩu không chính xác.
+TC-LL-PO-010	Tên đăng nhập hoặc mật khẩu không chính xác.
+TC-SH-C-008	TIMEOUT after 30s — possible UI/MessageBox hang or DB deadlock
+TC-SH-C-009	Tên đăng nhập hoặc mật khẩu không chính xác.
+TC-SH-C-010	TIMEOUT after 30s — possible UI/MessageBox hang or DB deadlock
+TC-SH-C-011	Tên đăng nhập hoặc mật khẩu không chính xác.
+TC-SH-CAL-003	Tên đăng nhập hoặc mật khẩu không chính xác.
+TC-SH-CAL-004	TIMEOUT after 30s — possible UI/MessageBox hang or DB deadlock
+TC-LL-H-009	Tên đăng nhập hoặc mật khẩu không chính xác.
+TC-LL-H-010	Tên đăng nhập hoặc mật khẩu không chính xác.
+TC-LL-H-011	Tên đăng nhập hoặc mật khẩu không chính xác.
+TC-LL-H-012	Tên đăng nhập hoặc mật khẩu không chính xác.
+TC-RACE-001	Tên đăng nhập hoặc mật khẩu không chính xác.
+TC-RACE-003	Tên đăng nhập hoặc mật khẩu không chính xác.

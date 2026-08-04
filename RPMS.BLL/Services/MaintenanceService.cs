@@ -79,10 +79,24 @@ namespace RPMS.BLL.Services
         public async Task<IEnumerable<MaintenanceRequestDto>> GetRequestsForManagerAsync(int managerId)
         {
             var assignments = await _unitOfWork.Assignments.FindAsync(a => a.ManagerID == managerId && a.Status == "Active");
-            var houseIds = assignments.Select(a => a.HouseID).ToList();
+            var houseIds = assignments.Select(a => a.HouseID).Distinct().ToList();
+            if (houseIds.Count == 0)
+                return Array.Empty<MaintenanceRequestDto>();
+
+            var roomIds = (await _unitOfWork.Rooms.FindAsync(r => houseIds.Contains(r.HouseID)))
+                .Select(r => r.RoomID)
+                .ToList();
+            if (roomIds.Count == 0)
+                return Array.Empty<MaintenanceRequestDto>();
+
+            var contractIds = (await _unitOfWork.Contracts.FindAsync(c => roomIds.Contains(c.RoomID)))
+                .Select(c => c.ContractID)
+                .ToList();
+            if (contractIds.Count == 0)
+                return Array.Empty<MaintenanceRequestDto>();
 
             var requests = await _unitOfWork.MaintenanceRequests.FindAsync(
-                m => houseIds.Contains(m.Contract.Room.HouseID),
+                m => contractIds.Contains(m.ContractID),
                 "Contract.Room.House,Contract.Tenant,Manager");
 
             return _mapper.Map<IEnumerable<MaintenanceRequestDto>>(requests.OrderByDescending(r => r.CreatedDate));

@@ -10,6 +10,8 @@ namespace RPMS.DTO.Statistic
         public int OccupiedRooms { get; set; }
         public int AvailableRooms { get; set; }
         public int MaintenanceRooms { get; set; }
+        /// <summary>HĐ đã gán khách, chờ khách Đồng ý thuê.</summary>
+        public int PendingConfirmContracts { get; set; }
         public double OccupancyRate { get; set; }
         public int TodayAppointments { get; set; }
         public int ExpiringContracts { get; set; }
