@@ -48,6 +48,10 @@ namespace RPMS.BLL.Services
 
         public async Task<bool> ChangePasswordAsync(int userId, ChangePasswordDto request)
         {
+            if (string.IsNullOrWhiteSpace(request.NewPassword))
+                throw new BadRequestException("Mật khẩu mới không được để trống.");
+            if (request.NewPassword.Length < 6)
+                throw new BadRequestException("Mật khẩu mới phải có ít nhất 6 ký tự.");
             if (request.NewPassword != request.ConfirmNewPassword)
                 throw new BadRequestException("Mật khẩu xác nhận không khớp.");
             var user = await _unitOfWork.Users.GetByIdAsync(userId);

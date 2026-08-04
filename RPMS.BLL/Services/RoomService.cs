@@ -39,6 +39,8 @@ namespace RPMS.BLL.Services
 
         public async Task<RoomDto> CreateRoomAsync(CreateRoomDto request)
         {
+            if (string.IsNullOrWhiteSpace(request.RoomNumber))
+                throw new BadRequestException("Số phòng không được để trống.");
             if (await _unitOfWork.Rooms.ExistsAsync(r => r.HouseID == request.HouseID && r.RoomNumber == request.RoomNumber))
                 throw new BadRequestException($"Phòng {request.RoomNumber} đã tồn tại trong nhà này.");
             var room = _mapper.Map<Room>(request);

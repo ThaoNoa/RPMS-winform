@@ -252,9 +252,11 @@ namespace RPMS.BLL.Services
                 if (contract.Status != "Draft" && contract.Status != "Active")
                     throw new BadRequestException("Chỉ gán khách cho hợp đồng nháp hoặc đang hiệu lực.");
 
-                var tenant = await _unitOfWork.Users.GetByIdAsync(request.TenantID);
-                if (tenant == null || tenant.Status != "Active")
+                var tenant = await _unitOfWork.Users.FirstOrDefaultAsync(u => u.UserID == request.TenantID);
+                if (tenant == null || !string.Equals(tenant.Status, "Active", StringComparison.OrdinalIgnoreCase))
                     throw new BadRequestException("Khách thuê không hợp lệ hoặc không còn hoạt động.");
+                if (tenant.RoleID != 3)
+                    throw new BadRequestException("Người dùng được gán phải có vai trò Tenant.");
 
                 if (contract.Room == null)
                     throw new NotFoundException("Phòng", contract.RoomID);
