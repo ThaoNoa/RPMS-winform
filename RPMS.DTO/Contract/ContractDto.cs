@@ -13,5 +13,7 @@ namespace RPMS.DTO.Contract
         public DateTime EndDate { get; set; }
         public decimal MonthlyRent { get; set; }
         public string Status { get; set; } = "";
+        /// <summary>Pending khi chủ sửa và chờ khách xác nhận.</summary>
+        public string? PendingEditStatus { get; set; }
     }
 }

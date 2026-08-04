@@ -41,10 +41,12 @@ namespace RPMS.BLL.Services
             return items.OrderByDescending(a => a.AssignedDate).Select(Map).ToList();
         }
 
-        public async Task<AssignmentDto> CreateAsync(CreateAssignmentDto request)
+        public async Task<AssignmentDto> CreateAsync(CreateAssignmentDto request, int landlordId)
         {
             var house = await _unitOfWork.Houses.GetByIdAsync(request.HouseID);
             if (house == null) throw new NotFoundException("Nhà", request.HouseID);
+            if (house.OwnerID != landlordId)
+                throw new BadRequestException("Bạn chỉ được gán Manager cho nhà của mình.");
 
             var manager = await _unitOfWork.Users.FirstOrDefaultAsync(u => u.UserID == request.ManagerID, "Role");
             if (manager == null) throw new NotFoundException("Quản lý", request.ManagerID);
@@ -110,10 +112,13 @@ namespace RPMS.BLL.Services
             return Map(saved!);
         }
 
-        public async Task<bool> DeactivateAsync(int assignmentId)
+        public async Task<bool> DeactivateAsync(int assignmentId, int landlordId)
         {
-            var item = await _unitOfWork.Assignments.GetByIdAsync(assignmentId);
+            var item = await _unitOfWork.Assignments.FirstOrDefaultAsync(
+                a => a.AssignmentID == assignmentId, "House");
             if (item == null) throw new NotFoundException("Phân công", assignmentId);
+            if (item.House == null || item.House.OwnerID != landlordId)
+                throw new BadRequestException("Bạn chỉ được ngưng phân công nhà của mình.");
             item.Status = "Inactive";
             item.UpdatedDate = DateTime.Now;
             _unitOfWork.Assignments.Update(item);

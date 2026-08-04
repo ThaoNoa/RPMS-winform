@@ -165,12 +165,26 @@ namespace RPMS.BLL.Services
                 await _unitOfWork.MeterReadings.AddAsync(reading);
                 await _unitOfWork.SaveChangesAsync();
 
-                decimal electricCost = (request.NewElectric - oldElectric) * contract.ElectricPrice;
-                decimal waterCost = (request.NewWater - oldWater) * contract.WaterPrice;
+                decimal usageE = request.NewElectric - oldElectric;
+                decimal usageW = request.NewWater - oldWater;
+                decimal electricCost = ContractPricingHelper.WeightedUnitCost(
+                    usageE, contract.ElectricPrice, contract.PreviousElectricPrice, contract.PriceEffectiveDate, monthStart);
+                decimal waterCost = ContractPricingHelper.WeightedUnitCost(
+                    usageW, contract.WaterPrice, contract.PreviousWaterPrice, contract.PriceEffectiveDate, monthStart);
 
-                // Tiền nhà theo ngày thực ở trong tháng (prorate)
+                // Tiền nhà theo ngày thực ở + đổi giá giữa tháng (nếu có)
                 DateTime? moveIn = contract.MoveInDate == default ? contract.StartDate : contract.MoveInDate;
                 DateTime? moveOut = contract.MoveOutDate;
+                decimal rent = ContractPricingHelper.CalculateRent(
+                    contract.MonthlyRent,
+                    contract.PreviousMonthlyRent,
+                    contract.PriceEffectiveDate,
+                    monthStart,
+                    contract.StartDate,
+                    contract.EndDate,
+                    moveIn,
+                    moveOut);
+
                 var rentCalc = RentProrationHelper.Calculate(
                     contract.MonthlyRent,
                     monthStart,
@@ -184,14 +198,14 @@ namespace RPMS.BLL.Services
                         $"Không có ngày ở trong tháng {monthStart:MM/yyyy} để tính tiền nhà " +
                         $"(nhận phòng {moveIn:dd/MM/yyyy}, trả phòng {(moveOut?.ToString("dd/MM/yyyy") ?? "chưa")}).");
 
-                decimal total = rentCalc.ProratedRent + electricCost + waterCost + request.OtherFee;
+                decimal total = rent + electricCost + waterCost + request.OtherFee;
 
                 var invoice = new Invoice
                 {
                     InvoiceCode = "INV" + DateTime.Now.ToString("yyMMddHHmmss"),
                     ContractID = contract.ContractID,
                     ReadingID = reading.ReadingID,
-                    Rent = rentCalc.ProratedRent,
+                    Rent = rent,
                     ElectricCost = electricCost,
                     WaterCost = waterCost,
                     OtherFee = request.OtherFee,
@@ -204,8 +218,9 @@ namespace RPMS.BLL.Services
                 await _unitOfWork.Invoices.AddAsync(invoice);
                 await _unitOfWork.SaveChangesAsync();
 
-                string rentNote = rentCalc.IsProrated
-                    ? $" Tiền nhà prorate {rentCalc.OccupiedDays}/{rentCalc.DaysInMonth} ngày = {rentCalc.ProratedRent:N0} đ."
+                string rentNote = rentCalc.OccupiedDays < rentCalc.DaysInMonth || contract.PriceEffectiveDate.HasValue
+                    ? $" Tiền nhà {rent:N0} đ ({rentCalc.OccupiedDays}/{rentCalc.DaysInMonth} ngày" +
+                      (contract.PriceEffectiveDate.HasValue ? $", đổi giá từ {contract.PriceEffectiveDate:dd/MM}" : "") + ")."
                     : "";
                 if (contract.TenantID.HasValue)
                 {

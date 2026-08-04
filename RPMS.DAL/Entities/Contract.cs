@@ -29,6 +29,22 @@ namespace RPMS.DAL.Entities
         public DateTime CreatedDate { get; set; }
         public DateTime UpdatedDate { get; set; }
 
+        // Sửa HĐ chờ khách xác nhận
+        public decimal? PendingMonthlyRent { get; set; }
+        public decimal? PendingElectricPrice { get; set; }
+        public decimal? PendingWaterPrice { get; set; }
+        public decimal? PendingDeposit { get; set; }
+        public DateTime? PendingEndDate { get; set; }
+        public string? PendingEditStatus { get; set; }
+        public string? PendingEditNote { get; set; }
+        public DateTime? PendingEditAt { get; set; }
+
+        // Giá trước khi xác nhận (để tính ngày cũ)
+        public decimal? PreviousMonthlyRent { get; set; }
+        public decimal? PreviousElectricPrice { get; set; }
+        public decimal? PreviousWaterPrice { get; set; }
+        public DateTime? PriceEffectiveDate { get; set; }
+
         public virtual Room Room { get; set; } = null!;
         public virtual User? Tenant { get; set; }
         public virtual User CreatedByUser { get; set; } = null!;

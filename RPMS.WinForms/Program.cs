@@ -92,7 +92,6 @@ namespace RPMS.WinForms
             services.AddTransient<Forms.Admin.UserModalForm>();
             services.AddTransient<Forms.Admin.PostManagementForm>();
             services.AddTransient<Forms.Admin.PostDetailModalForm>();
-            services.AddTransient<Forms.Admin.AssignmentManagementForm>();
             services.AddTransient<Forms.Admin.ActivityLogForm>();
             services.AddTransient<Forms.Admin.ReviewManagementForm>();
             services.AddTransient<Forms.Admin.BackupForm>();
@@ -100,6 +99,7 @@ namespace RPMS.WinForms
             services.AddTransient<Forms.Landlord.LandlordHouseModalForm>();
             services.AddTransient<Forms.Landlord.LandlordRoomForm>();
             services.AddTransient<Forms.Landlord.LandlordRoomModalForm>();
+            services.AddTransient<Forms.Landlord.LandlordAssignmentForm>();
             services.AddTransient<Forms.Landlord.LandlordContractForm>();
             services.AddTransient<Forms.Landlord.LandlordAppointmentForm>();
             services.AddTransient<Forms.Landlord.LandlordPostForm>();

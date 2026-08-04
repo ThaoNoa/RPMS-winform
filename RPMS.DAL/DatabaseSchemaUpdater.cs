@@ -73,6 +73,31 @@ BEGIN
     BEGIN
         ALTER TABLE Contracts ALTER COLUMN TenantID int NULL;
     END
+
+    IF COL_LENGTH('Contracts', 'PendingMonthlyRent') IS NULL
+        ALTER TABLE Contracts ADD PendingMonthlyRent decimal(18,2) NULL;
+    IF COL_LENGTH('Contracts', 'PendingElectricPrice') IS NULL
+        ALTER TABLE Contracts ADD PendingElectricPrice decimal(18,2) NULL;
+    IF COL_LENGTH('Contracts', 'PendingWaterPrice') IS NULL
+        ALTER TABLE Contracts ADD PendingWaterPrice decimal(18,2) NULL;
+    IF COL_LENGTH('Contracts', 'PendingDeposit') IS NULL
+        ALTER TABLE Contracts ADD PendingDeposit decimal(18,2) NULL;
+    IF COL_LENGTH('Contracts', 'PendingEndDate') IS NULL
+        ALTER TABLE Contracts ADD PendingEndDate date NULL;
+    IF COL_LENGTH('Contracts', 'PendingEditStatus') IS NULL
+        ALTER TABLE Contracts ADD PendingEditStatus nvarchar(20) NULL;
+    IF COL_LENGTH('Contracts', 'PendingEditNote') IS NULL
+        ALTER TABLE Contracts ADD PendingEditNote nvarchar(500) NULL;
+    IF COL_LENGTH('Contracts', 'PendingEditAt') IS NULL
+        ALTER TABLE Contracts ADD PendingEditAt datetime NULL;
+    IF COL_LENGTH('Contracts', 'PreviousMonthlyRent') IS NULL
+        ALTER TABLE Contracts ADD PreviousMonthlyRent decimal(18,2) NULL;
+    IF COL_LENGTH('Contracts', 'PreviousElectricPrice') IS NULL
+        ALTER TABLE Contracts ADD PreviousElectricPrice decimal(18,2) NULL;
+    IF COL_LENGTH('Contracts', 'PreviousWaterPrice') IS NULL
+        ALTER TABLE Contracts ADD PreviousWaterPrice decimal(18,2) NULL;
+    IF COL_LENGTH('Contracts', 'PriceEffectiveDate') IS NULL
+        ALTER TABLE Contracts ADD PriceEffectiveDate datetime NULL;
 END
 ");
         }

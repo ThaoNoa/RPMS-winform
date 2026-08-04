@@ -275,5 +275,185 @@ namespace RPMS.BLL.Services
             await _unitOfWork.SaveChangesAsync();
             return true;
         }
+
+        public async Task<ContractDto> UpdateContractAsync(UpdateContractDto request, int landlordId)
+        {
+            var contract = await _unitOfWork.Contracts.FirstOrDefaultAsync(
+                c => c.ContractID == request.ContractID, "Room.House, Tenant");
+            if (contract == null) throw new NotFoundException("Hợp đồng", request.ContractID);
+            if (contract.Room?.House?.OwnerID != landlordId)
+                throw new BadRequestException("Bạn không có quyền sửa hợp đồng này.");
+            if (contract.Status != "Draft" && contract.Status != "Active")
+                throw new BadRequestException("Chỉ sửa hợp đồng nháp hoặc đang hiệu lực.");
+            if (request.EndDate.Date <= contract.StartDate.Date)
+                throw new BadRequestException("Ngày kết thúc phải sau ngày bắt đầu.");
+            if (request.MonthlyRent <= 0)
+                throw new BadRequestException("Tiền thuê phải lớn hơn 0.");
+            if (request.Deposit < 0 || request.ElectricPrice < 0 || request.WaterPrice < 0)
+                throw new BadRequestException("Số tiền không hợp lệ.");
+            if (string.Equals(contract.PendingEditStatus, "Pending", StringComparison.OrdinalIgnoreCase))
+                throw new BadRequestException("Đang có đề xuất sửa chờ khách xác nhận. Hủy đề xuất cũ trước khi gửi mới.");
+
+            bool hasTenant = contract.TenantID.HasValue && contract.Status == "Active";
+
+            if (!hasTenant)
+            {
+                // Nháp / chưa có khách — sửa ngay
+                ApplyLiveValues(contract, request);
+                contract.UpdatedDate = DateTime.Now;
+                ClearPending(contract);
+                _unitOfWork.Contracts.Update(contract);
+                await _unitOfWork.SaveChangesAsync();
+                return _mapper.Map<ContractDto>(
+                    await _unitOfWork.Contracts.FirstOrDefaultAsync(c => c.ContractID == contract.ContractID, "Room, Tenant"));
+            }
+
+            // Có khách — chờ xác nhận
+            contract.PendingMonthlyRent = request.MonthlyRent;
+            contract.PendingElectricPrice = request.ElectricPrice;
+            contract.PendingWaterPrice = request.WaterPrice;
+            contract.PendingDeposit = request.Deposit;
+            contract.PendingEndDate = request.EndDate.Date;
+            contract.PendingEditStatus = "Pending";
+            contract.PendingEditNote = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim();
+            contract.PendingEditAt = DateTime.Now;
+            contract.UpdatedDate = DateTime.Now;
+            _unitOfWork.Contracts.Update(contract);
+
+            await _unitOfWork.Notifications.AddAsync(new Notification
+            {
+                UserID = contract.TenantID!.Value,
+                Title = "Yêu cầu sửa hợp đồng",
+                Content = $"Chủ nhà đề xuất sửa {contract.ContractCode}: thuê {request.MonthlyRent:N0}đ, điện {request.ElectricPrice:N0}, nước {request.WaterPrice:N0}, hết hạn {request.EndDate:dd/MM/yyyy}. Vui lòng xác nhận hoặc từ chối.",
+                IsRead = false,
+                CreatedDate = DateTime.Now,
+                UpdatedDate = DateTime.Now
+            });
+
+            await _unitOfWork.SaveChangesAsync();
+            return _mapper.Map<ContractDto>(
+                await _unitOfWork.Contracts.FirstOrDefaultAsync(c => c.ContractID == contract.ContractID, "Room, Tenant"));
+        }
+
+        public async Task<bool> ConfirmContractEditAsync(int contractId, int tenantId)
+        {
+            var contract = await _unitOfWork.Contracts.FirstOrDefaultAsync(
+                c => c.ContractID == contractId, "Room.House, Tenant");
+            if (contract == null) throw new NotFoundException("Hợp đồng", contractId);
+            if (contract.TenantID != tenantId)
+                throw new BadRequestException("Bạn không phải khách thuê của hợp đồng này.");
+            if (!string.Equals(contract.PendingEditStatus, "Pending", StringComparison.OrdinalIgnoreCase))
+                throw new BadRequestException("Không có đề xuất sửa đang chờ xác nhận.");
+
+            // Lưu giá cũ trước khi áp dụng
+            contract.PreviousMonthlyRent = contract.MonthlyRent;
+            contract.PreviousElectricPrice = contract.ElectricPrice;
+            contract.PreviousWaterPrice = contract.WaterPrice;
+            contract.PriceEffectiveDate = DateTime.Now;
+
+            if (contract.PendingMonthlyRent.HasValue) contract.MonthlyRent = contract.PendingMonthlyRent.Value;
+            if (contract.PendingElectricPrice.HasValue) contract.ElectricPrice = contract.PendingElectricPrice.Value;
+            if (contract.PendingWaterPrice.HasValue) contract.WaterPrice = contract.PendingWaterPrice.Value;
+            if (contract.PendingDeposit.HasValue) contract.Deposit = contract.PendingDeposit.Value;
+            if (contract.PendingEndDate.HasValue) contract.EndDate = contract.PendingEndDate.Value.Date;
+
+            ClearPending(contract);
+            contract.UpdatedDate = DateTime.Now;
+            _unitOfWork.Contracts.Update(contract);
+
+            int landlordId = contract.Room.House.OwnerID;
+            await _unitOfWork.Notifications.AddAsync(new Notification
+            {
+                UserID = landlordId,
+                Title = "Khách đã xác nhận sửa HĐ",
+                Content = $"Khách thuê đã xác nhận thay đổi hợp đồng {contract.ContractCode}. Giá mới áp dụng từ {contract.PriceEffectiveDate:dd/MM/yyyy HH:mm}.",
+                IsRead = false,
+                CreatedDate = DateTime.Now,
+                UpdatedDate = DateTime.Now
+            });
+
+            await _unitOfWork.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<bool> RejectContractEditAsync(int contractId, int tenantId)
+        {
+            var contract = await _unitOfWork.Contracts.FirstOrDefaultAsync(
+                c => c.ContractID == contractId, "Room.House");
+            if (contract == null) throw new NotFoundException("Hợp đồng", contractId);
+            if (contract.TenantID != tenantId)
+                throw new BadRequestException("Bạn không phải khách thuê của hợp đồng này.");
+            if (!string.Equals(contract.PendingEditStatus, "Pending", StringComparison.OrdinalIgnoreCase))
+                throw new BadRequestException("Không có đề xuất sửa đang chờ xác nhận.");
+
+            ClearPending(contract);
+            contract.UpdatedDate = DateTime.Now;
+            _unitOfWork.Contracts.Update(contract);
+
+            await _unitOfWork.Notifications.AddAsync(new Notification
+            {
+                UserID = contract.Room.House.OwnerID,
+                Title = "Khách từ chối sửa HĐ",
+                Content = $"Khách thuê đã từ chối đề xuất sửa hợp đồng {contract.ContractCode}.",
+                IsRead = false,
+                CreatedDate = DateTime.Now,
+                UpdatedDate = DateTime.Now
+            });
+
+            await _unitOfWork.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<bool> CancelPendingContractEditAsync(int contractId, int landlordId)
+        {
+            var contract = await _unitOfWork.Contracts.FirstOrDefaultAsync(
+                c => c.ContractID == contractId, "Room.House, Tenant");
+            if (contract == null) throw new NotFoundException("Hợp đồng", contractId);
+            if (contract.Room?.House?.OwnerID != landlordId)
+                throw new BadRequestException("Bạn không có quyền hủy đề xuất này.");
+            if (!string.Equals(contract.PendingEditStatus, "Pending", StringComparison.OrdinalIgnoreCase))
+                throw new BadRequestException("Không có đề xuất đang chờ.");
+
+            ClearPending(contract);
+            contract.UpdatedDate = DateTime.Now;
+            _unitOfWork.Contracts.Update(contract);
+
+            if (contract.TenantID.HasValue)
+            {
+                await _unitOfWork.Notifications.AddAsync(new Notification
+                {
+                    UserID = contract.TenantID.Value,
+                    Title = "Chủ nhà hủy đề xuất sửa HĐ",
+                    Content = $"Đề xuất sửa hợp đồng {contract.ContractCode} đã được chủ nhà hủy.",
+                    IsRead = false,
+                    CreatedDate = DateTime.Now,
+                    UpdatedDate = DateTime.Now
+                });
+            }
+
+            await _unitOfWork.SaveChangesAsync();
+            return true;
+        }
+
+        private static void ApplyLiveValues(Contract contract, UpdateContractDto request)
+        {
+            contract.EndDate = request.EndDate.Date;
+            contract.Deposit = request.Deposit;
+            contract.MonthlyRent = request.MonthlyRent;
+            contract.ElectricPrice = request.ElectricPrice;
+            contract.WaterPrice = request.WaterPrice;
+        }
+
+        private static void ClearPending(Contract contract)
+        {
+            contract.PendingMonthlyRent = null;
+            contract.PendingElectricPrice = null;
+            contract.PendingWaterPrice = null;
+            contract.PendingDeposit = null;
+            contract.PendingEndDate = null;
+            contract.PendingEditStatus = null;
+            contract.PendingEditNote = null;
+            contract.PendingEditAt = null;
+        }
     }
 }

@@ -50,7 +50,6 @@ namespace RPMS.WinForms.Forms.Layout
                 case 1: // Admin
                     AddMenuButton("Quản lý người dùng", "UserManagement");
                     AddMenuButton("Quản lý tin đăng", "PostManagement");
-                    AddMenuButton("Phân công Manager", "Assignment");
                     AddMenuButton("Đánh giá", "AdminReviews");
                     AddMenuButton("Nhật ký hệ thống", "ActivityLog");
                     AddMenuButton("Backup DB", "Backup");
@@ -58,6 +57,7 @@ namespace RPMS.WinForms.Forms.Layout
                 case 2: // Landlord
                     AddMenuButton("Nhà của tôi", "LandlordHouse");
                     AddMenuButton("Phòng của tôi", "LandlordRoom");
+                    AddMenuButton("Phân công Manager", "LandlordAssignment");
                     AddMenuButton("Hợp đồng", "LandlordContract");
                     AddMenuButton("Lịch hẹn xem phòng", "LandlordAppointment");
                     AddMenuButton("Đăng tin mới", "LandlordPost");
@@ -128,11 +128,11 @@ namespace RPMS.WinForms.Forms.Layout
                     "Backup" => Program.ServiceProvider.GetRequiredService<Forms.Admin.BackupForm>(),
                     "UserManagement" => Program.ServiceProvider.GetRequiredService<Forms.Admin.UserManagementForm>(),
                     "PostManagement" => Program.ServiceProvider.GetRequiredService<Forms.Admin.PostManagementForm>(),
-                    "Assignment" => Program.ServiceProvider.GetRequiredService<Forms.Admin.AssignmentManagementForm>(),
                     "ActivityLog" => Program.ServiceProvider.GetRequiredService<Forms.Admin.ActivityLogForm>(),
                     "AdminReviews" => Program.ServiceProvider.GetRequiredService<Forms.Admin.ReviewManagementForm>(),
                     "LandlordHouse" => Program.ServiceProvider.GetRequiredService<Forms.Landlord.LandlordHouseForm>(),
                     "LandlordRoom" => Program.ServiceProvider.GetRequiredService<Forms.Landlord.LandlordRoomForm>(),
+                    "LandlordAssignment" => Program.ServiceProvider.GetRequiredService<Forms.Landlord.LandlordAssignmentForm>(),
                     "LandlordContract" => Program.ServiceProvider.GetRequiredService<Forms.Landlord.LandlordContractForm>(),
                     "LandlordReviews" => Program.ServiceProvider.GetRequiredService<Forms.Landlord.LandlordReviewForm>(),
                     "TenantHome" => Program.ServiceProvider.GetRequiredService<Forms.Tenant.TenantHomeForm>(),

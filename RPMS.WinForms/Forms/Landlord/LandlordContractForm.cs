@@ -212,7 +212,26 @@ namespace RPMS.WinForms.Forms.Landlord
                 Width = 110,
                 DefaultCellStyle = new DataGridViewCellStyle { Format = "N0" }
             });
-            dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Status", HeaderText = "TT", Width = 80 });
+            dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Status", HeaderText = "TT", Width = 70 });
+            dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "PendingEditStatus", HeaderText = "Sửa?", Width = 70 });
+            dgv.Columns.Add(new DataGridViewLinkColumn
+            {
+                Name = "EditCol",
+                HeaderText = "",
+                Text = "Sửa",
+                UseColumnTextForLinkValue = true,
+                Width = 50,
+                LinkColor = AppColors.Primary
+            });
+            dgv.Columns.Add(new DataGridViewLinkColumn
+            {
+                Name = "CancelPendingCol",
+                HeaderText = "",
+                Text = "Hủy đề xuất",
+                UseColumnTextForLinkValue = true,
+                Width = 90,
+                LinkColor = AppColors.Warning
+            });
             dgv.Columns.Add(new DataGridViewLinkColumn
             {
                 Name = "AssignCol",
@@ -504,6 +523,28 @@ namespace RPMS.WinForms.Forms.Landlord
                     return;
                 }
 
+                if (col == "EditCol")
+                {
+                    await EditContractAsync(contract);
+                    return;
+                }
+
+                if (col == "CancelPendingCol")
+                {
+                    if (!string.Equals(contract.PendingEditStatus, "Pending", StringComparison.OrdinalIgnoreCase))
+                    {
+                        AppDialog.ShowInfo("Hợp đồng này không có đề xuất sửa đang chờ.");
+                        return;
+                    }
+                    if (!AppDialog.Confirm($"Hủy đề xuất sửa {contract.ContractCode}?"))
+                        return;
+                    await WithServicesAsync(async (_, __, contracts, ___) =>
+                        await contracts.CancelPendingContractEditAsync(contract.ContractID, UserSession.CurrentUser!.UserID));
+                    ToastNotifier.Show(this, "Đã hủy đề xuất sửa", ToastKind.Info);
+                    await WithServicesAsync(async (_, __, contracts, ___) => await BindContractsAsync(contracts));
+                    return;
+                }
+
                 if (col == "AssignCol")
                 {
                     await AssignTenantAsync(contract);
@@ -559,6 +600,135 @@ namespace RPMS.WinForms.Forms.Landlord
                         _uiLoadLock.Release();
                     }
                 }
+            }
+            catch (Exception ex)
+            {
+                AppDialog.ShowError(ex.Message);
+            }
+        }
+
+        private async Task EditContractAsync(ContractDto contract)
+        {
+            if (contract.Status != "Draft" && contract.Status != "Active")
+            {
+                AppDialog.ShowWarning("Chỉ sửa hợp đồng nháp hoặc Active.");
+                return;
+            }
+            if (string.Equals(contract.PendingEditStatus, "Pending", StringComparison.OrdinalIgnoreCase))
+            {
+                AppDialog.ShowWarning("Đang chờ khách xác nhận đề xuất trước. Hãy «Hủy đề xuất» nếu muốn sửa lại.");
+                return;
+            }
+
+            ContractDetailDto detail;
+            try
+            {
+                detail = await WithServicesAsync(async (_, __, contracts, ___) =>
+                    await contracts.GetContractByIdAsync(contract.ContractID));
+            }
+            catch (Exception ex)
+            {
+                AppDialog.ShowError(ex.Message);
+                return;
+            }
+
+            using var dlg = new Form
+            {
+                Text = $"Sửa HĐ {contract.ContractCode}",
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                StartPosition = FormStartPosition.CenterParent,
+                ClientSize = new Size(420, 420),
+                MaximizeBox = false,
+                MinimizeBox = false,
+                BackColor = AppColors.Background
+            };
+
+            int y = 16;
+            Label L(string t) { var l = new Label { Text = t, Location = new Point(16, y), AutoSize = true, ForeColor = AppColors.TextMuted }; dlg.Controls.Add(l); y += 20; return l; }
+            ModernTextBox T(string v) { var tb = new ModernTextBox { Location = new Point(16, y), Size = new Size(380, 32), Text = v }; dlg.Controls.Add(tb); y += 40; return tb; }
+
+            var info = new Label
+            {
+                Text = contract.TenantID.HasValue
+                    ? "Có khách thuê: sau khi lưu sẽ chờ khách xác nhận mới chính thức."
+                    : "Chưa có khách: thay đổi áp dụng ngay.",
+                Location = new Point(16, y),
+                MaximumSize = new Size(380, 0),
+                AutoSize = true,
+                ForeColor = AppColors.Primary
+            };
+            dlg.Controls.Add(info);
+            y += 40;
+
+            L("Ngày kết thúc");
+            var dtpEnd = new DateTimePicker { Location = new Point(16, y), Size = new Size(380, 28), Format = DateTimePickerFormat.Short, Value = detail.EndDate };
+            dlg.Controls.Add(dtpEnd);
+            y += 40;
+            L("Tiền cọc");
+            var txtDep = T(detail.Deposit.ToString("0"));
+            L("Tiền thuê / tháng");
+            var txtRent = T(detail.MonthlyRent.ToString("0"));
+            L("Giá điện / số");
+            var txtEl = T(detail.ElectricPrice.ToString("0"));
+            L("Giá nước / số");
+            var txtWa = T(detail.WaterPrice.ToString("0"));
+            L("Ghi chú (gửi khách)");
+            var txtNote = T("");
+
+            var btnOk = new ModernButton
+            {
+                Text = contract.TenantID.HasValue ? "Gửi đề xuất" : "Lưu ngay",
+                Size = new Size(140, 36),
+                Location = new Point(140, y + 8),
+                BackColor = AppColors.Primary,
+                DialogResult = DialogResult.OK
+            };
+            var btnCancel = new ModernButton
+            {
+                Text = "Đóng",
+                Size = new Size(90, 36),
+                Location = new Point(290, y + 8),
+                BackColor = AppColors.Border,
+                ForeColor = AppColors.TextMain,
+                DialogResult = DialogResult.Cancel
+            };
+            dlg.Controls.Add(btnOk);
+            dlg.Controls.Add(btnCancel);
+            dlg.AcceptButton = btnOk;
+            dlg.CancelButton = btnCancel;
+            dlg.ClientSize = new Size(420, y + 60);
+
+            if (dlg.ShowDialog(this) != DialogResult.OK) return;
+
+            if (!decimal.TryParse(txtDep.Text, out var dep) ||
+                !decimal.TryParse(txtRent.Text, out var rent) ||
+                !decimal.TryParse(txtEl.Text, out var el) ||
+                !decimal.TryParse(txtWa.Text, out var wa) ||
+                rent <= 0)
+            {
+                AppDialog.ShowWarning("Số tiền không hợp lệ.");
+                return;
+            }
+
+            try
+            {
+                await WithServicesAsync(async (_, __, contracts, ___) =>
+                    await contracts.UpdateContractAsync(new UpdateContractDto
+                    {
+                        ContractID = contract.ContractID,
+                        EndDate = dtpEnd.Value.Date,
+                        Deposit = dep,
+                        MonthlyRent = rent,
+                        ElectricPrice = el,
+                        WaterPrice = wa,
+                        Note = txtNote.Text
+                    }, UserSession.CurrentUser!.UserID));
+
+                AppDialog.ShowInfo(contract.TenantID.HasValue
+                    ? "Đã gửi đề xuất sửa. Hợp đồng chỉ đổi sau khi khách xác nhận. Giá mới áp dụng từ ngày xác nhận."
+                    : "Đã cập nhật hợp đồng.");
+                ToastNotifier.Show(this, "Đã lưu thay đổi HĐ", ToastKind.Success);
+                await WithServicesAsync(async (_, __, contracts, ___) => await BindContractsAsync(contracts));
             }
             catch (Exception ex)
             {

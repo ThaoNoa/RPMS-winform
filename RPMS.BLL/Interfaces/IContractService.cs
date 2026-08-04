@@ -14,6 +14,10 @@ namespace RPMS.BLL.Interfaces
         Task<ContractDetailDto> GetContractByIdAsync(int id);
         Task<ContractDto> CreateContractAsync(CreateContractDto request, int createdById);
         Task<ContractDto> AssignTenantAsync(AssignTenantDto request, int actorUserId);
+        Task<ContractDto> UpdateContractAsync(UpdateContractDto request, int landlordId);
+        Task<bool> ConfirmContractEditAsync(int contractId, int tenantId);
+        Task<bool> RejectContractEditAsync(int contractId, int tenantId);
+        Task<bool> CancelPendingContractEditAsync(int contractId, int landlordId);
         Task<bool> TerminateContractAsync(int contractId);
         Task<bool> ExtendContractAsync(int contractId, DateTime newEndDate, int actorUserId);
     }
