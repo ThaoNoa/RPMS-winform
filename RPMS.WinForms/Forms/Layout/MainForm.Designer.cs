@@ -72,46 +72,62 @@ namespace RPMS.WinForms.Forms.Layout
             this.flpMenu.BackColor = AppColors.Sidebar;
             this.flpMenu.Padding = new Padding(0, 10, 0, 10);
 
-            // pnlTopbar
+            // pnlTopbar — TableLayout: Title | User | Logout (không đè)
             this.pnlTopbar.BackColor = AppColors.Card;
             this.pnlTopbar.Dock = DockStyle.Top;
-            this.pnlTopbar.Height = 70;
-            this.pnlTopbar.Controls.Add(this.lblPageTitle);
-            this.pnlTopbar.Controls.Add(this.lblUserInfo);
-            this.pnlTopbar.Controls.Add(this.btnLogout);
+            this.pnlTopbar.Height = 64;
+            this.pnlTopbar.Padding = new Padding(20, 10, 16, 10);
             this.pnlTopbar.Paint += (s, e) =>
             {
                 using (Pen p = new Pen(AppColors.Border, 1))
-                {
                     e.Graphics.DrawLine(p, 0, pnlTopbar.Height - 1, pnlTopbar.Width, pnlTopbar.Height - 1);
-                }
             };
 
+            var topLayout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 3,
+                RowCount = 1,
+                Margin = new Padding(0)
+            };
+            topLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+            topLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            topLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120f));
+            topLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+
             // lblPageTitle
-            this.lblPageTitle.AutoSize = true;
-            this.lblPageTitle.Font = new Font("Segoe UI", 16F, FontStyle.Bold);
+            this.lblPageTitle.AutoSize = false;
+            this.lblPageTitle.Dock = DockStyle.Fill;
+            this.lblPageTitle.Font = new Font("Segoe UI", 15F, FontStyle.Bold);
             this.lblPageTitle.ForeColor = AppColors.TextMain;
-            this.lblPageTitle.Location = new Point(30, 20);
+            this.lblPageTitle.TextAlign = ContentAlignment.MiddleLeft;
             this.lblPageTitle.Text = "Dashboard";
+            this.lblPageTitle.AutoEllipsis = true;
+
+            // lblUserInfo
+            this.lblUserInfo.AutoSize = false;
+            this.lblUserInfo.Dock = DockStyle.Fill;
+            this.lblUserInfo.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
+            this.lblUserInfo.ForeColor = AppColors.TextMuted;
+            this.lblUserInfo.TextAlign = ContentAlignment.MiddleRight;
+            this.lblUserInfo.Padding = new Padding(8, 0, 8, 0);
+            this.lblUserInfo.AutoEllipsis = true;
+            this.lblUserInfo.MinimumSize = new Size(160, 0);
+            this.lblUserInfo.MaximumSize = new Size(320, 0);
 
             // btnLogout
-            this.btnLogout.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            this.btnLogout.Location = new Point(880, 15);
-            this.btnLogout.Size = new Size(100, 40);
+            this.btnLogout.Dock = DockStyle.Fill;
+            this.btnLogout.Margin = new Padding(4, 0, 0, 0);
             this.btnLogout.Text = "Đăng xuất";
             this.btnLogout.BackColor = AppColors.Card;
             this.btnLogout.ForeColor = AppColors.Danger;
-            this.btnLogout.BorderRadius = 4;
+            this.btnLogout.BorderRadius = 6;
             this.btnLogout.Click += new System.EventHandler(this.btnLogout_Click);
 
-            // lblUserInfo
-            this.lblUserInfo.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            this.lblUserInfo.AutoSize = true;
-            this.lblUserInfo.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
-            this.lblUserInfo.ForeColor = AppColors.TextMain;
-            this.lblUserInfo.Location = new Point(650, 25);
-            this.lblUserInfo.TextAlign = ContentAlignment.MiddleRight;
-            this.lblUserInfo.RightToLeft = RightToLeft.Yes;
+            topLayout.Controls.Add(this.lblPageTitle, 0, 0);
+            topLayout.Controls.Add(this.lblUserInfo, 1, 0);
+            topLayout.Controls.Add(this.btnLogout, 2, 0);
+            this.pnlTopbar.Controls.Add(topLayout);
 
             // pnlContent
             this.pnlContent.BackColor = AppColors.Background;

@@ -31,21 +31,36 @@ namespace RPMS.WinForms.Forms.Tenant
 
         private void InitializeUI()
         {
-            UIHelper.ApplyFormStyle(this);
             Text = "Đánh giá sau thuê";
             ClientSize = new Size(1100, 650);
-            MinimumSize = new Size(900, 480);
-            AutoScroll = false;
 
-            var split = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal, SplitterDistance = 280 };
+            var header = UIHelper.CreatePageHeader("Đánh giá sau thuê");
 
-            dgvContracts = new ModernDataGridView { Dock = DockStyle.Fill };
-            dgvContracts.AutoGenerateColumns = false;
-            dgvContracts.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
-            dgvContracts.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "ContractCode", HeaderText = "Mã HĐ", Width = 140 });
-            dgvContracts.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "RoomNumber", HeaderText = "Phòng", Width = 100 });
-            dgvContracts.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Status", HeaderText = "TT", Width = 100 });
-            dgvContracts.Columns.Add(new DataGridViewLinkColumn { Name = "SelectCol", HeaderText = "", Text = "Chọn", UseColumnTextForLinkValue = true, Width = 60 });
+            var split = new SplitContainer
+            {
+                Dock = DockStyle.Fill,
+                Orientation = Orientation.Horizontal,
+                Panel1MinSize = 120,
+                Panel2MinSize = 120
+            };
+            void SafeSplit()
+            {
+                try
+                {
+                    int max = split.Height - split.Panel2MinSize - split.SplitterWidth;
+                    if (max > split.Panel1MinSize)
+                        split.SplitterDistance = Math.Min(300, max);
+                }
+                catch { }
+            }
+            Load += (_, _) => SafeSplit();
+            split.SizeChanged += (_, _) => SafeSplit();
+
+            dgvContracts = new ModernDataGridView();
+            dgvContracts.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "ContractCode", HeaderText = "Mã HĐ", FillWeight = 20 });
+            dgvContracts.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "RoomNumber", HeaderText = "Phòng", FillWeight = 15 });
+            dgvContracts.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Status", HeaderText = "TT", FillWeight = 15 });
+            dgvContracts.Columns.Add(new DataGridViewLinkColumn { Name = "SelectCol", HeaderText = "", Text = "Chọn", UseColumnTextForLinkValue = true, FillWeight = 10 });
             dgvContracts.CellContentClick += (s, e) =>
             {
                 if (e.RowIndex < 0 || dgvContracts.Columns[e.ColumnIndex].Name != "SelectCol") return;
@@ -53,33 +68,60 @@ namespace RPMS.WinForms.Forms.Tenant
                 _selectedContractId = row.ContractID;
                 AppDialog.ShowInfo($"Đã chọn hợp đồng {row.ContractCode} để đánh giá.");
             };
+            UIHelper.ApplyGridFill(dgvContracts);
 
-            var pnlCreate = new Panel { Dock = DockStyle.Bottom, Height = 120, BackColor = AppColors.Card };
-            pnlCreate.Controls.Add(new Label { Text = "Số sao", Location = new Point(20, 20), AutoSize = true });
-            numRating = new NumericUpDown { Location = new Point(80, 18), Minimum = 1, Maximum = 5, Value = 5, Width = 60 };
-            pnlCreate.Controls.Add(numRating);
-            pnlCreate.Controls.Add(new Label { Text = "Nhận xét", Location = new Point(160, 20), AutoSize = true });
-            txtComment = new TextBox { Location = new Point(230, 18), Size = new Size(620, 50), Multiline = true, Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
-            pnlCreate.Controls.Add(txtComment);
-            var btnSubmit = new ModernButton { Text = "Gửi đánh giá", Location = new Point(870, 25), Size = new Size(140, 40), Anchor = AnchorStyles.Top | AnchorStyles.Right };
+            numRating = new NumericUpDown { Minimum = 1, Maximum = 5, Value = 5, Width = 80, Font = AppTypography.Body };
+            txtComment = new TextBox
+            {
+                Multiline = true,
+                Height = 50,
+                Width = 420,
+                Font = AppTypography.Body,
+                BorderStyle = BorderStyle.FixedSingle,
+                Location = new Point(0, 18)
+            };
+
+            var commentField = new Panel
+            {
+                Width = 420,
+                Height = 72,
+                Margin = new Padding(0, 0, AppLayout.FieldGap, 6)
+            };
+            commentField.Controls.Add(new Label
+            {
+                Text = "Nhận xét",
+                Font = AppTypography.Caption,
+                ForeColor = AppColors.TextMuted,
+                AutoSize = true,
+                Location = new Point(0, 0)
+            });
+            commentField.Controls.Add(txtComment);
+
+            var btnSubmit = UIHelper.PrimaryButton("Gửi đánh giá", 140);
+            btnSubmit.Margin = new Padding(0, 28, AppLayout.FieldGap, 6);
             btnSubmit.Click += async (s, e) => await SubmitAsync();
-            pnlCreate.Controls.Add(btnSubmit);
+
+            var createBar = UIHelper.CreateFilterBar();
+            createBar.Controls.Add(UIHelper.CreateLabeledField("Số sao", numRating, 90));
+            createBar.Controls.Add(commentField);
+            createBar.Controls.Add(btnSubmit);
 
             var topPanel = new Panel { Dock = DockStyle.Fill };
             topPanel.Controls.Add(dgvContracts);
-            topPanel.Controls.Add(pnlCreate);
+            topPanel.Controls.Add(createBar);
             split.Panel1.Controls.Add(topPanel);
 
-            dgvReviews = new ModernDataGridView { Dock = DockStyle.Fill };
-            dgvReviews.AutoGenerateColumns = false;
-            dgvReviews.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
-            dgvReviews.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "ContractCode", HeaderText = "HĐ", Width = 120 });
-            dgvReviews.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Rating", HeaderText = "Sao", Width = 50 });
-            dgvReviews.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Comment", HeaderText = "Nhận xét", Width = 320 });
-            dgvReviews.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "LandlordReply", HeaderText = "Phản hồi chủ nhà", Width = 320 });
+            dgvReviews = new ModernDataGridView();
+            dgvReviews.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "ContractCode", HeaderText = "HĐ", FillWeight = 14 });
+            dgvReviews.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Rating", HeaderText = "Sao", FillWeight = 8 });
+            dgvReviews.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Comment", HeaderText = "Nhận xét", FillWeight = 39 });
+            dgvReviews.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "LandlordReply", HeaderText = "Phản hồi chủ nhà", FillWeight = 39 });
+            UIHelper.ApplyGridFill(dgvReviews);
             split.Panel2.Controls.Add(dgvReviews);
 
             Controls.Add(split);
+            Controls.Add(header);
+            UIHelper.WireListPage(this, header, split);
         }
 
         private async System.Threading.Tasks.Task ReloadAsync()

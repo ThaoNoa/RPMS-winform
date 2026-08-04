@@ -3,7 +3,6 @@ using RPMS.BLL.Interfaces;
 using RPMS.Common.Constants;
 using RPMS.Common.Globals;
 using RPMS.DTO.Assignment;
-using RPMS.DTO.House;
 using RPMS.DTO.User;
 using RPMS.WinForms.Controls;
 using RPMS.WinForms.UI;
@@ -15,15 +14,17 @@ using System.Windows.Forms;
 
 namespace RPMS.WinForms.Forms.Landlord
 {
-    /// <summary>Chủ nhà gán Manager theo UserID — không liệt kê tất cả manager.</summary>
+    /// <summary>Chủ nhà gán Manager theo UserID hoặc Username — không liệt kê tất cả manager.</summary>
     public class LandlordAssignmentForm : Form
     {
         private readonly IServiceScopeFactory _scopeFactory;
         private ModernDataGridView dgv = null!;
         private ComboBox cboHouse = null!;
-        private ModernTextBox txtManagerId = null!;
+        private ModernTextBox txtManagerQuery = null!;
         private Label lblManagerPreview = null!;
         private Label lblHint = null!;
+        private ModernButton btnAssign = null!;
+
         private UserDto? _foundManager;
 
         public LandlordAssignmentForm(IServiceScopeFactory scopeFactory)
@@ -35,88 +36,67 @@ namespace RPMS.WinForms.Forms.Landlord
 
         private void InitializeUI()
         {
-            UIHelper.ApplyFormStyle(this);
+            ClientSize = new Size(1100, 680);
             Text = "Phân công quản lý";
-            ClientSize = new Size(1100, 640);
-            MinimumSize = new Size(780, 480);
-            AutoScroll = false;
 
-            var pnlTop = new Panel
-            {
-                Dock = DockStyle.Top,
-                Height = 150,
-                BackColor = AppColors.Card,
-                Padding = new Padding(16)
-            };
-            pnlTop.Paint += (s, e) =>
-            {
-                using var pen = new Pen(AppColors.Border);
-                e.Graphics.DrawLine(pen, 0, pnlTop.Height - 1, pnlTop.Width, pnlTop.Height - 1);
-            };
+            var header = UIHelper.CreatePageHeader("Gán Manager cho nhà của bạn");
 
-            pnlTop.Controls.Add(new Label
-            {
-                Text = "Gán Manager cho nhà của bạn",
-                Font = AppTypography.Heading,
-                ForeColor = AppColors.TextMain,
-                Location = new Point(16, 10),
-                AutoSize = true
-            });
+            var filter = UIHelper.CreateFilterBar();
+
             lblHint = new Label
             {
-                Text = "Nhập UserID của Manager (không hiện danh sách toàn hệ thống).",
-                Font = new Font("Segoe UI", 9F),
+                Text = "Nhập UserID hoặc Username của Manager → Tìm → chọn nhà → Gán.",
+                Font = AppTypography.Caption,
                 ForeColor = AppColors.TextMuted,
-                Location = new Point(16, 42),
-                AutoSize = true
+                AutoSize = true,
+                MaximumSize = new Size(1000, 0),
+                Margin = new Padding(0, 4, AppLayout.FieldGap, 8)
             };
-            pnlTop.Controls.Add(lblHint);
+            filter.Controls.Add(lblHint);
 
-            var tbl = new TableLayoutPanel
+            cboHouse = new ComboBox();
+            UIHelper.StyleCombo(cboHouse);
+            filter.Controls.Add(UIHelper.CreateLabeledField("Nhà", cboHouse, 320));
+
+            txtManagerQuery = new ModernTextBox
             {
-                Location = new Point(16, 70),
-                Height = 64,
-                ColumnCount = 6,
-                RowCount = 1,
-                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
+                PlaceholderText = "VD: 4 hoặc manager"
             };
-            tbl.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 40));
-            tbl.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 35f));
-            tbl.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 90));
-            tbl.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 100));
-            tbl.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 90));
-            tbl.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 40f));
+            txtManagerQuery.InputKeyDown += async (s, e) =>
+            {
+                if (e.KeyCode == Keys.Enter)
+                {
+                    e.SuppressKeyPress = true;
+                    await FindManagerAsync();
+                }
+            };
+            filter.Controls.Add(UIHelper.CreateLabeledField("Manager (UserID hoặc Username)", txtManagerQuery, 220));
 
-            cboHouse = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
-            txtManagerId = new ModernTextBox { Dock = DockStyle.Fill, PlaceholderText = "VD: 4" };
-            var btnFind = new ModernButton { Text = "Tìm", Size = new Size(80, 34), BackColor = AppColors.TextMuted, Margin = new Padding(4, 2, 0, 0) };
+            var btnFind = UIHelper.SecondaryButton("Tìm", 90);
+            btnFind.Margin = new Padding(0, 18, AppLayout.FieldGap, 6);
             btnFind.Click += async (s, e) => await FindManagerAsync();
-            var btnAssign = new ModernButton { Text = "Gán", Size = new Size(80, 34), BackColor = AppColors.Primary, Margin = new Padding(4, 2, 0, 0) };
-            btnAssign.Click += async (s, e) => await AssignAsync();
+            filter.Controls.Add(btnFind);
+
             lblManagerPreview = new Label
             {
                 Text = "Chưa chọn Manager",
-                Dock = DockStyle.Fill,
-                TextAlign = ContentAlignment.MiddleLeft,
+                Font = AppTypography.Body,
                 ForeColor = AppColors.TextMuted,
-                Padding = new Padding(8, 0, 0, 0)
+                AutoSize = true,
+                MaximumSize = new Size(280, 40),
+                AutoEllipsis = true,
+                Margin = new Padding(0, 22, AppLayout.FieldGap, 6)
             };
+            filter.Controls.Add(lblManagerPreview);
 
-            tbl.Controls.Add(new Label { Text = "Nhà", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, ForeColor = AppColors.TextMuted }, 0, 0);
-            tbl.Controls.Add(cboHouse, 1, 0);
-            tbl.Controls.Add(new Label { Text = "Manager ID", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, ForeColor = AppColors.TextMuted, Padding = new Padding(8, 0, 0, 0) }, 2, 0);
-            tbl.Controls.Add(txtManagerId, 3, 0);
-            var flp = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight, WrapContents = false };
-            flp.Controls.Add(btnFind);
-            flp.Controls.Add(btnAssign);
-            tbl.Controls.Add(flp, 4, 0);
-            tbl.Controls.Add(lblManagerPreview, 5, 0);
-            pnlTop.Controls.Add(tbl);
-            pnlTop.Resize += (s, e) => tbl.Width = Math.Max(500, pnlTop.ClientSize.Width - 32);
+            btnAssign = UIHelper.PrimaryButton("Gán Manager", 150);
+            btnAssign.Margin = new Padding(0, 18, 0, 6);
+            btnAssign.Click += async (s, e) => await AssignAsync();
+            filter.Controls.Add(btnAssign);
 
-            dgv = new ModernDataGridView { Dock = DockStyle.Fill };
-            dgv.AutoGenerateColumns = false;
-            dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "HouseName", HeaderText = "Nhà", FillWeight = 20 });
+            dgv = new ModernDataGridView();
+            UIHelper.ApplyGridFill(dgv);
+            dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "HouseName", HeaderText = "Nhà", FillWeight = 18 });
             dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "HouseAddress", HeaderText = "Địa chỉ", FillWeight = 28 });
             dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "ManagerName", HeaderText = "Manager", FillWeight = 16 });
             dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "ManagerID", HeaderText = "ID", FillWeight = 8 });
@@ -139,9 +119,28 @@ namespace RPMS.WinForms.Forms.Landlord
             });
             dgv.CellContentClick += async (s, e) => await DgvClickAsync(e);
 
-            Controls.Add(dgv);
-            Controls.Add(pnlTop);
-            UIHelper.WireListPage(this, pnlTop, dgv);
+            // Composite top: header + wrapping filter so "Gán Manager" never clips off-screen
+            var pageTop = new TableLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                ColumnCount = 1,
+                RowCount = 2,
+                BackColor = AppColors.Card,
+                Margin = new Padding(0),
+                Padding = new Padding(0)
+            };
+            pageTop.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+            pageTop.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            pageTop.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+            header.Dock = DockStyle.Fill;
+            filter.Dock = DockStyle.Fill;
+            pageTop.Controls.Add(header, 0, 0);
+            pageTop.Controls.Add(filter, 0, 1);
+
+            UIHelper.WirePage(this, dgv, pageTop);
         }
 
         private async Task LoadAllAsync()
@@ -166,11 +165,14 @@ namespace RPMS.WinForms.Forms.Landlord
                 cboHouse.DisplayMember = nameof(HousePick.Display);
                 cboHouse.ValueMember = nameof(HousePick.HouseID);
                 cboHouse.DataSource = houseList;
+                if (houseList.Count > 0)
+                    cboHouse.SelectedIndex = 0;
 
                 dgv.DataSource = (await assignments.GetByLandlordAsync(landlordId)).ToList();
                 lblHint.Text = houseList.Count == 0
                     ? "Bạn chưa có nhà — tạo nhà trước rồi gán Manager."
-                    : "Nhập UserID Manager → Tìm → Gán. Chỉ nhà của bạn được liệt kê.";
+                    : "Nhập UserID hoặc Username Manager → Tìm → chọn nhà → Gán. Demo: ID 4 / username manager.";
+                btnAssign.Enabled = houseList.Count > 0;
             }
             catch (Exception ex)
             {
@@ -184,9 +186,10 @@ namespace RPMS.WinForms.Forms.Landlord
             lblManagerPreview.Text = "Đang tìm…";
             lblManagerPreview.ForeColor = AppColors.TextMuted;
 
-            if (!int.TryParse(txtManagerId.Text.Trim(), out int id) || id <= 0)
+            string query = txtManagerQuery.Text.Trim();
+            if (string.IsNullOrWhiteSpace(query))
             {
-                lblManagerPreview.Text = "UserID không hợp lệ";
+                lblManagerPreview.Text = "Nhập UserID hoặc Username";
                 lblManagerPreview.ForeColor = AppColors.Danger;
                 return;
             }
@@ -195,22 +198,44 @@ namespace RPMS.WinForms.Forms.Landlord
             {
                 using var scope = _scopeFactory.CreateScope();
                 var users = scope.ServiceProvider.GetRequiredService<IUserService>();
-                var user = await users.GetUserByIdAsync(id);
+                UserDto? user = null;
+
+                if (int.TryParse(query, out int id) && id > 0)
+                {
+                    try { user = await users.GetUserByIdAsync(id); }
+                    catch { /* not found */ }
+                }
+
+                if (user == null)
+                {
+                    user = (await users.GetUsersByRoleAsync(4))
+                        .FirstOrDefault(u =>
+                            string.Equals(u.Username, query, StringComparison.OrdinalIgnoreCase)
+                            || string.Equals(u.FullName, query, StringComparison.OrdinalIgnoreCase));
+                }
+
+                if (user == null)
+                {
+                    lblManagerPreview.Text = $"Không tìm thấy Manager: {query}";
+                    lblManagerPreview.ForeColor = AppColors.Danger;
+                    return;
+                }
+
                 if (user.RoleID != 4 && !string.Equals(user.RoleName, "Manager", StringComparison.OrdinalIgnoreCase))
                 {
-                    lblManagerPreview.Text = $"#{id} không phải Manager (Role: {user.RoleName})";
+                    lblManagerPreview.Text = $"#{user.UserID} không phải Manager (Role: {user.RoleName})";
                     lblManagerPreview.ForeColor = AppColors.Danger;
                     return;
                 }
                 if (!string.Equals(user.Status, "Active", StringComparison.OrdinalIgnoreCase))
                 {
-                    lblManagerPreview.Text = $"Manager #{id} không Active";
+                    lblManagerPreview.Text = $"Manager #{user.UserID} không Active";
                     lblManagerPreview.ForeColor = AppColors.Danger;
                     return;
                 }
 
                 _foundManager = user;
-                lblManagerPreview.Text = $"✓ {user.FullName} — {user.Phone} (ID {user.UserID})";
+                lblManagerPreview.Text = $"✓ {user.FullName} (@{user.Username}) — ID {user.UserID}";
                 lblManagerPreview.ForeColor = AppColors.Success;
             }
             catch (Exception ex)
@@ -229,10 +254,11 @@ namespace RPMS.WinForms.Forms.Landlord
             }
             if (_foundManager == null)
             {
-                AppDialog.ShowWarning("Hãy tìm Manager theo ID trước khi gán.");
+                AppDialog.ShowWarning("Hãy tìm Manager (UserID hoặc Username) trước khi gán.");
                 return;
             }
 
+            btnAssign.Enabled = false;
             try
             {
                 using var scope = _scopeFactory.CreateScope();
@@ -243,12 +269,16 @@ namespace RPMS.WinForms.Forms.Landlord
                     ManagerID = _foundManager.UserID
                 }, UserSession.CurrentUser!.UserID);
                 ToastNotifier.Show(this, "Đã gán Manager", ToastKind.Success);
-                AppDialog.ShowInfo($"Đã gán {_foundManager.FullName} cho nhà {house.Display}.");
+                AppDialog.ShowInfo($"Đã gán {_foundManager.FullName} cho nhà:\n{house.Display}");
                 await LoadAllAsync();
             }
             catch (Exception ex)
             {
                 AppDialog.ShowError(ex.Message);
+            }
+            finally
+            {
+                btnAssign.Enabled = cboHouse.Items.Count > 0;
             }
         }
 
@@ -256,7 +286,7 @@ namespace RPMS.WinForms.Forms.Landlord
         {
             if (e.RowIndex < 0 || dgv.Columns[e.ColumnIndex].Name != "DeactivateCol") return;
             if (dgv.Rows[e.RowIndex].DataBoundItem is not AssignmentDto item) return;
-            if (item.Status != "Active") return;
+            if (!string.Equals(item.Status, "Active", StringComparison.OrdinalIgnoreCase)) return;
             if (!AppDialog.Confirm($"Ngưng {item.ManagerName} — {item.HouseName}?")) return;
 
             try

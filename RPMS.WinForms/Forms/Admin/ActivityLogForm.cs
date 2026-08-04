@@ -1,5 +1,4 @@
 using RPMS.BLL.Interfaces;
-using RPMS.Common.Constants;
 using RPMS.WinForms.Controls;
 using RPMS.WinForms.UI;
 using System;
@@ -23,47 +22,30 @@ namespace RPMS.WinForms.Forms.Admin
 
         private void InitializeUI()
         {
-            UIHelper.ApplyFormStyle(this);
             Text = "Nhật ký hệ thống";
             ClientSize = new Size(1050, 620);
 
-            var pnlTop = new Panel { Dock = DockStyle.Top, Height = 56, BackColor = AppColors.Card };
-            pnlTop.Controls.Add(new Label
-            {
-                Text = "Activity Log",
-                Font = AppTypography.Heading,
-                Location = new Point(20, 16),
-                AutoSize = true,
-                ForeColor = AppColors.TextMain
-            });
-            var btnRefresh = new ModernButton
-            {
-                Text = "Làm mới",
-                Location = new Point(900, 12),
-                Size = new Size(110, 34),
-                Anchor = AnchorStyles.Top | AnchorStyles.Right
-            };
+            var btnRefresh = UIHelper.SecondaryButton("Làm mới");
             btnRefresh.Click += async (s, e) => await LoadDataAsync();
-            pnlTop.Controls.Add(btnRefresh);
+            var header = UIHelper.CreatePageHeader("Activity Log", btnRefresh);
 
-            dgv = new ModernDataGridView { Dock = DockStyle.Fill };
-            dgv.AutoGenerateColumns = false;
-            dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "LogID", HeaderText = "ID", Width = 60 });
-            dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "UserName", HeaderText = "Người dùng", Width = 160 });
-            dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Action", HeaderText = "Hành động", Width = 140 });
-            dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Details", HeaderText = "Chi tiết", Width = 420 });
+            dgv = new ModernDataGridView();
+            dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "LogID", HeaderText = "ID", FillWeight = 6 });
+            dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "UserName", HeaderText = "Người dùng", FillWeight = 16 });
+            dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Action", HeaderText = "Hành động", FillWeight = 14 });
+            dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Details", HeaderText = "Chi tiết", FillWeight = 42 });
             dgv.Columns.Add(new DataGridViewTextBoxColumn
             {
                 DataPropertyName = "CreatedDate",
                 HeaderText = "Thời gian",
-                Width = 150,
+                FillWeight = 16,
                 DefaultCellStyle = new DataGridViewCellStyle { Format = "dd/MM/yyyy HH:mm" }
             });
 
             Controls.Add(dgv);
-            Controls.Add(pnlTop);
-            UIHelper.WireListPage(this, pnlTop, dgv);
-            MinimumSize = new Size(700, 480);
+            Controls.Add(header);
+            UIHelper.WireListPage(this, header, dgv);
+            UIHelper.ApplyGridFill(dgv);
         }
 
         private async System.Threading.Tasks.Task LoadDataAsync()

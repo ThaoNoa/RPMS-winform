@@ -15,8 +15,7 @@ namespace RPMS.WinForms.Forms.Shared
     {
         private readonly IReportService _reportService;
         private FlowLayoutPanel flpCards = null!;
-        private Panel pnlBody = null!;
-        private Label lblTitle = null!;
+        private FlowLayoutPanel flpSections = null!;
 
         public ReportForm(IReportService reportService)
         {
@@ -32,39 +31,54 @@ namespace RPMS.WinForms.Forms.Shared
             ClientSize = new Size(1100, 700);
             AutoScroll = false;
 
-            var pnlTop = new Panel { Dock = DockStyle.Top, Height = 70, BackColor = AppColors.Card };
-            lblTitle = new Label
-            {
-                Text = "Báo cáo tổng hợp",
-                Font = AppTypography.Heading,
-                Location = new Point(20, 20),
-                AutoSize = true,
-                ForeColor = AppColors.TextMain
-            };
-            var btnCsv = new ModernButton { Text = "Xuất Excel (CSV)", Location = new Point(700, 16), Size = new Size(160, 36), Anchor = AnchorStyles.Top | AnchorStyles.Right };
+            var btnCsv = UIHelper.PrimaryButton("Xuất Excel (CSV)", 160);
             btnCsv.Click += async (s, e) => await ExportCsvAsync();
-            var btnHtml = new ModernButton { Text = "Xuất PDF/HTML", Location = new Point(880, 16), Size = new Size(150, 36), BackColor = AppColors.Success, Anchor = AnchorStyles.Top | AnchorStyles.Right };
+            var btnHtml = UIHelper.PrimaryButton("Xuất PDF/HTML", 150);
+            btnHtml.BackColor = AppColors.Success;
             btnHtml.Click += async (s, e) => await ExportHtmlAsync();
-            pnlTop.Controls.AddRange(new Control[] { lblTitle, btnCsv, btnHtml });
 
-            var pnlScroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = AppColors.Background };
+            var header = UIHelper.CreatePageHeader("Báo cáo tổng hợp", btnCsv, btnHtml);
+
+            var pnlScroll = new Panel
+            {
+                Dock = DockStyle.Fill,
+                AutoScroll = true,
+                BackColor = AppColors.Background
+            };
 
             flpCards = new FlowLayoutPanel
             {
                 Dock = DockStyle.Top,
                 AutoSize = true,
                 WrapContents = true,
-                Padding = new Padding(12),
+                Padding = new Padding(AppLayout.PagePadding),
                 AutoScroll = false,
                 BackColor = AppColors.Background
             };
-            pnlBody = new Panel { Dock = DockStyle.Top, AutoScroll = true, Padding = new Padding(16), MinimumSize = new Size(0, 320), BackColor = AppColors.Background };
 
-            pnlScroll.Controls.Add(pnlBody);
+            flpSections = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                FlowDirection = FlowDirection.TopDown,
+                WrapContents = false,
+                Padding = new Padding(AppLayout.PagePadding),
+                BackColor = AppColors.Background
+            };
+            flpSections.Resize += (s, e) => SyncSectionWidths();
+
+            pnlScroll.Controls.Add(flpSections);
             pnlScroll.Controls.Add(flpCards);
 
             Controls.Add(pnlScroll);
-            Controls.Add(pnlTop);
+            Controls.Add(header);
+        }
+
+        private void SyncSectionWidths()
+        {
+            int w = Math.Max(400, flpSections.ClientSize.Width - 8);
+            foreach (Control c in flpSections.Controls)
+                c.Width = w;
         }
 
         private async System.Threading.Tasks.Task LoadReportAsync()
@@ -82,12 +96,12 @@ namespace RPMS.WinForms.Forms.Shared
                 flpCards.Controls.Add(new SummaryCard { Title = "HĐ Active", Value = report.ActiveContracts.ToString(), ThemeColor = AppColors.Warning });
                 flpCards.Controls.Add(new SummaryCard { Title = "Tỷ lệ thuê", Value = report.OccupancyRate.ToString("0.0") + "%", ThemeColor = AppColors.Danger });
 
-                pnlBody.Controls.Clear();
-                int y = 10;
-                y = AddSection(pnlBody, "Doanh thu 6 tháng", report.RevenueByMonth.Select(x => $"Tháng {x.Month}: {x.Total:N0} đ"), y);
-                y = AddSection(pnlBody, "Top phòng", report.TopRooms.Select(x => $"{x.Name}: {x.Count} HĐ"), y);
-                y = AddSection(pnlBody, "Top chủ nhà", report.TopLandlords.Select(x => $"{x.Name}: {x.Count} phòng"), y);
-                AddSection(pnlBody, "Top người thuê", report.TopTenants.Select(x => $"{x.Name}: {x.Amount:N0} đ/tháng"), y);
+                flpSections.Controls.Clear();
+                AddSection(flpSections, "Doanh thu 6 tháng", report.RevenueByMonth.Select(x => $"Tháng {x.Month}: {x.Total:N0} đ"));
+                AddSection(flpSections, "Top phòng", report.TopRooms.Select(x => $"{x.Name}: {x.Count} HĐ"));
+                AddSection(flpSections, "Top chủ nhà", report.TopLandlords.Select(x => $"{x.Name}: {x.Count} phòng"));
+                AddSection(flpSections, "Top người thuê", report.TopTenants.Select(x => $"{x.Name}: {x.Amount:N0} đ/tháng"));
+                SyncSectionWidths();
             }
             catch (Exception ex)
             {
@@ -95,14 +109,13 @@ namespace RPMS.WinForms.Forms.Shared
             }
         }
 
-        private static int AddSection(Control parent, string title, System.Collections.Generic.IEnumerable<string> lines, int y)
+        private static void AddSection(FlowLayoutPanel parent, string title, System.Collections.Generic.IEnumerable<string> lines)
         {
             var box = new Label
             {
                 Text = title + "\n\n" + string.Join("\n", lines.DefaultIfEmpty("(không có dữ liệu)")),
-                Location = new Point(20, y),
-                Size = new Size(Math.Max(400, parent.ClientSize.Width - 56), 140),
-                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
+                Size = new Size(Math.Max(400, parent.ClientSize.Width - 8), 140),
+                Margin = new Padding(0, 0, 0, 12),
                 BackColor = AppColors.Card,
                 Padding = new Padding(12),
                 ForeColor = AppColors.TextMain,
@@ -110,7 +123,6 @@ namespace RPMS.WinForms.Forms.Shared
                 BorderStyle = BorderStyle.FixedSingle
             };
             parent.Controls.Add(box);
-            return y + 150;
         }
 
         private async System.Threading.Tasks.Task ExportCsvAsync()

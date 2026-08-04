@@ -23,7 +23,7 @@ namespace RPMS.DAL.Configurations
                 .HasForeignKey(a => a.TenantID)
                 .OnDelete(DeleteBehavior.Restrict)
                 .HasConstraintName("FK_Appointments_Tenant");
-            builder.HasCheckConstraint("CK_Appointments_Status", "[Status] IN (N'Pending', N'Accepted', N'Rejected', N'Cancelled')");
+            builder.HasCheckConstraint("CK_Appointments_Status", "[Status] IN (N'Pending', N'Accepted', N'Rejected', N'Completed', N'Cancelled')");
             builder.HasIndex(a => a.RoomID);
             builder.HasIndex(a => a.TenantID);
             builder.HasIndex(a => a.Status);

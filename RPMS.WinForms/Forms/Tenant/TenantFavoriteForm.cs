@@ -4,7 +4,6 @@ using RPMS.Common.Constants;
 using RPMS.Common.Globals;
 using RPMS.DTO.Tenant;
 using RPMS.WinForms.Controls;
-using RPMS.WinForms.Forms.Tenant;
 using RPMS.WinForms.UI;
 using System;
 using System.Drawing;
@@ -27,42 +26,32 @@ namespace RPMS.WinForms.Forms.Tenant
 
         private void InitializeUI()
         {
-            UIHelper.ApplyFormStyle(this);
             Text = "Phòng yêu thích";
             ClientSize = new Size(1000, 600);
 
-            var pnlTop = new Panel { Dock = DockStyle.Top, Height = 60, BackColor = AppColors.Card };
-            pnlTop.Controls.Add(new Label
-            {
-                Text = "Danh sách yêu thích",
-                Font = AppTypography.Heading,
-                ForeColor = AppColors.TextMain,
-                Location = new Point(20, 18),
-                AutoSize = true
-            });
+            var header = UIHelper.CreatePageHeader("Danh sách yêu thích");
 
-            dgv = new ModernDataGridView { Dock = DockStyle.Fill };
-            dgv.AutoGenerateColumns = false;
-            dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "RoomNumber", HeaderText = "Phòng", Width = 90 });
-            dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "HouseName", HeaderText = "Nhà", Width = 160 });
-            dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "HouseAddress", HeaderText = "Địa chỉ", Width = 240 });
+            dgv = new ModernDataGridView();
+            dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "RoomNumber", HeaderText = "Phòng", FillWeight = 10 });
+            dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "HouseName", HeaderText = "Nhà", FillWeight = 16 });
+            dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "HouseAddress", HeaderText = "Địa chỉ", FillWeight = 24 });
             dgv.Columns.Add(new DataGridViewTextBoxColumn
             {
                 DataPropertyName = "Price",
                 HeaderText = "Giá",
-                Width = 110,
+                FillWeight = 12,
                 DefaultCellStyle = new DataGridViewCellStyle { Format = "N0" }
             });
-            dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Area", HeaderText = "Diện tích", Width = 80 });
-            dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Status", HeaderText = "Trạng thái", Width = 100 });
-            dgv.Columns.Add(new DataGridViewLinkColumn { Name = "BookCol", HeaderText = "", Text = "Đặt lịch", UseColumnTextForLinkValue = true, Width = 80 });
-            dgv.Columns.Add(new DataGridViewLinkColumn { Name = "RemoveCol", HeaderText = "", Text = "Xóa", UseColumnTextForLinkValue = true, Width = 60, LinkColor = AppColors.Danger });
+            dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Area", HeaderText = "Diện tích", FillWeight = 10 });
+            dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Status", HeaderText = "Trạng thái", FillWeight = 10 });
+            dgv.Columns.Add(new DataGridViewLinkColumn { Name = "BookCol", HeaderText = "", Text = "Đặt lịch", UseColumnTextForLinkValue = true, FillWeight = 9 });
+            dgv.Columns.Add(new DataGridViewLinkColumn { Name = "RemoveCol", HeaderText = "", Text = "Xóa", UseColumnTextForLinkValue = true, FillWeight = 7, LinkColor = AppColors.Danger });
             dgv.CellContentClick += Dgv_CellContentClick!;
 
             Controls.Add(dgv);
-            Controls.Add(pnlTop);
-            UIHelper.WireListPage(this, pnlTop, dgv);
-            MinimumSize = new Size(700, 480);
+            Controls.Add(header);
+            UIHelper.WireListPage(this, header, dgv);
+            UIHelper.ApplyGridFill(dgv);
         }
 
         private async System.Threading.Tasks.Task LoadDataAsync()

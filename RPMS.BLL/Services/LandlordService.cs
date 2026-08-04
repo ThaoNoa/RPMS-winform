@@ -46,8 +46,10 @@ namespace RPMS.BLL.Services
                 RoomID = a.RoomID,
                 TenantID = a.TenantID,
                 AppointmentDate = a.AppointmentDate,
-                Note = a.Note,
-                Status = a.Status
+                Note = a.Note ?? "",
+                Status = a.Status,
+                RoomNumber = a.Room?.RoomNumber ?? "",
+                TenantName = a.Tenant?.FullName ?? ""
             });
         }
 
@@ -82,19 +84,43 @@ namespace RPMS.BLL.Services
 
         public async Task<bool> UpdateAppointmentStatusAsync(int appointmentId, string status)
         {
-            var app = await _unitOfWork.Appointments.GetByIdAsync(appointmentId);
+            var app = await _unitOfWork.Appointments.FirstOrDefaultAsync(
+                a => a.AppointmentID == appointmentId, "Room.House,Tenant");
             if (app == null) throw new NotFoundException("Lịch hẹn", appointmentId);
+
+            string[] allowed = { "Pending", "Accepted", "Rejected", "Cancelled", "Completed" };
+            if (!allowed.Contains(status, StringComparer.OrdinalIgnoreCase))
+                throw new BadRequestException("Trạng thái lịch hẹn không hợp lệ.");
 
             app.Status = status;
             app.UpdatedDate = DateTime.Now;
             _unitOfWork.Appointments.Update(app);
 
+            string statusVi = status switch
+            {
+                "Accepted" => "Đã xác nhận",
+                "Rejected" => "Đã từ chối",
+                "Completed" => "Đã hoàn thành",
+                "Cancelled" => "Đã hủy",
+                "Pending" => "Chờ xác nhận",
+                _ => status
+            };
+            string roomNo = app.Room?.RoomNumber ?? $"#{app.RoomID}";
+            string houseName = app.Room?.House?.HouseName ?? "nhà trọ";
+
             await _unitOfWork.Notifications.AddAsync(new Notification
             {
                 UserID = app.TenantID,
-                Title = "Cập nhật lịch hẹn",
-                Content = $"Lịch hẹn xem phòng của bạn vào {app.AppointmentDate:dd/MM} đã được chuyển sang trạng thái: {status}",
-                CreatedDate = DateTime.Now
+                Title = status == "Accepted"
+                    ? "Lịch hẹn đã được xác nhận"
+                    : status == "Rejected"
+                        ? "Lịch hẹn đã bị từ chối"
+                        : "Cập nhật lịch hẹn",
+                Content = $"Lịch xem phòng {roomNo} ({houseName}) lúc {app.AppointmentDate:dd/MM/yyyy HH:mm} — trạng thái: {statusVi}."
+                    + (string.IsNullOrWhiteSpace(app.Note) ? "" : $" Ghi chú của bạn: {app.Note}"),
+                IsRead = false,
+                CreatedDate = DateTime.Now,
+                UpdatedDate = DateTime.Now
             });
 
             await _unitOfWork.SaveChangesAsync();

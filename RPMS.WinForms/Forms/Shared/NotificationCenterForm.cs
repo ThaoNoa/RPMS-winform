@@ -8,69 +8,44 @@ using RPMS.WinForms.UI;
 using System;
 using System.Drawing;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace RPMS.WinForms.Forms.Shared
 {
     public class NotificationCenterForm : Form
     {
-        private readonly INotificationService _notificationService;
+        private readonly IServiceScopeFactory _scopeFactory;
         private ModernDataGridView dgv = null!;
         private ModernTextBox txtSearch = null!;
         private ComboBox cboFilter = null!;
         private Label lblUnread = null!;
 
-        public NotificationCenterForm(INotificationService notificationService)
+        public NotificationCenterForm(IServiceScopeFactory scopeFactory)
         {
-            _notificationService = notificationService;
+            _scopeFactory = scopeFactory;
             InitializeUI();
             Load += async (s, e) => await LoadDataAsync();
+            Activated += async (s, e) => await LoadDataAsync();
         }
 
         private void InitializeUI()
         {
-            UIHelper.ApplyFormStyle(this);
             Text = "Trung tâm thông báo";
             ClientSize = new Size(1000, 620);
-            AutoScroll = false;
 
-            var pnlTop = new Panel { Dock = DockStyle.Top, Height = 70, BackColor = AppColors.Card };
-            lblUnread = new Label
-            {
-                Text = "Thông báo",
-                Font = AppTypography.Heading,
-                ForeColor = AppColors.TextMain,
-                Location = new Point(20, 20),
-                AutoSize = true
-            };
+            var btnRefresh = UIHelper.SecondaryButton("Làm mới", 110);
+            btnRefresh.Click += async (s, e) => await LoadDataAsync();
 
-            txtSearch = new ModernTextBox { Location = new Point(280, 18), Size = new Size(220, 35), Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
-            cboFilter = new ComboBox
-            {
-                Location = new Point(520, 20),
-                Size = new Size(140, 28),
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                Anchor = AnchorStyles.Top | AnchorStyles.Right
-            };
-            cboFilter.Items.AddRange(new object[] { "Tất cả", "Chưa đọc", "Đã đọc" });
-            cboFilter.SelectedIndex = 0;
-
-            var btnSearch = new ModernButton { Text = "Lọc", Location = new Point(680, 18), Size = new Size(90, 35), Anchor = AnchorStyles.Top | AnchorStyles.Right };
-            btnSearch.Click += async (s, e) => await LoadDataAsync();
-
-            var btnMarkAll = new ModernButton
-            {
-                Text = "Đọc tất cả",
-                Location = new Point(780, 18),
-                Size = new Size(110, 35),
-                BackColor = AppColors.Success,
-                Anchor = AnchorStyles.Top | AnchorStyles.Right
-            };
+            var btnMarkAll = UIHelper.PrimaryButton("Đọc tất cả", 120);
+            btnMarkAll.BackColor = AppColors.Success;
             btnMarkAll.Click += async (s, e) =>
             {
                 try
                 {
-                    await _notificationService.MarkAllAsReadAsync(UserSession.CurrentUser!.UserID);
+                    using var scope = _scopeFactory.CreateScope();
+                    await scope.ServiceProvider.GetRequiredService<INotificationService>()
+                        .MarkAllAsReadAsync(UserSession.CurrentUser!.UserID);
                     await LoadDataAsync();
                 }
                 catch (Exception ex)
@@ -79,32 +54,44 @@ namespace RPMS.WinForms.Forms.Shared
                 }
             };
 
-            pnlTop.Controls.AddRange(new Control[] { lblUnread, txtSearch, cboFilter, btnSearch, btnMarkAll });
+            var header = UIHelper.CreatePageHeader("Thông báo", btnRefresh, btnMarkAll);
+            lblUnread = UIHelper.GetPageHeaderTitle(header);
 
-            dgv = new ModernDataGridView { Dock = DockStyle.Fill };
-            dgv.AutoGenerateColumns = false;
-            dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "NotificationID", HeaderText = "ID", Width = 50 });
-            dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Title", HeaderText = "Tiêu đề", Width = 220 });
-            dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Content", HeaderText = "Nội dung", Width = 360 });
+            txtSearch = new ModernTextBox { PlaceholderText = "Tìm tiêu đề / nội dung" };
+            cboFilter = new ComboBox();
+            UIHelper.StyleCombo(cboFilter);
+            cboFilter.Items.AddRange(new object[] { "Tất cả", "Chưa đọc", "Đã đọc" });
+            cboFilter.SelectedIndex = 0;
+
+            var filterBar = UIHelper.CreateFilterBar();
+            filterBar.Controls.Add(UIHelper.CreateLabeledField("Tìm kiếm", txtSearch, 260));
+            filterBar.Controls.Add(UIHelper.CreateLabeledField("Lọc", cboFilter, 140));
+
+            dgv = new ModernDataGridView();
+            dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "NotificationID", HeaderText = "ID", FillWeight = 6 });
+            dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Title", HeaderText = "Tiêu đề", FillWeight = 20 });
+            dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Content", HeaderText = "Nội dung", FillWeight = 36 });
             dgv.Columns.Add(new DataGridViewTextBoxColumn
             {
                 DataPropertyName = "CreatedDate",
                 HeaderText = "Thời gian",
-                Width = 130,
+                FillWeight = 14,
                 DefaultCellStyle = new DataGridViewCellStyle { Format = "dd/MM/yyyy HH:mm" }
             });
-            dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "IsRead", HeaderText = "Đã đọc", Width = 70 });
-            dgv.Columns.Add(new DataGridViewLinkColumn { Name = "ViewCol", HeaderText = "", Text = "Xem", UseColumnTextForLinkValue = true, Width = 50 });
-            dgv.Columns.Add(new DataGridViewLinkColumn { Name = "ReadCol", HeaderText = "", Text = "Đánh dấu đọc", UseColumnTextForLinkValue = true, Width = 100 });
-            dgv.Columns.Add(new DataGridViewLinkColumn { Name = "DeleteCol", HeaderText = "", Text = "Xóa", UseColumnTextForLinkValue = true, Width = 50, LinkColor = AppColors.Danger });
+            dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "IsRead", HeaderText = "Đã đọc", FillWeight = 8 });
+            dgv.Columns.Add(new DataGridViewLinkColumn { Name = "ViewCol", HeaderText = "", Text = "Xem", UseColumnTextForLinkValue = true, FillWeight = 6 });
+            dgv.Columns.Add(new DataGridViewLinkColumn { Name = "ReadCol", HeaderText = "", Text = "Đánh dấu đọc", UseColumnTextForLinkValue = true, FillWeight = 10 });
+            dgv.Columns.Add(new DataGridViewLinkColumn { Name = "DeleteCol", HeaderText = "", Text = "Xóa", UseColumnTextForLinkValue = true, FillWeight = 6, LinkColor = AppColors.Danger });
             dgv.CellContentClick += Dgv_CellContentClick!;
 
             Controls.Add(dgv);
-            Controls.Add(pnlTop);
-            UIHelper.WireListPage(this, pnlTop, dgv);
+            Controls.Add(filterBar);
+            Controls.Add(header);
+            UIHelper.WireListPage(this, header, dgv);
+            UIHelper.ApplyGridFill(dgv);
         }
 
-        private async System.Threading.Tasks.Task LoadDataAsync()
+        private async Task LoadDataAsync()
         {
             try
             {
@@ -115,14 +102,16 @@ namespace RPMS.WinForms.Forms.Shared
                     _ => null
                 };
 
-                var list = await _notificationService.GetByUserAsync(
+                using var scope = _scopeFactory.CreateScope();
+                var svc = scope.ServiceProvider.GetRequiredService<INotificationService>();
+                var list = await svc.GetByUserAsync(
                     UserSession.CurrentUser!.UserID,
                     isRead,
                     txtSearch.Text);
                 if (IsDisposed) return;
                 dgv.DataSource = list.ToList();
 
-                int unread = await _notificationService.GetUnreadCountAsync(UserSession.CurrentUser.UserID);
+                int unread = await svc.GetUnreadCountAsync(UserSession.CurrentUser.UserID);
                 if (IsDisposed) return;
                 lblUnread.Text = $"Thông báo ({unread} chưa đọc)";
             }
@@ -142,23 +131,26 @@ namespace RPMS.WinForms.Forms.Shared
 
             try
             {
+                using var scope = _scopeFactory.CreateScope();
+                var svc = scope.ServiceProvider.GetRequiredService<INotificationService>();
+
                 if (col == "ViewCol")
                 {
                     if (!item.IsRead)
-                        await _notificationService.MarkAsReadAsync(item.NotificationID);
+                        await svc.MarkAsReadAsync(item.NotificationID);
                     AppDialog.ShowInfo($"{item.Title}\n\n{item.Content}\n\n{item.CreatedDate:dd/MM/yyyy HH:mm}", "Chi tiết thông báo");
                     await LoadDataAsync();
                 }
                 else if (col == "ReadCol")
                 {
-                    await _notificationService.MarkAsReadAsync(item.NotificationID);
+                    await svc.MarkAsReadAsync(item.NotificationID);
                     await LoadDataAsync();
                 }
                 else if (col == "DeleteCol")
                 {
                     if (AppDialog.Confirm("Xóa thông báo này?"))
                     {
-                        await _notificationService.DeleteAsync(item.NotificationID);
+                        await svc.DeleteAsync(item.NotificationID);
                         await LoadDataAsync();
                     }
                 }

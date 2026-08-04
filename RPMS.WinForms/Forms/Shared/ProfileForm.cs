@@ -39,17 +39,38 @@ namespace RPMS.WinForms.Forms.Shared
 
         private void InitializeUI()
         {
-            UIHelper.ApplyFormStyle(this);
-            MinimumSize = new Size(800, 600);
             Text = "Hồ sơ cá nhân";
             ClientSize = new Size(1000, 650);
-            AutoScroll = false;
 
-            var root = new Panel
+            var header = UIHelper.CreatePageHeader("Hồ sơ cá nhân");
+
+            var split = new SplitContainer
             {
                 Dock = DockStyle.Fill,
-                Padding = new Padding(20),
+                Orientation = Orientation.Horizontal,
+                Panel1MinSize = 120,
+                Panel2MinSize = 120,
                 BackColor = AppColors.Background
+            };
+            void SafeSplit()
+            {
+                try
+                {
+                    int max = split.Height - split.Panel2MinSize - split.SplitterWidth;
+                    if (max > split.Panel1MinSize)
+                        split.SplitterDistance = Math.Min(320, max);
+                }
+                catch { }
+            }
+            Load += (_, _) => SafeSplit();
+            split.SizeChanged += (_, _) => SafeSplit();
+
+            var pnlFields = new Panel
+            {
+                Dock = DockStyle.Fill,
+                Padding = new Padding(AppLayout.PagePadding),
+                BackColor = AppColors.Background,
+                AutoScroll = true
             };
 
             var tblTop = new TableLayoutPanel
@@ -100,28 +121,29 @@ namespace RPMS.WinForms.Forms.Shared
             txtConfirmPassword = AddFieldToColumn(tblPwd, ref pwdRow, "Xác nhận mật khẩu mới");
             txtConfirmPassword.UseSystemPasswordChar = true;
 
-            var btnChangePwd = new ModernButton
-            {
-                Text = "Đổi mật khẩu",
-                Size = new Size(160, 38),
-                BackColor = AppColors.Warning,
-                Margin = new Padding(0, 8, 0, 0)
-            };
+            var btnChangePwd = UIHelper.PrimaryButton("Đổi mật khẩu", 160);
+            btnChangePwd.BackColor = AppColors.Warning;
+            btnChangePwd.Margin = new Padding(0, 8, 0, 0);
             btnChangePwd.Click += async (s, e) => await ChangePasswordAsync();
             AddPwdRow(btnChangePwd);
 
-            var btnSave = new ModernButton
-            {
-                Text = "Lưu thông tin",
-                Size = new Size(160, 38),
-                Margin = new Padding(0, 8, 0, 0)
-            };
+            var btnSave = UIHelper.PrimaryButton("Lưu thông tin", 160);
+            btnSave.Margin = new Padding(0, 8, 0, 0);
             btnSave.Click += async (s, e) => await SaveProfileAsync();
             tblProfile.Controls.Add(btnSave, 0, tblProfile.RowCount);
             tblProfile.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
             tblTop.Controls.Add(tblProfile, 0, 0);
             tblTop.Controls.Add(tblPwd, 1, 0);
+            pnlFields.Controls.Add(tblTop);
+            split.Panel1.Controls.Add(pnlFields);
+
+            var pnlGrid = new Panel
+            {
+                Dock = DockStyle.Fill,
+                Padding = new Padding(AppLayout.PagePadding, 8, AppLayout.PagePadding, AppLayout.PagePadding),
+                BackColor = AppColors.Background
+            };
 
             var lblLog = new Label
             {
@@ -130,15 +152,10 @@ namespace RPMS.WinForms.Forms.Shared
                 Dock = DockStyle.Top,
                 AutoSize = true,
                 ForeColor = AppColors.TextMain,
-                Padding = new Padding(0, 16, 0, 8)
+                Padding = new Padding(0, 0, 0, 8)
             };
 
-            dgvLogs = new ModernDataGridView
-            {
-                Dock = DockStyle.Fill,
-                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill
-            };
-            dgvLogs.AutoGenerateColumns = false;
+            dgvLogs = new ModernDataGridView();
             dgvLogs.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Action", HeaderText = "Hành động", FillWeight = 18 });
             dgvLogs.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Details", HeaderText = "Chi tiết", FillWeight = 52 });
             dgvLogs.Columns.Add(new DataGridViewTextBoxColumn
@@ -148,18 +165,15 @@ namespace RPMS.WinForms.Forms.Shared
                 FillWeight = 20,
                 DefaultCellStyle = new DataGridViewCellStyle { Format = "dd/MM/yyyy HH:mm" }
             });
+            UIHelper.ApplyGridFill(dgvLogs);
 
-            var pnlGrid = new Panel
-            {
-                Dock = DockStyle.Fill,
-                Padding = new Padding(0, 4, 0, 0)
-            };
             pnlGrid.Controls.Add(dgvLogs);
+            pnlGrid.Controls.Add(lblLog);
+            split.Panel2.Controls.Add(pnlGrid);
 
-            root.Controls.Add(pnlGrid);
-            root.Controls.Add(lblLog);
-            root.Controls.Add(tblTop);
-            Controls.Add(root);
+            Controls.Add(split);
+            Controls.Add(header);
+            UIHelper.WireListPage(this, header, split);
         }
 
         private static TableLayoutPanel BuildFieldColumn(string heading, out ModernTextBox txt1, out ModernTextBox txt2, out ModernTextBox txt3, out ModernTextBox txt4, params (string label, object? _)[] fields)
@@ -196,13 +210,14 @@ namespace RPMS.WinForms.Forms.Shared
             tbl.Controls.Add(new Label
             {
                 Text = label,
+                Font = AppTypography.Caption,
                 AutoSize = true,
                 ForeColor = AppColors.TextMuted,
                 Margin = new Padding(0, 8, 0, 4)
             }, 0, row);
 
             tbl.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            var txt = new ModernTextBox { Height = 34, Dock = DockStyle.Top, Margin = new Padding(0, 0, 0, 0) };
+            var txt = new ModernTextBox { Height = AppLayout.InputHeight, Dock = DockStyle.Top, Margin = new Padding(0, 0, 0, 0) };
             tbl.Controls.Add(txt, 0, row + 1);
             row += 2;
             return txt;

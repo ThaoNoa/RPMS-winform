@@ -23,6 +23,8 @@ namespace RPMS.WinForms.Forms.Landlord
         private readonly IServiceScopeFactory _scopeFactory;
 
         private ModernDataGridView dgv = null!;
+        private Panel pnlCreate = null!;
+        private FlowLayoutPanel createStack = null!;
         private ComboBox cboHouse = null!;
         private ComboBox cboRoom = null!;
         private ComboBox cboTenant = null!;
@@ -67,160 +69,138 @@ namespace RPMS.WinForms.Forms.Landlord
 
         private void InitializeUI()
         {
-            UIHelper.ApplyFormStyle(this);
-            Text = "Quản lý hợp đồng";
             ClientSize = new Size(1150, 700);
-            AutoScroll = false;
+            Text = "Quản lý hợp đồng";
 
-            var pnlCreate = new Panel
+            var header = UIHelper.CreatePageHeader("Danh sách hợp đồng");
+
+            pnlCreate = UIHelper.CreateSideFormPanel();
+            int fieldW = Math.Max(220, AppLayout.SidePanelWidth - AppLayout.PagePadding * 2 - 24);
+
+            createStack = new FlowLayoutPanel
             {
-                Dock = DockStyle.Right,
-                Width = 360,
-                MinimumSize = new Size(320, 0),
-                BackColor = AppColors.Card,
-                Padding = new Padding(16),
-                AutoScroll = true
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                FlowDirection = FlowDirection.TopDown,
+                WrapContents = false,
+                Padding = new Padding(0),
+                Margin = new Padding(0)
             };
 
-            int y = 16;
-            void AddLabel(string text)
-            {
-                pnlCreate.Controls.Add(new Label
-                {
-                    Text = text,
-                    Location = new Point(16, y),
-                    AutoSize = true,
-                    ForeColor = AppColors.TextMuted
-                });
-                y += 22;
-            }
-
-            pnlCreate.Controls.Add(new Label
+            createStack.Controls.Add(new Label
             {
                 Text = "Tạo hợp đồng mới",
                 Font = AppTypography.Heading,
                 ForeColor = AppColors.TextMain,
-                Location = new Point(16, y),
-                AutoSize = true
+                AutoSize = true,
+                Margin = new Padding(0, 0, 0, AppLayout.FieldGap)
             });
-            y += 40;
 
-            AddLabel("Nhà");
-            cboHouse = new ComboBox { Location = new Point(16, y), Size = new Size(320, 28), DropDownStyle = ComboBoxStyle.DropDownList };
+            cboHouse = new ComboBox();
+            UIHelper.StyleCombo(cboHouse);
             cboHouse.SelectedIndexChanged += async (s, e) =>
             {
                 if (_suppressComboEvents) return;
                 await OnHouseChangedAsync();
             };
-            pnlCreate.Controls.Add(cboHouse);
-            y += 40;
+            createStack.Controls.Add(UIHelper.CreateLabeledField("Nhà", cboHouse, fieldW));
 
-            AddLabel("Phòng trống");
-            cboRoom = new ComboBox { Location = new Point(16, y), Size = new Size(320, 28), DropDownStyle = ComboBoxStyle.DropDownList };
+            cboRoom = new ComboBox();
+            UIHelper.StyleCombo(cboRoom);
             cboRoom.SelectedIndexChanged += async (s, e) =>
             {
                 if (_suppressComboEvents) return;
                 UpdateRentFromSelectedRoom();
                 await OnRoomChangedAsync();
             };
-            pnlCreate.Controls.Add(cboRoom);
-            y += 40;
+            createStack.Controls.Add(UIHelper.CreateLabeledField("Phòng trống", cboRoom, fieldW));
 
-            AddLabel("Khách đã đặt lịch xem (để trống nếu chưa có)");
-            cboTenant = new ComboBox { Location = new Point(16, y), Size = new Size(320, 28), DropDownStyle = ComboBoxStyle.DropDownList };
-            pnlCreate.Controls.Add(cboTenant);
-            y += 40;
+            cboTenant = new ComboBox();
+            UIHelper.StyleCombo(cboTenant);
+            createStack.Controls.Add(UIHelper.CreateLabeledField("Khách đã đặt lịch xem (để trống nếu chưa có)", cboTenant, fieldW));
 
-            AddLabel("Ngày bắt đầu");
-            dtpStart = new DateTimePicker { Location = new Point(16, y), Size = new Size(320, 28), Format = DateTimePickerFormat.Short };
-            pnlCreate.Controls.Add(dtpStart);
-            y += 40;
+            dtpStart = new DateTimePicker { Format = DateTimePickerFormat.Short, Height = AppLayout.ComboHeight };
+            createStack.Controls.Add(UIHelper.CreateLabeledField("Ngày bắt đầu", dtpStart, fieldW));
 
-            AddLabel("Ngày kết thúc");
-            dtpEnd = new DateTimePicker { Location = new Point(16, y), Size = new Size(320, 28), Format = DateTimePickerFormat.Short, Value = DateTime.Now.AddMonths(6) };
-            pnlCreate.Controls.Add(dtpEnd);
-            y += 40;
-
-            AddLabel("Tiền cọc");
-            txtDeposit = new ModernTextBox { Location = new Point(16, y), Size = new Size(320, 32), Text = "0" };
-            pnlCreate.Controls.Add(txtDeposit);
-            y += 45;
-
-            AddLabel("Tiền thuê / tháng");
-            txtRent = new ModernTextBox { Location = new Point(16, y), Size = new Size(320, 32) };
-            pnlCreate.Controls.Add(txtRent);
-            y += 45;
-
-            AddLabel("Giá điện / số");
-            txtElectric = new ModernTextBox { Location = new Point(16, y), Size = new Size(320, 32), Text = "3500" };
-            pnlCreate.Controls.Add(txtElectric);
-            y += 45;
-
-            AddLabel("Giá nước / số");
-            txtWater = new ModernTextBox { Location = new Point(16, y), Size = new Size(320, 32), Text = "20000" };
-            pnlCreate.Controls.Add(txtWater);
-            y += 50;
-
-            var btnCreate = new ModernButton
+            dtpEnd = new DateTimePicker
             {
-                Text = "Lưu hợp đồng",
-                Location = new Point(16, y),
-                Size = new Size(320, 40),
-                BackColor = AppColors.Primary
+                Format = DateTimePickerFormat.Short,
+                Value = DateTime.Now.AddMonths(6),
+                Height = AppLayout.ComboHeight
             };
-            btnCreate.Click += async (s, e) => await CreateContractAsync();
-            pnlCreate.Controls.Add(btnCreate);
-            foreach (Control c in pnlCreate.Controls)
-            {
-                if (c is ComboBox or ModernTextBox or DateTimePicker or ModernButton)
-                    c.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            }
+            createStack.Controls.Add(UIHelper.CreateLabeledField("Ngày kết thúc", dtpEnd, fieldW));
 
-            var pnlTop = new Panel { Dock = DockStyle.Top, Height = 56, BackColor = AppColors.Card };
-            pnlTop.Controls.Add(new Label
+            txtDeposit = new ModernTextBox { Text = "0" };
+            createStack.Controls.Add(UIHelper.CreateLabeledField("Tiền cọc", txtDeposit, fieldW));
+
+            txtRent = new ModernTextBox();
+            createStack.Controls.Add(UIHelper.CreateLabeledField("Tiền thuê / tháng", txtRent, fieldW));
+
+            txtElectric = new ModernTextBox { Text = "3500" };
+            createStack.Controls.Add(UIHelper.CreateLabeledField("Giá điện / số", txtElectric, fieldW));
+
+            txtWater = new ModernTextBox { Text = "20000" };
+            createStack.Controls.Add(UIHelper.CreateLabeledField("Giá nước / số", txtWater, fieldW));
+
+            var btnCreate = UIHelper.PrimaryButton("Lưu hợp đồng", fieldW);
+            btnCreate.Margin = new Padding(0, AppLayout.FieldGap, 0, 8);
+            btnCreate.Click += async (s, e) => await CreateContractAsync();
+            createStack.Controls.Add(btnCreate);
+
+            var btnBulk = UIHelper.SecondaryButton("Tạo nháp tất cả phòng trống", fieldW);
+            btnBulk.Margin = new Padding(0, 0, 0, 6);
+            btnBulk.Click += async (s, e) => await CreateDraftsForAllRoomsAsync();
+            createStack.Controls.Add(btnBulk);
+
+            createStack.Controls.Add(new Label
             {
-                Text = "Danh sách hợp đồng",
-                Font = AppTypography.Heading,
-                Location = new Point(20, 16),
+                Text = "Tạo HĐ nháp (chưa khách) cho mọi phòng chưa có hợp đồng Active/Draft của nhà đang chọn.",
+                Font = AppTypography.Caption,
+                ForeColor = AppColors.TextMuted,
                 AutoSize = true,
-                ForeColor = AppColors.TextMain
+                MaximumSize = new Size(fieldW, 0),
+                Margin = new Padding(0, 0, 0, 12)
             });
 
-            dgv = new ModernDataGridView { Dock = DockStyle.Fill };
-            dgv.AutoGenerateColumns = false;
-            dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "ContractCode", HeaderText = "Mã HĐ", Width = 140 });
-            dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "RoomNumber", HeaderText = "Phòng", Width = 90 });
-            dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "TenantName", HeaderText = "Khách thuê", Width = 160 });
+            pnlCreate.Controls.Add(createStack);
+            pnlCreate.Resize += (_, _) => SyncCreateFieldWidths();
+
+            dgv = new ModernDataGridView();
+            UIHelper.ApplyGridFill(dgv);
+            dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "ContractCode", HeaderText = "Mã HĐ", FillWeight = 12 });
+            dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "RoomNumber", HeaderText = "Phòng", FillWeight = 7 });
+            dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "TenantName", HeaderText = "Khách thuê", FillWeight = 12 });
             dgv.Columns.Add(new DataGridViewTextBoxColumn
             {
                 DataPropertyName = "StartDate",
                 HeaderText = "Bắt đầu",
-                Width = 100,
+                FillWeight = 8,
                 DefaultCellStyle = new DataGridViewCellStyle { Format = "dd/MM/yyyy" }
             });
             dgv.Columns.Add(new DataGridViewTextBoxColumn
             {
                 DataPropertyName = "EndDate",
                 HeaderText = "Kết thúc",
-                Width = 100,
+                FillWeight = 8,
                 DefaultCellStyle = new DataGridViewCellStyle { Format = "dd/MM/yyyy" }
             });
             dgv.Columns.Add(new DataGridViewTextBoxColumn
             {
                 DataPropertyName = "MonthlyRent",
                 HeaderText = "Tiền thuê",
-                Width = 110,
+                FillWeight = 9,
                 DefaultCellStyle = new DataGridViewCellStyle { Format = "N0" }
             });
-            dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Status", HeaderText = "TT", Width = 70 });
-            dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "PendingEditStatus", HeaderText = "Sửa?", Width = 70 });
+            dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Status", HeaderText = "TT", FillWeight = 6 });
+            dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "PendingEditStatus", HeaderText = "Sửa?", FillWeight = 6 });
             dgv.Columns.Add(new DataGridViewLinkColumn
             {
                 Name = "EditCol",
                 HeaderText = "",
                 Text = "Sửa",
                 UseColumnTextForLinkValue = true,
-                Width = 50,
+                FillWeight = 5,
                 LinkColor = AppColors.Primary
             });
             dgv.Columns.Add(new DataGridViewLinkColumn
@@ -229,7 +209,7 @@ namespace RPMS.WinForms.Forms.Landlord
                 HeaderText = "",
                 Text = "Hủy đề xuất",
                 UseColumnTextForLinkValue = true,
-                Width = 90,
+                FillWeight = 8,
                 LinkColor = AppColors.Warning
             });
             dgv.Columns.Add(new DataGridViewLinkColumn
@@ -238,7 +218,7 @@ namespace RPMS.WinForms.Forms.Landlord
                 HeaderText = "",
                 Text = "Gán khách",
                 UseColumnTextForLinkValue = true,
-                Width = 80,
+                FillWeight = 7,
                 LinkColor = AppColors.Primary
             });
             dgv.Columns.Add(new DataGridViewLinkColumn
@@ -247,7 +227,7 @@ namespace RPMS.WinForms.Forms.Landlord
                 HeaderText = "",
                 Text = "In/PDF",
                 UseColumnTextForLinkValue = true,
-                Width = 70,
+                FillWeight = 6,
                 LinkColor = AppColors.Primary
             });
             dgv.Columns.Add(new DataGridViewLinkColumn
@@ -256,7 +236,7 @@ namespace RPMS.WinForms.Forms.Landlord
                 HeaderText = "",
                 Text = "Gia hạn",
                 UseColumnTextForLinkValue = true,
-                Width = 70,
+                FillWeight = 6,
                 LinkColor = AppColors.Success
             });
             dgv.Columns.Add(new DataGridViewLinkColumn
@@ -265,15 +245,36 @@ namespace RPMS.WinForms.Forms.Landlord
                 HeaderText = "",
                 Text = "Hủy HĐ",
                 UseColumnTextForLinkValue = true,
-                Width = 70,
+                FillWeight = 6,
                 LinkColor = AppColors.Danger
             });
             dgv.CellContentClick += async (s, e) => await Dgv_CellContentClick(e);
 
-            Controls.Add(dgv);
-            Controls.Add(pnlCreate);
-            Controls.Add(pnlTop);
-            UIHelper.WireListPage(this, pnlTop, dgv);
+            UIHelper.WirePage(this, dgv, header, pnlCreate);
+            SyncCreateFieldWidths();
+        }
+
+        private void SyncCreateFieldWidths()
+        {
+            if (createStack == null || pnlCreate == null) return;
+            int w = Math.Max(180, pnlCreate.ClientSize.Width - pnlCreate.Padding.Horizontal - 8);
+            createStack.Width = w;
+            foreach (Control c in createStack.Controls)
+            {
+                if (c is Panel field && field.Controls.Count >= 2)
+                {
+                    field.Width = w;
+                    field.Controls[1].Width = w;
+                }
+                else if (c is ModernButton btn)
+                {
+                    btn.Width = w;
+                }
+                else if (c is Label lbl && lbl.MaximumSize.Width > 0)
+                {
+                    lbl.MaximumSize = new Size(w, 0);
+                }
+            }
         }
 
         private async Task OnLoadAsync()
@@ -483,6 +484,81 @@ namespace RPMS.WinForms.Forms.Landlord
                 ToastNotifier.Show(this,
                     created.Status == "Draft" ? "Đã lưu hợp đồng nháp" : "Đã tạo hợp đồng Active",
                     ToastKind.Success);
+
+                await _uiLoadLock.WaitAsync();
+                try
+                {
+                    _suppressComboEvents = true;
+                    await WithServicesAsync(async (_, rooms, contracts, _) =>
+                    {
+                        await BindRoomsAsync(rooms);
+                        await BindContractsAsync(contracts);
+                    });
+                }
+                finally
+                {
+                    _suppressComboEvents = false;
+                    _uiLoadLock.Release();
+                }
+            }
+            catch (Exception ex)
+            {
+                AppDialog.ShowError(ex.Message);
+            }
+        }
+
+        private async Task CreateDraftsForAllRoomsAsync()
+        {
+            int houseId = 0;
+            if (cboHouse.SelectedItem is HouseDto h)
+                houseId = h.HouseID;
+            else if (cboHouse.SelectedValue != null)
+                int.TryParse(cboHouse.SelectedValue.ToString(), out houseId);
+
+            if (houseId <= 0)
+            {
+                AppDialog.ShowWarning("Vui lòng chọn nhà.");
+                return;
+            }
+
+            if (!decimal.TryParse(txtDeposit.Text, out decimal deposit) ||
+                !decimal.TryParse(txtElectric.Text, out decimal electric) ||
+                !decimal.TryParse(txtWater.Text, out decimal water))
+            {
+                AppDialog.ShowWarning("Vui lòng nhập cọc / giá điện / giá nước hợp lệ.");
+                return;
+            }
+
+            // Tiền thuê: nếu nhập > 0 dùng chung; nếu trống/0 lấy giá từng phòng
+            decimal.TryParse(txtRent.Text, out decimal rentShared);
+
+            if (!AppDialog.Confirm(
+                    "Tạo hợp đồng NHÁP cho tất cả phòng chưa có HĐ của nhà này?\n" +
+                    "• Chưa gán khách\n" +
+                    "• Ngày / cọc / điện / nước lấy từ form\n" +
+                    (rentShared > 0
+                        ? "• Tiền thuê dùng chung giá trên form"
+                        : "• Tiền thuê lấy theo giá từng phòng")))
+                return;
+
+            try
+            {
+                var result = await WithServicesAsync(async (_, __, contracts, ___) =>
+                    await contracts.CreateDraftContractsForHouseAsync(new BulkCreateDraftContractsDto
+                    {
+                        HouseID = houseId,
+                        StartDate = dtpStart.Value.Date,
+                        EndDate = dtpEnd.Value.Date,
+                        Deposit = deposit,
+                        MonthlyRent = rentShared,
+                        ElectricPrice = electric,
+                        WaterPrice = water
+                    }, UserSession.CurrentUser!.UserID));
+
+                AppDialog.ShowInfo(result.Message);
+                ToastNotifier.Show(this,
+                    result.CreatedCount > 0 ? $"Đã tạo {result.CreatedCount} HĐ nháp" : "Không tạo thêm HĐ",
+                    result.CreatedCount > 0 ? ToastKind.Success : ToastKind.Info);
 
                 await _uiLoadLock.WaitAsync();
                 try

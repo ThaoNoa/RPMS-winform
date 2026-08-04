@@ -41,14 +41,17 @@ namespace RPMS.WinForms.Forms.Tenant
             DoubleBuffered = true;
             AutoScroll = false;
 
+            var header = UIHelper.CreatePageHeader("Tìm phòng cho thuê");
+
             pnlFilter = new Panel
             {
                 Dock = DockStyle.Top,
-                Height = 230,
-                MinimumSize = new Size(0, 210),
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
                 AutoScroll = true,
                 BackColor = AppColors.Card,
-                Padding = new Padding(16)
+                Padding = new Padding(AppLayout.PagePadding, 8, AppLayout.PagePadding, 10),
+                MinimumSize = new Size(0, 120)
             };
             pnlFilter.Paint += (s, e) =>
             {
@@ -56,113 +59,88 @@ namespace RPMS.WinForms.Forms.Tenant
                 e.Graphics.DrawLine(pen, 0, pnlFilter.Height - 1, pnlFilter.Width, pnlFilter.Height - 1);
             };
 
-            var lblHead = new Label
+            var flpFilters = new FlowLayoutPanel
             {
-                Text = "Tìm phòng cho thuê",
-                Font = new Font("Segoe UI", 14F, FontStyle.Bold),
-                ForeColor = AppColors.TextMain,
-                Location = new Point(20, 12),
-                AutoSize = true
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                WrapContents = true,
+                FlowDirection = FlowDirection.LeftToRight,
+                BackColor = AppColors.Card,
+                Padding = new Padding(0),
+                Margin = new Padding(0)
             };
 
-            // Hàng 1 — labels riêng
-            AddFieldLabel(pnlFilter, "Từ khóa", 20, 48);
-            txtSearch = MkText(20, 70, 220, "Tên phòng, địa chỉ…");
+            txtSearch = MkText(220, "Tên phòng, địa chỉ…");
+            txtMinPrice = MkText(110, "VD: 2000000");
+            txtMaxPrice = MkText(110, "VD: 5000000");
+            txtCity = MkText(140, "TP.HCM…");
+            txtDistrict = MkText(140, "Quận 1…");
 
-            AddFieldLabel(pnlFilter, "Giá từ", 256, 48);
-            txtMinPrice = MkText(256, 70, 110, "VD: 2000000");
-
-            AddFieldLabel(pnlFilter, "Giá đến", 380, 48);
-            txtMaxPrice = MkText(380, 70, 110, "VD: 5000000");
-
-            AddFieldLabel(pnlFilter, "Thành phố", 506, 48);
-            txtCity = MkText(506, 70, 140, "TP.HCM…");
-
-            AddFieldLabel(pnlFilter, "Quận / Huyện", 662, 48);
-            txtDistrict = MkText(662, 70, 140, "Quận 1…");
-
-            AddFieldLabel(pnlFilter, "Diện tích", 818, 48);
-            cboArea = new ComboBox
-            {
-                Location = new Point(818, 72),
-                Size = new Size(140, 28),
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                Font = AppTypography.Body
-            };
+            cboArea = new ComboBox();
+            UIHelper.StyleCombo(cboArea);
             cboArea.Items.AddRange(new object[] { "Tất cả", "Dưới 25m²", "25–50m²", "50–100m²", ">100m²" });
             cboArea.SelectedIndex = 0;
 
-            AddFieldLabel(pnlFilter, "Phòng ngủ", 974, 48);
-            cboBedrooms = new ComboBox
-            {
-                Location = new Point(974, 72),
-                Size = new Size(90, 28),
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                Font = AppTypography.Body
-            };
+            cboBedrooms = new ComboBox();
+            UIHelper.StyleCombo(cboBedrooms);
             cboBedrooms.Items.AddRange(new object[] { "Tất cả", "1", "2", "3", "4+" });
             cboBedrooms.SelectedIndex = 0;
 
-            // Hàng 2 — tiện nghi + sort
-            chkAc = MkCheck("Điều hòa", 20, 118);
-            chkWifi = MkCheck("Wifi", 120, 118);
-            chkWasher = MkCheck("Máy giặt", 190, 118);
-            chkFurniture = MkCheck("Nội thất", 300, 118);
-            chkPet = MkCheck("Thú cưng", 400, 118);
-            chkParking = MkCheck("Chỗ để xe", 510, 118);
-
-            AddFieldLabel(pnlFilter, "Đánh giá", 640, 100);
-            cboRating = new ComboBox
-            {
-                Location = new Point(640, 120),
-                Size = new Size(120, 28),
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                Font = AppTypography.Body
-            };
+            cboRating = new ComboBox();
+            UIHelper.StyleCombo(cboRating);
             cboRating.Items.AddRange(new object[] { "Mọi rating", "Từ 3★", "Từ 4★", "5★" });
             cboRating.SelectedIndex = 0;
 
-            AddFieldLabel(pnlFilter, "Sắp xếp", 780, 100);
-            cboSort = new ComboBox
-            {
-                Location = new Point(780, 120),
-                Size = new Size(130, 28),
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                Font = AppTypography.Body
-            };
+            cboSort = new ComboBox();
+            UIHelper.StyleCombo(cboSort);
             cboSort.Items.AddRange(new object[] { "Mới nhất", "Giá tăng", "Giá giảm", "Nổi bật" });
             cboSort.SelectedIndex = 0;
 
-            AddFieldLabel(pnlFilter, "Trạng thái", 930, 100);
-            cboStatus = new ComboBox
-            {
-                Location = new Point(930, 120),
-                Size = new Size(120, 28),
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                Font = AppTypography.Body
-            };
+            cboStatus = new ComboBox();
+            UIHelper.StyleCombo(cboStatus);
             cboStatus.Items.AddRange(new object[] { "Tất cả", "Còn trống", "Đã thuê" });
             cboStatus.SelectedIndex = 1;
 
-            chkFeatured = MkCheck("Chỉ tin nổi bật", 1060, 122);
+            flpFilters.Controls.Add(UIHelper.CreateLabeledField("Từ khóa", txtSearch, 220));
+            flpFilters.Controls.Add(UIHelper.CreateLabeledField("Giá từ", txtMinPrice, 110));
+            flpFilters.Controls.Add(UIHelper.CreateLabeledField("Giá đến", txtMaxPrice, 110));
+            flpFilters.Controls.Add(UIHelper.CreateLabeledField("Thành phố", txtCity, 140));
+            flpFilters.Controls.Add(UIHelper.CreateLabeledField("Quận / Huyện", txtDistrict, 140));
+            flpFilters.Controls.Add(UIHelper.CreateLabeledField("Diện tích", cboArea, 140));
+            flpFilters.Controls.Add(UIHelper.CreateLabeledField("Phòng ngủ", cboBedrooms, 90));
+            flpFilters.Controls.Add(UIHelper.CreateLabeledField("Đánh giá", cboRating, 120));
+            flpFilters.Controls.Add(UIHelper.CreateLabeledField("Sắp xếp", cboSort, 130));
+            flpFilters.Controls.Add(UIHelper.CreateLabeledField("Trạng thái", cboStatus, 120));
 
-            var btnSearch = new ModernButton
+            var flpAmenities = new FlowLayoutPanel
             {
-                Text = "Tìm kiếm",
-                Location = new Point(20, 158),
-                Size = new Size(120, 40),
-                BackColor = AppColors.Primary
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                WrapContents = true,
+                FlowDirection = FlowDirection.LeftToRight,
+                Margin = new Padding(0, 18, AppLayout.FieldGap, 6),
+                Padding = new Padding(0, 4, 0, 0)
             };
+            chkAc = MkCheck("Điều hòa");
+            chkWifi = MkCheck("Wifi");
+            chkWasher = MkCheck("Máy giặt");
+            chkFurniture = MkCheck("Nội thất");
+            chkPet = MkCheck("Thú cưng");
+            chkParking = MkCheck("Chỗ để xe");
+            chkFeatured = MkCheck("Chỉ tin nổi bật");
+            flpAmenities.Controls.AddRange(new Control[]
+            {
+                chkAc, chkWifi, chkWasher, chkFurniture, chkPet, chkParking, chkFeatured
+            });
+            flpFilters.Controls.Add(flpAmenities);
+
+            var btnSearch = UIHelper.PrimaryButton("Tìm kiếm", 120);
             btnSearch.Click += async (s, e) => await PerformSearchAsync();
 
-            var btnClear = new ModernButton
-            {
-                Text = "Xóa lọc",
-                Location = new Point(150, 158),
-                Size = new Size(100, 40),
-                BackColor = AppColors.Border,
-                ForeColor = AppColors.TextMain
-            };
+            var btnClear = UIHelper.SecondaryButton("Xóa lọc", 100);
+            btnClear.BackColor = AppColors.Border;
+            btnClear.ForeColor = AppColors.TextMain;
             btnClear.Click += async (s, e) =>
             {
                 txtSearch.Text = "";
@@ -183,26 +161,38 @@ namespace RPMS.WinForms.Forms.Tenant
 
             lblResult = new Label
             {
-                Location = new Point(270, 168),
                 AutoSize = true,
-                Font = new Font("Segoe UI", 9F),
+                Font = AppTypography.Caption,
                 ForeColor = AppColors.TextMuted,
-                Text = "Đang tải…"
+                Text = "Đang tải…",
+                Margin = new Padding(12, 12, 0, 0),
+                TextAlign = ContentAlignment.MiddleLeft
             };
 
-            pnlFilter.Controls.AddRange(new Control[]
+            var flpActions = new FlowLayoutPanel
             {
-                lblHead, txtSearch, txtMinPrice, txtMaxPrice, txtCity, txtDistrict,
-                cboArea, cboBedrooms, chkAc, chkWifi, chkWasher, chkFurniture, chkPet, chkParking,
-                cboRating, cboSort, cboStatus, chkFeatured, btnSearch, btnClear, lblResult
-            });
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                WrapContents = true,
+                FlowDirection = FlowDirection.LeftToRight,
+                Margin = new Padding(0, 12, 0, 0),
+                Padding = new Padding(0)
+            };
+            btnSearch.Margin = new Padding(0, 0, AppLayout.FieldGap, 0);
+            btnClear.Margin = new Padding(0, 0, AppLayout.FieldGap, 0);
+            flpActions.Controls.Add(btnSearch);
+            flpActions.Controls.Add(btnClear);
+            flpActions.Controls.Add(lblResult);
+            flpFilters.Controls.Add(flpActions);
+
+            pnlFilter.Controls.Add(flpFilters);
 
             flpRooms = new FlowLayoutPanel
             {
                 Dock = DockStyle.Fill,
                 AutoScroll = true,
                 WrapContents = true,
-                Padding = new Padding(16),
+                Padding = new Padding(AppLayout.PagePadding),
                 BackColor = AppColors.Background
             };
 
@@ -213,6 +203,7 @@ namespace RPMS.WinForms.Forms.Tenant
             Controls.Add(flpRooms);
             Controls.Add(_empty);
             Controls.Add(pnlFilter);
+            Controls.Add(header);
 
             AcceptButton = null;
             txtSearch.InputKeyDown += async (s, e) =>
@@ -225,32 +216,19 @@ namespace RPMS.WinForms.Forms.Tenant
             };
         }
 
-        private static void AddFieldLabel(Control parent, string text, int x, int y)
+        private static ModernTextBox MkText(int w, string placeholder) => new()
         {
-            parent.Controls.Add(new Label
-            {
-                Text = text,
-                Location = new Point(x, y),
-                AutoSize = true,
-                Font = new Font("Segoe UI", 8.5F, FontStyle.Bold),
-                ForeColor = AppColors.TextMuted
-            });
-        }
-
-        private static ModernTextBox MkText(int x, int y, int w, string placeholder) => new()
-        {
-            Location = new Point(x, y),
-            Size = new Size(w, 34),
+            Size = new Size(w, AppLayout.InputHeight),
             PlaceholderText = placeholder
         };
 
-        private static CheckBox MkCheck(string text, int x, int y) => new()
+        private static CheckBox MkCheck(string text) => new()
         {
             Text = text,
-            Location = new Point(x, y),
             AutoSize = true,
             Font = AppTypography.Body,
-            ForeColor = AppColors.TextMain
+            ForeColor = AppColors.TextMain,
+            Margin = new Padding(0, 4, 12, 4)
         };
 
         private async System.Threading.Tasks.Task PerformSearchAsync()

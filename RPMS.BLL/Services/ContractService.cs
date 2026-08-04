@@ -100,7 +100,7 @@ namespace RPMS.BLL.Services
 
                 var contract = new Contract
                 {
-                    ContractCode = "HD" + DateTime.Now.ToString("yyyyMMddHHmmss"),
+                    ContractCode = $"HD{DateTime.Now:yyyyMMddHHmmss}{request.RoomID:D4}",
                     RoomID = request.RoomID,
                     TenantID = tenantId,
                     StartDate = request.StartDate,
@@ -136,6 +136,101 @@ namespace RPMS.BLL.Services
 
                 var result = await _unitOfWork.Contracts.FirstOrDefaultAsync(c => c.ContractID == contract.ContractID, "Room, Tenant");
                 return _mapper.Map<ContractDto>(result);
+            }
+            catch
+            {
+                await _unitOfWork.RollbackTransactionAsync();
+                throw;
+            }
+        }
+
+        public async Task<BulkCreateDraftContractsResultDto> CreateDraftContractsForHouseAsync(
+            BulkCreateDraftContractsDto request, int landlordId)
+        {
+            if (request.EndDate <= request.StartDate)
+                throw new BadRequestException("Ngày kết thúc phải lớn hơn ngày bắt đầu.");
+            if (request.ElectricPrice < 0 || request.WaterPrice < 0 || request.Deposit < 0)
+                throw new BadRequestException("Giá điện/nước/cọc không hợp lệ.");
+
+            var house = await _unitOfWork.Houses.GetByIdAsync(request.HouseID);
+            if (house == null) throw new NotFoundException("Nhà", request.HouseID);
+            if (house.OwnerID != landlordId)
+                throw new BadRequestException("Bạn chỉ được tạo hợp đồng cho nhà của mình.");
+
+            var rooms = (await _unitOfWork.Rooms.FindAsync(r => r.HouseID == request.HouseID)).ToList();
+            if (rooms.Count == 0)
+                return new BulkCreateDraftContractsResultDto
+                {
+                    CreatedCount = 0,
+                    SkippedCount = 0,
+                    Message = "Nhà này chưa có phòng."
+                };
+
+            var openRoomIds = (await _unitOfWork.Contracts.FindAsync(
+                    c => c.Room.HouseID == request.HouseID
+                         && (c.Status == "Active" || c.Status == "Draft")))
+                .Select(c => c.RoomID)
+                .ToHashSet();
+
+            var eligible = rooms
+                .Where(r => !openRoomIds.Contains(r.RoomID)
+                            && !string.Equals(r.Status, "Occupied", StringComparison.OrdinalIgnoreCase)
+                            && !string.Equals(r.Status, "Inactive", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(r => r.RoomNumber)
+                .ToList();
+
+            if (eligible.Count == 0)
+            {
+                return new BulkCreateDraftContractsResultDto
+                {
+                    CreatedCount = 0,
+                    SkippedCount = rooms.Count,
+                    Message = "Không còn phòng nào chưa có hợp đồng (nháp/hiệu lực) để tạo."
+                };
+            }
+
+            using var transaction = await _unitOfWork.BeginTransactionAsync();
+            try
+            {
+                int seq = 0;
+                foreach (var room in eligible)
+                {
+                    seq++;
+                    decimal rent = request.MonthlyRent > 0 ? request.MonthlyRent : room.Price;
+                    if (rent <= 0)
+                        throw new BadRequestException($"Phòng {room.RoomNumber} chưa có giá thuê — nhập tiền thuê trên form hoặc cập nhật giá phòng.");
+
+                    var contract = new Contract
+                    {
+                        ContractCode = $"HD{DateTime.Now:yyyyMMddHHmmss}{room.RoomID:D4}{seq:D2}",
+                        RoomID = room.RoomID,
+                        TenantID = null,
+                        StartDate = request.StartDate.Date,
+                        EndDate = request.EndDate.Date,
+                        MoveInDate = request.StartDate.Date,
+                        Deposit = request.Deposit,
+                        MonthlyRent = rent,
+                        ElectricPrice = request.ElectricPrice,
+                        WaterPrice = request.WaterPrice,
+                        Status = "Draft",
+                        CreatedBy = landlordId,
+                        CreatedDate = DateTime.Now,
+                        UpdatedDate = DateTime.Now
+                    };
+                    await _unitOfWork.Contracts.AddAsync(contract);
+                }
+
+                await _unitOfWork.SaveChangesAsync();
+                await _unitOfWork.CommitTransactionAsync();
+
+                int skipped = rooms.Count - eligible.Count;
+                return new BulkCreateDraftContractsResultDto
+                {
+                    CreatedCount = eligible.Count,
+                    SkippedCount = skipped,
+                    Message = $"Đã tạo {eligible.Count} hợp đồng nháp" +
+                              (skipped > 0 ? $" (bỏ qua {skipped} phòng đã có HĐ hoặc Occupied)." : ".")
+                };
             }
             catch
             {

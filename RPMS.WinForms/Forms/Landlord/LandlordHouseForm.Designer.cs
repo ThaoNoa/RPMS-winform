@@ -1,5 +1,5 @@
-﻿using RPMS.Common.Constants;
-using RPMS.WinForms.Controls;
+﻿using RPMS.WinForms.Controls;
+using RPMS.WinForms.UI;
 using System.Drawing;
 using System.Windows.Forms;
 
@@ -8,7 +8,6 @@ namespace RPMS.WinForms.Forms.Landlord
     partial class LandlordHouseForm
     {
         private System.ComponentModel.IContainer components = null;
-        private Panel pnlTop;
         private ModernButton btnAdd;
         private ModernDataGridView dgvHouses;
 
@@ -20,40 +19,24 @@ namespace RPMS.WinForms.Forms.Landlord
 
         private void InitializeComponent()
         {
-            this.pnlTop = new Panel();
-            this.btnAdd = new ModernButton();
+            this.btnAdd = UIHelper.PrimaryButton("+ Thêm Nhà mới", 150);
             this.dgvHouses = new ModernDataGridView();
 
-            this.pnlTop.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.dgvHouses)).BeginInit();
             this.SuspendLayout();
 
-            // pnlTop
-            this.pnlTop.BackColor = AppColors.Background;
-            this.pnlTop.Dock = DockStyle.Top;
-            this.pnlTop.Height = 70;
-            this.pnlTop.Controls.Add(this.btnAdd);
-
-            // btnAdd
-            this.btnAdd.Location = new Point(20, 15);
-            this.btnAdd.Size = new Size(150, 40);
-            this.btnAdd.Text = "+ Thêm Nhà mới";
-            this.btnAdd.BackColor = AppColors.Success;
             this.btnAdd.Click += new System.EventHandler(this.btnAdd_Click);
-
-            // dgvHouses
-            this.dgvHouses.Dock = DockStyle.Fill;
-            this.dgvHouses.Location = new Point(0, 70);
             this.dgvHouses.CellContentClick += new DataGridViewCellEventHandler(this.dgvHouses_CellContentClick);
 
-            // LandlordHouseForm
-            this.ClientSize = new Size(900, 600);
-            this.Controls.Add(this.dgvHouses);
-            this.Controls.Add(this.pnlTop);
-            this.BackColor = AppColors.Background;
-            this.Text = "Quản lý Nhà của tôi";
+            var header = UIHelper.CreatePageHeader("Quản lý Nhà của tôi", this.btnAdd);
 
-            this.pnlTop.ResumeLayout(false);
+            this.ClientSize = new Size(900, 600);
+            this.Text = "Quản lý Nhà của tôi";
+            this.Controls.Add(this.dgvHouses);
+            this.Controls.Add(header);
+            UIHelper.WireListPage(this, header, this.dgvHouses);
+            UIHelper.ApplyGridFill(this.dgvHouses);
+
             ((System.ComponentModel.ISupportInitialize)(this.dgvHouses)).EndInit();
             this.ResumeLayout(false);
         }

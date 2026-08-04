@@ -150,7 +150,8 @@ namespace RPMS.WinForms.Forms.Layout
             }
             catch (Exception ex)
             {
-                AppDialog.ShowError("Không mở được màn hình: " + ex.Message);
+                var detail = ex.GetBaseException().Message;
+                AppDialog.ShowError("Không mở được màn hình: " + detail);
                 return;
             }
 

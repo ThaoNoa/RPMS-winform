@@ -29,51 +29,35 @@ namespace RPMS.WinForms.Forms.Tenant
 
         private void InitializeUI()
         {
-            this.ClientSize = new Size(1000, 600);
-            this.BackColor = AppColors.Background;
-            this.Text = "Hóa đơn thanh toán";
-            this.MinimumSize = new Size(700, 480);
+            Text = "Hóa đơn thanh toán";
+            ClientSize = new Size(1000, 600);
 
-            var pnlTop = new Panel { Dock = DockStyle.Top, Height = 56, BackColor = AppColors.Card };
-            pnlTop.Controls.Add(new Label
-            {
-                Text = "Hóa đơn của tôi",
-                Font = new Font("Segoe UI", 14F, FontStyle.Bold),
-                ForeColor = AppColors.TextMain,
-                Location = new Point(20, 14),
-                AutoSize = true
-            });
-            var btnExcel = new ModernButton
-            {
-                Text = "Xuất Excel",
-                Size = new Size(120, 36),
-                BackColor = AppColors.Success,
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
-                Location = new Point(860, 10)
-            };
+            var btnExcel = UIHelper.PrimaryButton("Xuất Excel", 120);
+            btnExcel.BackColor = AppColors.Success;
             btnExcel.Click += (s, e) => ExportExcel();
-            pnlTop.Resize += (s, e) => btnExcel.Left = Math.Max(200, pnlTop.Width - btnExcel.Width - 16);
-            pnlTop.Controls.Add(btnExcel);
 
-            dgvInvoices = new ModernDataGridView { Dock = DockStyle.Fill };
-            dgvInvoices.AutoGenerateColumns = false;
-            dgvInvoices.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "InvoiceID", HeaderText = "ID", Width = 50 });
-            dgvInvoices.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "InvoiceCode", HeaderText = "Mã Hóa Đơn", Width = 140 });
-            dgvInvoices.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "RoomNumber", HeaderText = "Phòng", Width = 80 });
-            dgvInvoices.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Total", HeaderText = "Tổng tiền", Width = 120, DefaultCellStyle = new DataGridViewCellStyle { Format = "N0" } });
-            dgvInvoices.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Status", HeaderText = "Trạng thái", Width = 90 });
+            var header = UIHelper.CreatePageHeader("Hóa đơn của tôi", btnExcel);
+
+            dgvInvoices = new ModernDataGridView();
+            dgvInvoices.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "InvoiceID", HeaderText = "ID", FillWeight = 6 });
+            dgvInvoices.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "InvoiceCode", HeaderText = "Mã Hóa Đơn", FillWeight = 16 });
+            dgvInvoices.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "RoomNumber", HeaderText = "Phòng", FillWeight = 10 });
+            dgvInvoices.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Total", HeaderText = "Tổng tiền", FillWeight = 12, DefaultCellStyle = new DataGridViewCellStyle { Format = "N0" } });
+            dgvInvoices.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Status", HeaderText = "Trạng thái", FillWeight = 10 });
             dgvInvoices.Columns.Add(new DataGridViewTextBoxColumn
             {
                 DataPropertyName = "DueDate",
                 HeaderText = "Hạn TT",
-                Width = 100,
+                FillWeight = 12,
                 DefaultCellStyle = new DataGridViewCellStyle { Format = "dd/MM/yyyy" }
             });
-            dgvInvoices.Columns.Add(new DataGridViewLinkColumn { Name = "DetailCol", HeaderText = "Chi tiết", Text = "Xem chi tiết", UseColumnTextForLinkValue = true, Width = 110, LinkColor = Color.Blue });
+            dgvInvoices.Columns.Add(new DataGridViewLinkColumn { Name = "DetailCol", HeaderText = "Chi tiết", Text = "Xem chi tiết", UseColumnTextForLinkValue = true, FillWeight = 12, LinkColor = Color.Blue });
             dgvInvoices.CellContentClick += DgvInvoices_CellContentClick;
-            this.Controls.Add(dgvInvoices);
-            this.Controls.Add(pnlTop);
-            UIHelper.WireListPage(this, pnlTop, dgvInvoices);
+
+            Controls.Add(dgvInvoices);
+            Controls.Add(header);
+            UIHelper.WireListPage(this, header, dgvInvoices);
+            UIHelper.ApplyGridFill(dgvInvoices);
         }
 
         private void ExportExcel()

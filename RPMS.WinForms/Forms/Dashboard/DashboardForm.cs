@@ -36,23 +36,30 @@ namespace RPMS.WinForms.Forms.Dashboard
             Text = "Dashboard";
             AutoScroll = false;
 
-            var pnlTop = new Panel { Dock = DockStyle.Top, Height = 70, BackColor = AppColors.Background };
-            lblWelcome = new Label
-            {
-                Font = AppTypography.Subtitle,
-                ForeColor = AppColors.TextMain,
-                AutoSize = true,
-                Location = new Point(20, 20)
-            };
-            pnlTop.Controls.Add(lblWelcome);
+            var pnlTop = UIHelper.CreatePageHeader("Dashboard");
+            lblWelcome = UIHelper.GetPageHeaderTitle(pnlTop);
+            lblWelcome.Font = AppTypography.Heading;
 
             var split = new SplitContainer
             {
                 Dock = DockStyle.Fill,
                 Orientation = Orientation.Horizontal,
-                SplitterDistance = 280,
+                Panel1MinSize = 120,
+                Panel2MinSize = 120,
                 BackColor = AppColors.Background
             };
+            void SafeSplit()
+            {
+                try
+                {
+                    int max = split.Height - split.Panel2MinSize - split.SplitterWidth;
+                    if (max > split.Panel1MinSize)
+                        split.SplitterDistance = Math.Min(280, max);
+                }
+                catch { /* layout chưa sẵn sàng */ }
+            }
+            Load += (_, _) => SafeSplit();
+            split.SizeChanged += (_, _) => SafeSplit();
 
             flpCards = new FlowLayoutPanel
             {

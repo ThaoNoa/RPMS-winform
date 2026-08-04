@@ -1,5 +1,6 @@
 ﻿using RPMS.Common.Constants;
 using RPMS.WinForms.Controls;
+using RPMS.WinForms.UI;
 using System.Drawing;
 using System.Windows.Forms;
 
@@ -39,63 +40,73 @@ namespace RPMS.WinForms.Forms.Admin
             this.cboRole = new ComboBox();
             this.lblStatus = new Label();
             this.cboStatus = new ComboBox();
-            this.btnSave = new ModernButton();
-            this.btnCancel = new ModernButton();
+            this.btnSave = UIHelper.PrimaryButton("Lưu thông tin", 130);
+            this.btnCancel = UIHelper.SecondaryButton("Hủy bỏ");
 
             this.SuspendLayout();
 
-            // lblTitle
             this.lblTitle.Text = "Thông tin Người dùng";
-            this.lblTitle.Font = new Font("Segoe UI", 16F, FontStyle.Bold);
+            this.lblTitle.Font = AppTypography.Heading;
             this.lblTitle.ForeColor = AppColors.TextMain;
-            this.lblTitle.Location = new Point(30, 20);
-            this.lblTitle.AutoSize = true;
+            this.lblTitle.Dock = DockStyle.Fill;
+            this.lblTitle.TextAlign = ContentAlignment.MiddleLeft;
+            this.lblTitle.Padding = new Padding(AppLayout.PagePadding, 0, 0, 0);
 
-            int startX = 30, startY = 80, gapY = 70;
+            var header = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = AppLayout.PageHeaderHeight,
+                BackColor = AppColors.Card,
+                Padding = new Padding(0, 8, 0, 8)
+            };
+            header.Controls.Add(this.lblTitle);
 
-            // Username
+            var body = new Panel
+            {
+                Dock = DockStyle.Fill,
+                AutoScroll = true,
+                Padding = new Padding(AppLayout.PagePadding),
+                BackColor = AppColors.Card
+            };
+
+            int startX = AppLayout.PagePadding, startY = AppLayout.PagePadding, gapY = 70;
+
             this.lblUsername.Text = "Tên đăng nhập *";
             this.lblUsername.Location = new Point(startX, startY);
             this.lblUsername.AutoSize = true;
             this.txtUsername.Location = new Point(startX, startY + 20);
             this.txtUsername.Size = new Size(250, 35);
 
-            // Password
             this.lblPassword.Text = "Mật khẩu *";
             this.lblPassword.Location = new Point(startX + 280, startY);
             this.lblPassword.AutoSize = true;
             this.txtPassword.Location = new Point(startX + 280, startY + 20);
             this.txtPassword.Size = new Size(250, 35);
 
-            // FullName
             this.lblFullName.Text = "Họ và tên *";
             this.lblFullName.Location = new Point(startX, startY + gapY);
             this.lblFullName.AutoSize = true;
             this.txtFullName.Location = new Point(startX, startY + gapY + 20);
             this.txtFullName.Size = new Size(250, 35);
 
-            // Email
             this.lblEmail.Text = "Email *";
             this.lblEmail.Location = new Point(startX + 280, startY + gapY);
             this.lblEmail.AutoSize = true;
             this.txtEmail.Location = new Point(startX + 280, startY + gapY + 20);
             this.txtEmail.Size = new Size(250, 35);
 
-            // Phone
             this.lblPhone.Text = "Số điện thoại";
             this.lblPhone.Location = new Point(startX, startY + gapY * 2);
             this.lblPhone.AutoSize = true;
             this.txtPhone.Location = new Point(startX, startY + gapY * 2 + 20);
             this.txtPhone.Size = new Size(250, 35);
 
-            // Address
             this.lblAddress.Text = "Địa chỉ";
             this.lblAddress.Location = new Point(startX + 280, startY + gapY * 2);
             this.lblAddress.AutoSize = true;
             this.txtAddress.Location = new Point(startX + 280, startY + gapY * 2 + 20);
             this.txtAddress.Size = new Size(250, 35);
 
-            // Role
             this.lblRole.Text = "Vai trò *";
             this.lblRole.Location = new Point(startX, startY + gapY * 3);
             this.lblRole.AutoSize = true;
@@ -103,7 +114,6 @@ namespace RPMS.WinForms.Forms.Admin
             this.cboRole.Size = new Size(250, 35);
             this.cboRole.DropDownStyle = ComboBoxStyle.DropDownList;
 
-            // Status
             this.lblStatus.Text = "Trạng thái *";
             this.lblStatus.Location = new Point(startX + 280, startY + gapY * 3);
             this.lblStatus.AutoSize = true;
@@ -112,33 +122,26 @@ namespace RPMS.WinForms.Forms.Admin
             this.cboStatus.DropDownStyle = ComboBoxStyle.DropDownList;
             this.cboStatus.Items.AddRange(new object[] { "Active", "Inactive" });
 
-            // Buttons
-            this.btnSave.Text = "Lưu thông tin";
-            this.btnSave.Location = new Point(startX + 280, startY + gapY * 4 + 10);
-            this.btnSave.Size = new Size(120, 40);
-            this.btnSave.BackColor = AppColors.Success;
+            body.Controls.AddRange(new Control[] {
+                lblUsername, txtUsername, lblPassword, txtPassword,
+                lblFullName, txtFullName, lblEmail, txtEmail,
+                lblPhone, txtPhone, lblAddress, txtAddress,
+                lblRole, cboRole, lblStatus, cboStatus
+            });
+
             this.btnSave.Click += new System.EventHandler(this.btnSave_Click);
-
-            this.btnCancel.Text = "Hủy bỏ";
-            this.btnCancel.Location = new Point(startX + 410, startY + gapY * 4 + 10);
-            this.btnCancel.Size = new Size(120, 40);
-            this.btnCancel.BackColor = AppColors.Secondary;
             this.btnCancel.Click += new System.EventHandler(this.btnCancel_Click);
+            var footer = UIHelper.CreateDialogFooter(this.btnSave, this.btnCancel);
 
-            // Form
-            this.ClientSize = new Size(600, 450);
-            this.MinimumSize = new Size(480, 400);
-            this.Controls.AddRange(new Control[] { lblTitle, lblUsername, txtUsername, lblPassword, txtPassword, lblFullName, txtFullName, lblEmail, txtEmail, lblPhone, txtPhone, lblAddress, txtAddress, lblRole, cboRole, lblStatus, cboStatus, btnSave, btnCancel });
-            this.FormBorderStyle = FormBorderStyle.Sizable;
-            this.MaximizeBox = true;
-            this.MinimizeBox = true;
-            this.AutoScroll = true;
-            this.StartPosition = FormStartPosition.CenterParent;
-            this.BackColor = AppColors.Card;
+            this.ClientSize = new Size(620, 480);
+            this.Controls.Add(body);
+            this.Controls.Add(footer);
+            this.Controls.Add(header);
+            UIHelper.ApplyResizableDialog(this, AppLayout.DialogMin);
             this.Text = "Chi tiết Người dùng";
+            this.AutoScroll = false;
 
             this.ResumeLayout(false);
-            this.PerformLayout();
         }
     }
 }

@@ -28,7 +28,7 @@ namespace RPMS.WinForms.Controls
 
             this.ColumnHeadersDefaultCellStyle.BackColor = AppColors.Background;
             this.ColumnHeadersDefaultCellStyle.ForeColor = AppColors.TextMain;
-            this.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 10.5F, FontStyle.Bold);
+            this.ColumnHeadersDefaultCellStyle.Font = AppTypography.BodyBold;
             this.ColumnHeadersDefaultCellStyle.SelectionBackColor = AppColors.Background;
             this.ColumnHeadersDefaultCellStyle.SelectionForeColor = AppColors.TextMain;
             this.ColumnHeadersDefaultCellStyle.WrapMode = DataGridViewTriState.True;
@@ -37,7 +37,7 @@ namespace RPMS.WinForms.Controls
 
             this.DefaultCellStyle.BackColor = AppColors.Card;
             this.DefaultCellStyle.ForeColor = AppColors.TextMain;
-            this.DefaultCellStyle.Font = new Font("Segoe UI", 10F);
+            this.DefaultCellStyle.Font = AppTypography.Body;
             this.DefaultCellStyle.SelectionBackColor = ControlPaint.Light(AppColors.Primary, 0.8F);
             this.DefaultCellStyle.SelectionForeColor = AppColors.TextMain;
             this.DefaultCellStyle.Padding = new Padding(5, 4, 5, 4);

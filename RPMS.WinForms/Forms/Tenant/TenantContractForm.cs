@@ -27,45 +27,35 @@ namespace RPMS.WinForms.Forms.Tenant
 
         private void InitializeUI()
         {
-            ClientSize = new Size(1100, 600);
-            BackColor = AppColors.Background;
             Text = "Hợp đồng của tôi";
+            ClientSize = new Size(1100, 600);
 
-            var pnlTop = new Panel { Dock = DockStyle.Top, Height = 60, BackColor = AppColors.Card };
-            pnlTop.Controls.Add(new Label
-            {
-                Text = "Hợp đồng thuê phòng",
-                Font = AppTypography.Heading,
-                ForeColor = AppColors.TextMain,
-                Location = new Point(20, 18),
-                AutoSize = true
-            });
+            var header = UIHelper.CreatePageHeader("Hợp đồng thuê phòng");
 
-            dgvContracts = new ModernDataGridView { Dock = DockStyle.Fill };
-            dgvContracts.AutoGenerateColumns = false;
-            dgvContracts.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "ContractCode", HeaderText = "Mã Hợp Đồng", Width = 140 });
-            dgvContracts.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "RoomNumber", HeaderText = "Phòng", Width = 80 });
+            dgvContracts = new ModernDataGridView();
+            dgvContracts.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "ContractCode", HeaderText = "Mã Hợp Đồng", FillWeight = 12 });
+            dgvContracts.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "RoomNumber", HeaderText = "Phòng", FillWeight = 7 });
             dgvContracts.Columns.Add(new DataGridViewTextBoxColumn
             {
                 DataPropertyName = "EndDate",
                 HeaderText = "Ngày kết thúc",
-                Width = 110,
+                FillWeight = 10,
                 DefaultCellStyle = new DataGridViewCellStyle { Format = "dd/MM/yyyy" }
             });
-            dgvContracts.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Status", HeaderText = "Trạng thái", Width = 90 });
-            dgvContracts.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "PendingEditStatus", HeaderText = "Sửa HĐ", Width = 80 });
-            dgvContracts.Columns.Add(new DataGridViewLinkColumn { Name = "ViewPendingCol", HeaderText = "", Text = "Xem đề xuất", UseColumnTextForLinkValue = true, Width = 100, LinkColor = AppColors.Primary });
-            dgvContracts.Columns.Add(new DataGridViewLinkColumn { Name = "ConfirmCol", HeaderText = "", Text = "Xác nhận sửa", UseColumnTextForLinkValue = true, Width = 100, LinkColor = AppColors.Success });
-            dgvContracts.Columns.Add(new DataGridViewLinkColumn { Name = "RejectCol", HeaderText = "", Text = "Từ chối", UseColumnTextForLinkValue = true, Width = 80, LinkColor = AppColors.Danger });
-            dgvContracts.Columns.Add(new DataGridViewLinkColumn { Name = "PrintCol", HeaderText = "", Text = "In/PDF", UseColumnTextForLinkValue = true, Width = 70, LinkColor = AppColors.Primary });
-            dgvContracts.Columns.Add(new DataGridViewLinkColumn { Name = "ExtendCol", HeaderText = "Gia hạn", Text = "Xin Gia hạn", UseColumnTextForLinkValue = true, Width = 100, LinkColor = Color.Blue });
-            dgvContracts.Columns.Add(new DataGridViewLinkColumn { Name = "CancelCol", HeaderText = "Hủy thuê", Text = "Xin Hủy thuê", UseColumnTextForLinkValue = true, Width = 100, LinkColor = Color.Red });
+            dgvContracts.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Status", HeaderText = "Trạng thái", FillWeight = 8 });
+            dgvContracts.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "PendingEditStatus", HeaderText = "Sửa HĐ", FillWeight = 7 });
+            dgvContracts.Columns.Add(new DataGridViewLinkColumn { Name = "ViewPendingCol", HeaderText = "", Text = "Xem đề xuất", UseColumnTextForLinkValue = true, FillWeight = 9, LinkColor = AppColors.Primary });
+            dgvContracts.Columns.Add(new DataGridViewLinkColumn { Name = "ConfirmCol", HeaderText = "", Text = "Xác nhận sửa", UseColumnTextForLinkValue = true, FillWeight = 9, LinkColor = AppColors.Success });
+            dgvContracts.Columns.Add(new DataGridViewLinkColumn { Name = "RejectCol", HeaderText = "", Text = "Từ chối", UseColumnTextForLinkValue = true, FillWeight = 7, LinkColor = AppColors.Danger });
+            dgvContracts.Columns.Add(new DataGridViewLinkColumn { Name = "PrintCol", HeaderText = "", Text = "In/PDF", UseColumnTextForLinkValue = true, FillWeight = 7, LinkColor = AppColors.Primary });
+            dgvContracts.Columns.Add(new DataGridViewLinkColumn { Name = "ExtendCol", HeaderText = "Gia hạn", Text = "Xin Gia hạn", UseColumnTextForLinkValue = true, FillWeight = 9, LinkColor = Color.Blue });
+            dgvContracts.Columns.Add(new DataGridViewLinkColumn { Name = "CancelCol", HeaderText = "Hủy thuê", Text = "Xin Hủy thuê", UseColumnTextForLinkValue = true, FillWeight = 9, LinkColor = Color.Red });
             dgvContracts.CellContentClick += DgvContracts_CellContentClick!;
 
             Controls.Add(dgvContracts);
-            Controls.Add(pnlTop);
-            UIHelper.WireListPage(this, pnlTop, dgvContracts);
-            MinimumSize = new Size(700, 480);
+            Controls.Add(header);
+            UIHelper.WireListPage(this, header, dgvContracts);
+            UIHelper.ApplyGridFill(dgvContracts);
         }
 
         private async System.Threading.Tasks.Task LoadDataAsync()

@@ -1,4 +1,5 @@
-﻿using RPMS.BLL.Interfaces;
+﻿using Microsoft.Extensions.DependencyInjection;
+using RPMS.BLL.Interfaces;
 using RPMS.Common.Constants;
 using RPMS.Common.Globals;
 using RPMS.DTO.Tenant;
@@ -14,69 +15,118 @@ namespace RPMS.WinForms.Forms.Landlord
 {
     public class LandlordAppointmentForm : Form
     {
-        private readonly ILandlordService _landlordService;
-        private readonly IHouseService _houseService;
-        private ComboBox cboHouse, cboStatus;
-        private DateTimePicker dtpFrom, dtpTo;
-        private ModernButton btnFilter;
-        private ModernDataGridView dgvAppointments;
+        private readonly IServiceScopeFactory _scopeFactory;
+        private ComboBox cboHouse = null!;
+        private ComboBox cboStatus = null!;
+        private DateTimePicker dtpFrom = null!;
+        private DateTimePicker dtpTo = null!;
+        private ModernButton btnFilter = null!;
+        private ModernDataGridView dgvAppointments = null!;
 
-        public LandlordAppointmentForm(ILandlordService landlordService, IHouseService houseService)
+        public LandlordAppointmentForm(IServiceScopeFactory scopeFactory)
         {
-            _landlordService = landlordService;
-            _houseService = houseService;
+            _scopeFactory = scopeFactory;
             InitializeUI();
-            this.Load += LandlordAppointmentForm_Load;
+            Load += LandlordAppointmentForm_Load!;
         }
 
         private void InitializeUI()
         {
-            UIHelper.ApplyFormStyle(this);
-            this.ClientSize = new Size(1050, 650);
-            this.BackColor = AppColors.Background;
-            this.Text = "Quản lý Lịch hẹn Xem phòng";
-            this.AutoScroll = false;
+            Text = "Quản lý Lịch hẹn Xem phòng";
+            ClientSize = new Size(1100, 650);
 
-            Panel pnlTop = new Panel { Dock = DockStyle.Top, Height = 90, BackColor = AppColors.Card, Padding = new Padding(10) };
-            Label lblHouse = new Label { Text = "Tòa nhà:", Location = new Point(20, 25), AutoSize = true };
-            cboHouse = new ComboBox { Location = new Point(80, 22), Size = new Size(200, 30), DropDownStyle = ComboBoxStyle.DropDownList };
-            Label lblStatus = new Label { Text = "Trạng thái:", Location = new Point(300, 25), AutoSize = true };
-            cboStatus = new ComboBox { Location = new Point(380, 22), Size = new Size(150, 30), DropDownStyle = ComboBoxStyle.DropDownList };
+            var header = UIHelper.CreatePageHeader("Quản lý lịch hẹn xem phòng");
+
+            cboHouse = new ComboBox();
+            UIHelper.StyleCombo(cboHouse);
+
+            cboStatus = new ComboBox();
+            UIHelper.StyleCombo(cboStatus);
             cboStatus.Items.AddRange(new object[] { "All", "Pending", "Accepted", "Completed", "Rejected" });
             cboStatus.SelectedIndex = 0;
 
-            Label lblDate = new Label { Text = "Khoảng 10 ngày từ:", Location = new Point(20, 60), AutoSize = true };
-            dtpFrom = new DateTimePicker { Location = new Point(150, 58), Size = new Size(130, 30), Format = DateTimePickerFormat.Short };
-            Label lblTo = new Label { Text = "đến:", Location = new Point(290, 60), AutoSize = true };
-            dtpTo = new DateTimePicker { Location = new Point(330, 58), Size = new Size(130, 30), Format = DateTimePickerFormat.Short };
+            dtpFrom = new DateTimePicker { Format = DateTimePickerFormat.Short };
+            dtpTo = new DateTimePicker { Format = DateTimePickerFormat.Short };
             dtpFrom.Value = DateTime.Now.AddDays(-2);
             dtpTo.Value = DateTime.Now.AddDays(8);
 
-            btnFilter = new ModernButton { Text = "Lọc dữ liệu", Location = new Point(550, 20), Size = new Size(120, 40), BackColor = AppColors.Primary, Anchor = AnchorStyles.Top | AnchorStyles.Right };
+            btnFilter = UIHelper.PrimaryButton("Lọc dữ liệu", 130);
+            btnFilter.Margin = new Padding(0, 18, AppLayout.FieldGap, 6);
             btnFilter.Click += async (s, e) => await LoadDataAsync();
 
-            pnlTop.Controls.AddRange(new Control[] { lblHouse, cboHouse, lblStatus, cboStatus, lblDate, dtpFrom, lblTo, dtpTo, btnFilter });
+            var lblHint = new Label
+            {
+                Text = "Xác nhận / từ chối sẽ gửi thông báo ngay cho khách thuê.",
+                Font = AppTypography.Caption,
+                ForeColor = AppColors.TextMuted,
+                AutoSize = true,
+                Margin = new Padding(0, 28, 0, 6)
+            };
 
-            dgvAppointments = new ModernDataGridView { Dock = DockStyle.Fill };
-            dgvAppointments.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "AppointmentID", HeaderText = "ID", Width = 50 });
-            dgvAppointments.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "AppointmentDate", HeaderText = "Thời gian hẹn", Width = 150, DefaultCellStyle = new DataGridViewCellStyle { Format = "dd/MM/yyyy HH:mm" } });
-            dgvAppointments.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Note", HeaderText = "Ghi chú của khách", Width = 200 });
-            dgvAppointments.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Status", HeaderText = "Trạng thái", Width = 100 });
-            dgvAppointments.Columns.Add(new DataGridViewLinkColumn { Name = "AcceptCol", HeaderText = "Xác nhận", Text = "Nhận", UseColumnTextForLinkValue = true, Width = 80, LinkColor = Color.Blue });
-            dgvAppointments.Columns.Add(new DataGridViewLinkColumn { Name = "CompleteCol", HeaderText = "Hoàn thành", Text = "Hoàn thành", UseColumnTextForLinkValue = true, Width = 90, LinkColor = Color.Green });
-            dgvAppointments.Columns.Add(new DataGridViewLinkColumn { Name = "RejectCol", HeaderText = "Từ chối", Text = "Từ chối", UseColumnTextForLinkValue = true, Width = 80, LinkColor = Color.Red });
-            dgvAppointments.CellContentClick += DgvAppointments_CellContentClick;
+            var filterBar = UIHelper.CreateFilterBar();
+            filterBar.Controls.Add(UIHelper.CreateLabeledField("Tòa nhà", cboHouse, 220));
+            filterBar.Controls.Add(UIHelper.CreateLabeledField("Trạng thái", cboStatus, 150));
+            filterBar.Controls.Add(UIHelper.CreateLabeledField("Từ ngày", dtpFrom, 130));
+            filterBar.Controls.Add(UIHelper.CreateLabeledField("đến", dtpTo, 130));
+            filterBar.Controls.Add(btnFilter);
+            filterBar.Controls.Add(lblHint);
 
-            this.Controls.Add(dgvAppointments);
-            this.Controls.Add(pnlTop);
-            UIHelper.WireListPage(this, pnlTop, dgvAppointments);
+            dgvAppointments = new ModernDataGridView();
+            dgvAppointments.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "AppointmentID", HeaderText = "ID", FillWeight = 6 });
+            dgvAppointments.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "RoomNumber", HeaderText = "Phòng", FillWeight = 10 });
+            dgvAppointments.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "TenantName", HeaderText = "Khách thuê", FillWeight = 16 });
+            dgvAppointments.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                DataPropertyName = "AppointmentDate",
+                HeaderText = "Thời gian hẹn",
+                FillWeight = 16,
+                DefaultCellStyle = new DataGridViewCellStyle { Format = "dd/MM/yyyy HH:mm" }
+            });
+            dgvAppointments.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Note", HeaderText = "Ghi chú", FillWeight = 18 });
+            dgvAppointments.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Status", HeaderText = "TT", FillWeight = 10 });
+            dgvAppointments.Columns.Add(new DataGridViewLinkColumn
+            {
+                Name = "AcceptCol",
+                HeaderText = "Xác nhận",
+                Text = "Nhận",
+                UseColumnTextForLinkValue = true,
+                FillWeight = 8,
+                LinkColor = Color.Blue
+            });
+            dgvAppointments.Columns.Add(new DataGridViewLinkColumn
+            {
+                Name = "CompleteCol",
+                HeaderText = "Hoàn thành",
+                Text = "Xong",
+                UseColumnTextForLinkValue = true,
+                FillWeight = 8,
+                LinkColor = Color.Green
+            });
+            dgvAppointments.Columns.Add(new DataGridViewLinkColumn
+            {
+                Name = "RejectCol",
+                HeaderText = "Từ chối",
+                Text = "Từ chối",
+                UseColumnTextForLinkValue = true,
+                FillWeight = 8,
+                LinkColor = Color.Red
+            });
+            dgvAppointments.CellContentClick += DgvAppointments_CellContentClick!;
+
+            Controls.Add(dgvAppointments);
+            Controls.Add(filterBar);
+            Controls.Add(header);
+            UIHelper.WireListPage(this, header, dgvAppointments);
+            UIHelper.ApplyGridFill(dgvAppointments);
         }
 
         private async void LandlordAppointmentForm_Load(object? sender, EventArgs e)
         {
             try
             {
-                var houses = await _houseService.GetHousesByOwnerAsync(UserSession.CurrentUser!.UserID);
+                using var scope = _scopeFactory.CreateScope();
+                var houses = await scope.ServiceProvider.GetRequiredService<IHouseService>()
+                    .GetHousesByOwnerAsync(UserSession.CurrentUser!.UserID);
                 if (IsDisposed) return;
                 var houseList = houses.ToList();
                 houseList.Insert(0, new RPMS.DTO.House.HouseDto { HouseID = 0, HouseName = "Tất cả tòa nhà" });
@@ -100,10 +150,11 @@ namespace RPMS.WinForms.Forms.Landlord
                 int selectedHouse = Convert.ToInt32(cboHouse.SelectedValue);
                 int? houseId = selectedHouse == 0 ? null : selectedHouse;
                 string status = cboStatus.SelectedItem?.ToString() ?? "All";
-                var data = await _landlordService.GetAppointmentsAsync(
-                    UserSession.CurrentUser!.UserID, houseId, status, dtpFrom.Value, dtpTo.Value);
+
+                using var scope = _scopeFactory.CreateScope();
+                var data = await scope.ServiceProvider.GetRequiredService<ILandlordService>()
+                    .GetAppointmentsAsync(UserSession.CurrentUser!.UserID, houseId, status, dtpFrom.Value, dtpTo.Value);
                 if (IsDisposed) return;
-                dgvAppointments.AutoGenerateColumns = false;
                 dgvAppointments.DataSource = data.ToList();
             }
             catch (Exception ex)
@@ -119,18 +170,32 @@ namespace RPMS.WinForms.Forms.Landlord
             var app = dgvAppointments.Rows[e.RowIndex].DataBoundItem as AppointmentDto;
             if (app == null) return;
             string colName = dgvAppointments.Columns[e.ColumnIndex].Name;
+
+            string newStatus = colName switch
+            {
+                "AcceptCol" => "Accepted",
+                "CompleteCol" => "Completed",
+                "RejectCol" => "Rejected",
+                _ => ""
+            };
+            if (string.IsNullOrEmpty(newStatus)) return;
+
             try
             {
-                string newStatus = "";
-                if (colName == "AcceptCol") newStatus = "Accepted";
-                else if (colName == "CompleteCol") newStatus = "Completed";
-                else if (colName == "RejectCol") newStatus = "Rejected";
-                if (!string.IsNullOrEmpty(newStatus))
+                using var scope = _scopeFactory.CreateScope();
+                await scope.ServiceProvider.GetRequiredService<ILandlordService>()
+                    .UpdateAppointmentStatusAsync(app.AppointmentID, newStatus);
+
+                string msg = newStatus switch
                 {
-                    await _landlordService.UpdateAppointmentStatusAsync(app.AppointmentID, newStatus);
-                    AppDialog.ShowInfo("Cập nhật trạng thái thành công!");
-                    await LoadDataAsync();
-                }
+                    "Accepted" => "Đã xác nhận lịch hẹn. Khách thuê đã nhận thông báo.",
+                    "Rejected" => "Đã từ chối lịch hẹn. Khách thuê đã nhận thông báo.",
+                    "Completed" => "Đã đánh dấu hoàn thành. Khách thuê đã nhận thông báo.",
+                    _ => "Cập nhật thành công."
+                };
+                ToastNotifier.Show(this, msg, ToastKind.Success);
+                AppDialog.ShowInfo(msg);
+                await LoadDataAsync();
             }
             catch (Exception ex)
             {

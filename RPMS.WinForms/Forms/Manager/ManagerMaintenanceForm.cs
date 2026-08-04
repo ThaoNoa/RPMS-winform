@@ -26,53 +26,33 @@ namespace RPMS.WinForms.Forms.Manager
 
         private void InitializeUI()
         {
-            UIHelper.ApplyFormStyle(this);
-            ClientSize = new Size(1100, 600);
-            BackColor = AppColors.Background;
             Text = "Quản lý Sự cố / Bảo trì";
-            AutoScroll = false;
+            ClientSize = new Size(1100, 600);
 
-            var pnlTop = new Panel { Dock = DockStyle.Top, Height = 60, BackColor = AppColors.Background };
-            pnlTop.Controls.Add(new Label
-            {
-                Text = "Yêu cầu bảo trì từ Khách thuê",
-                Font = new Font("Segoe UI", 16F, FontStyle.Bold),
-                ForeColor = AppColors.TextMain,
-                Location = new Point(20, 15),
-                AutoSize = true
-            });
-            var btnRefresh = new ModernButton
-            {
-                Text = "Làm mới",
-                Size = new Size(110, 36),
-                Location = new Point(960, 12),
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
-                BackColor = AppColors.TextMuted
-            };
+            var btnRefresh = UIHelper.SecondaryButton("Làm mới", 110);
             btnRefresh.Click += async (s, e) => await LoadDataAsync();
-            pnlTop.Controls.Add(btnRefresh);
+            var header = UIHelper.CreatePageHeader("Yêu cầu bảo trì từ Khách thuê", btnRefresh);
 
-            dgvRequests = new ModernDataGridView { Dock = DockStyle.Fill };
-            dgvRequests.AutoGenerateColumns = false;
-            dgvRequests.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "RequestID", HeaderText = "ID", Width = 50 });
-            dgvRequests.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "RoomNumber", HeaderText = "Phòng", Width = 70 });
-            dgvRequests.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "TenantName", HeaderText = "Khách thuê", Width = 130 });
-            dgvRequests.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Title", HeaderText = "Tiêu đề sự cố", Width = 200 });
+            dgvRequests = new ModernDataGridView();
+            dgvRequests.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "RequestID", HeaderText = "ID", FillWeight = 5 });
+            dgvRequests.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "RoomNumber", HeaderText = "Phòng", FillWeight = 7 });
+            dgvRequests.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "TenantName", HeaderText = "Khách thuê", FillWeight = 12 });
+            dgvRequests.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Title", HeaderText = "Tiêu đề sự cố", FillWeight = 18 });
             dgvRequests.Columns.Add(new DataGridViewTextBoxColumn
             {
                 DataPropertyName = "CreatedDate",
                 HeaderText = "Ngày gửi",
-                Width = 120,
+                FillWeight = 12,
                 DefaultCellStyle = new DataGridViewCellStyle { Format = "dd/MM/yyyy HH:mm" }
             });
-            dgvRequests.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Status", HeaderText = "Trạng thái", Width = 100 });
+            dgvRequests.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Status", HeaderText = "Trạng thái", FillWeight = 10 });
             dgvRequests.Columns.Add(new DataGridViewLinkColumn
             {
                 Name = "DetailCol",
                 HeaderText = "Chi tiết",
                 Text = "Xem",
                 UseColumnTextForLinkValue = true,
-                Width = 70,
+                FillWeight = 7,
                 LinkColor = AppColors.Primary
             });
             dgvRequests.Columns.Add(new DataGridViewLinkColumn
@@ -81,7 +61,7 @@ namespace RPMS.WinForms.Forms.Manager
                 HeaderText = "Tiếp nhận",
                 Text = "Xác nhận & Hẹn",
                 UseColumnTextForLinkValue = true,
-                Width = 120,
+                FillWeight = 11,
                 LinkColor = Color.Blue
             });
             dgvRequests.Columns.Add(new DataGridViewLinkColumn
@@ -90,7 +70,7 @@ namespace RPMS.WinForms.Forms.Manager
                 HeaderText = "Hoàn thành",
                 Text = "Xong",
                 UseColumnTextForLinkValue = true,
-                Width = 80,
+                FillWeight = 8,
                 LinkColor = Color.Green
             });
             dgvRequests.Columns.Add(new DataGridViewLinkColumn
@@ -99,7 +79,7 @@ namespace RPMS.WinForms.Forms.Manager
                 HeaderText = "In",
                 Text = "In/PDF",
                 UseColumnTextForLinkValue = true,
-                Width = 70,
+                FillWeight = 7,
                 LinkColor = AppColors.Primary
             });
             dgvRequests.Columns.Add(new DataGridViewLinkColumn
@@ -108,7 +88,7 @@ namespace RPMS.WinForms.Forms.Manager
                 HeaderText = "Xóa",
                 Text = "Xóa",
                 UseColumnTextForLinkValue = true,
-                Width = 60,
+                FillWeight = 6,
                 LinkColor = Color.Red
             });
             dgvRequests.CellContentClick += DgvRequests_CellContentClick!;
@@ -120,8 +100,9 @@ namespace RPMS.WinForms.Forms.Manager
             };
 
             Controls.Add(dgvRequests);
-            Controls.Add(pnlTop);
-            UIHelper.WireListPage(this, pnlTop, dgvRequests);
+            Controls.Add(header);
+            UIHelper.WireListPage(this, header, dgvRequests);
+            UIHelper.ApplyGridFill(dgvRequests);
         }
 
         private async System.Threading.Tasks.Task LoadDataAsync()

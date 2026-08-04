@@ -13,6 +13,8 @@ namespace RPMS.BLL.Interfaces
         Task<IEnumerable<ContractDto>> GetContractsByManagerAsync(int managerId);
         Task<ContractDetailDto> GetContractByIdAsync(int id);
         Task<ContractDto> CreateContractAsync(CreateContractDto request, int createdById);
+        /// <summary>Tạo HĐ nháp cho mọi phòng của nhà chưa có HĐ Active/Draft.</summary>
+        Task<BulkCreateDraftContractsResultDto> CreateDraftContractsForHouseAsync(BulkCreateDraftContractsDto request, int landlordId);
         Task<ContractDto> AssignTenantAsync(AssignTenantDto request, int actorUserId);
         Task<ContractDto> UpdateContractAsync(UpdateContractDto request, int landlordId);
         Task<bool> ConfirmContractEditAsync(int contractId, int tenantId);
