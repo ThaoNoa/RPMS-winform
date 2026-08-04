@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using RPMS.BLL.Interfaces;
 using RPMS.Common.Constants;
 using RPMS.Common.Globals;
@@ -11,6 +12,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -18,10 +20,7 @@ namespace RPMS.WinForms.Forms.Landlord
 {
     public class LandlordContractForm : Form
     {
-        private readonly IContractService _contractService;
-        private readonly IHouseService _houseService;
-        private readonly IRoomService _roomService;
-        private readonly ILandlordService _landlordService;
+        private readonly IServiceScopeFactory _scopeFactory;
 
         private ModernDataGridView dgv = null!;
         private ComboBox cboHouse = null!;
@@ -34,19 +33,36 @@ namespace RPMS.WinForms.Forms.Landlord
         private ModernTextBox txtElectric = null!;
         private ModernTextBox txtWater = null!;
         private List<UserDto> _tenants = new();
+        private bool _suppressComboEvents;
+        private readonly SemaphoreSlim _uiLoadLock = new(1, 1);
 
-        public LandlordContractForm(
-            IContractService contractService,
-            IHouseService houseService,
-            IRoomService roomService,
-            ILandlordService landlordService)
+        public LandlordContractForm(IServiceScopeFactory scopeFactory)
         {
-            _contractService = contractService;
-            _houseService = houseService;
-            _roomService = roomService;
-            _landlordService = landlordService;
+            _scopeFactory = scopeFactory;
             InitializeUI();
             Load += async (s, e) => await OnLoadAsync();
+        }
+
+        private async Task<T> WithServicesAsync<T>(Func<IHouseService, IRoomService, IContractService, ILandlordService, Task<T>> action)
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var sp = scope.ServiceProvider;
+            return await action(
+                sp.GetRequiredService<IHouseService>(),
+                sp.GetRequiredService<IRoomService>(),
+                sp.GetRequiredService<IContractService>(),
+                sp.GetRequiredService<ILandlordService>());
+        }
+
+        private async Task WithServicesAsync(Func<IHouseService, IRoomService, IContractService, ILandlordService, Task> action)
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var sp = scope.ServiceProvider;
+            await action(
+                sp.GetRequiredService<IHouseService>(),
+                sp.GetRequiredService<IRoomService>(),
+                sp.GetRequiredService<IContractService>(),
+                sp.GetRequiredService<ILandlordService>());
         }
 
         private void InitializeUI()
@@ -93,8 +109,8 @@ namespace RPMS.WinForms.Forms.Landlord
             cboHouse = new ComboBox { Location = new Point(16, y), Size = new Size(320, 28), DropDownStyle = ComboBoxStyle.DropDownList };
             cboHouse.SelectedIndexChanged += async (s, e) =>
             {
-                await LoadRoomsAsync();
-                await LoadAppointmentTenantsAsync();
+                if (_suppressComboEvents) return;
+                await OnHouseChangedAsync();
             };
             pnlCreate.Controls.Add(cboHouse);
             y += 40;
@@ -103,8 +119,9 @@ namespace RPMS.WinForms.Forms.Landlord
             cboRoom = new ComboBox { Location = new Point(16, y), Size = new Size(320, 28), DropDownStyle = ComboBoxStyle.DropDownList };
             cboRoom.SelectedIndexChanged += async (s, e) =>
             {
-                CboRoom_SelectedIndexChanged(s, e);
-                await LoadAppointmentTenantsAsync();
+                if (_suppressComboEvents) return;
+                UpdateRentFromSelectedRoom();
+                await OnRoomChangedAsync();
             };
             pnlCreate.Controls.Add(cboRoom);
             y += 40;
@@ -242,61 +259,135 @@ namespace RPMS.WinForms.Forms.Landlord
 
         private async Task OnLoadAsync()
         {
+            await _uiLoadLock.WaitAsync();
             try
             {
+                _suppressComboEvents = true;
                 var landlordId = UserSession.CurrentUser!.UserID;
-                var houses = (await _houseService.GetHousesByOwnerAsync(landlordId)).ToList();
-                cboHouse.DataSource = houses;
-                cboHouse.DisplayMember = nameof(HouseDto.HouseName);
-                cboHouse.ValueMember = nameof(HouseDto.HouseID);
+                await WithServicesAsync(async (houses, rooms, contracts, landlord) =>
+                {
+                    var houseList = (await houses.GetHousesByOwnerAsync(landlordId)).ToList();
+                    cboHouse.DataSource = null;
+                    cboHouse.DisplayMember = nameof(HouseDto.HouseName);
+                    cboHouse.ValueMember = nameof(HouseDto.HouseID);
+                    cboHouse.DataSource = houseList;
 
-                await LoadRoomsAsync();
-                await LoadAppointmentTenantsAsync();
-                await LoadContractsAsync();
+                    await BindRoomsAsync(rooms);
+                    await BindTenantsAsync(landlord);
+                    await BindContractsAsync(contracts);
+                });
             }
             catch (Exception ex)
             {
                 AppDialog.ShowError(ex.Message);
             }
+            finally
+            {
+                _suppressComboEvents = false;
+                _uiLoadLock.Release();
+            }
         }
 
-        private async Task LoadAppointmentTenantsAsync()
+        private async Task OnHouseChangedAsync()
+        {
+            await _uiLoadLock.WaitAsync();
+            try
+            {
+                _suppressComboEvents = true;
+                await WithServicesAsync(async (_, rooms, _, landlord) =>
+                {
+                    await BindRoomsAsync(rooms);
+                    await BindTenantsAsync(landlord);
+                });
+            }
+            catch (Exception ex)
+            {
+                AppDialog.ShowError(ex.Message);
+            }
+            finally
+            {
+                _suppressComboEvents = false;
+                _uiLoadLock.Release();
+            }
+        }
+
+        private async Task OnRoomChangedAsync()
+        {
+            await _uiLoadLock.WaitAsync();
+            try
+            {
+                await WithServicesAsync(async (_, _, _, landlord) =>
+                {
+                    await BindTenantsAsync(landlord);
+                });
+            }
+            catch (Exception ex)
+            {
+                AppDialog.ShowError(ex.Message);
+            }
+            finally
+            {
+                _uiLoadLock.Release();
+            }
+        }
+
+        private async Task BindRoomsAsync(IRoomService roomService)
+        {
+            cboRoom.DataSource = null;
+            int houseId = 0;
+            if (cboHouse.SelectedItem is HouseDto h)
+                houseId = h.HouseID;
+            else if (cboHouse.SelectedValue != null)
+                int.TryParse(cboHouse.SelectedValue.ToString(), out houseId);
+            if (houseId <= 0) return;
+
+            var roomList = (await roomService.GetRoomsByHouseAsync(houseId))
+                .Where(r => r.Status == "Available")
+                .ToList();
+            cboRoom.DisplayMember = nameof(RoomDto.RoomNumber);
+            cboRoom.ValueMember = nameof(RoomDto.RoomID);
+            cboRoom.DataSource = roomList;
+            UpdateRentFromSelectedRoom();
+        }
+
+        private async Task BindTenantsAsync(ILandlordService landlordService)
         {
             int? roomId = null;
-            if (cboRoom.SelectedValue != null &&
-                int.TryParse(cboRoom.SelectedValue.ToString(), out int rid) &&
-                rid > 0)
+            if (cboRoom.SelectedItem is RoomDto room)
+                roomId = room.RoomID;
+            else if (cboRoom.SelectedValue != null &&
+                     int.TryParse(cboRoom.SelectedValue.ToString(), out int rid) &&
+                     rid > 0)
             {
                 roomId = rid;
             }
 
-            _tenants = (await _landlordService.GetAppointmentTenantsAsync(
-                UserSession.CurrentUser!.UserID, roomId)).ToList();
-
-            // Nếu phòng chưa có ai đặt lịch, vẫn hiện khách đã đặt lịch các phòng khác của chủ
+            var landlordId = UserSession.CurrentUser!.UserID;
+            _tenants = (await landlordService.GetAppointmentTenantsAsync(landlordId, roomId)).ToList();
             if (roomId.HasValue && _tenants.Count == 0)
-            {
-                _tenants = (await _landlordService.GetAppointmentTenantsAsync(
-                    UserSession.CurrentUser!.UserID, null)).ToList();
-            }
+                _tenants = (await landlordService.GetAppointmentTenantsAsync(landlordId, null)).ToList();
 
-            BindTenantCombo(cboTenant, includeEmpty: true);
+            BindTenantCombo();
         }
 
-        private void BindTenantCombo(ComboBox cbo, bool includeEmpty)
+        private async Task BindContractsAsync(IContractService contractService)
         {
-            var items = new List<UserDto>();
-            if (includeEmpty)
-                items.Add(new UserDto { UserID = 0, FullName = "(Chưa có khách — lưu nháp)" });
+            var list = await contractService.GetContractsByLandlordAsync(UserSession.CurrentUser!.UserID);
+            dgv.DataSource = list.OrderByDescending(c => c.ContractID).ToList();
+        }
+
+        private void BindTenantCombo()
+        {
+            var items = new List<UserDto>
+            {
+                new() { UserID = 0, FullName = "(Chưa có khách — lưu nháp)" }
+            };
             foreach (var t in _tenants)
             {
-                var label = string.IsNullOrWhiteSpace(t.Phone)
-                    ? t.FullName
-                    : $"{t.FullName} ({t.Phone})";
                 items.Add(new UserDto
                 {
                     UserID = t.UserID,
-                    FullName = label,
+                    FullName = string.IsNullOrWhiteSpace(t.Phone) ? t.FullName : $"{t.FullName} ({t.Phone})",
                     Phone = t.Phone,
                     Email = t.Email,
                     Username = t.Username,
@@ -304,43 +395,29 @@ namespace RPMS.WinForms.Forms.Landlord
                     RoleID = t.RoleID
                 });
             }
-            cbo.DataSource = null;
-            cbo.DataSource = items;
-            cbo.DisplayMember = nameof(UserDto.FullName);
-            cbo.ValueMember = nameof(UserDto.UserID);
-            if (cbo.Items.Count > 0)
-                cbo.SelectedIndex = 0;
+            cboTenant.DataSource = null;
+            cboTenant.DisplayMember = nameof(UserDto.FullName);
+            cboTenant.ValueMember = nameof(UserDto.UserID);
+            cboTenant.DataSource = items;
+            if (cboTenant.Items.Count > 0)
+                cboTenant.SelectedIndex = 0;
         }
 
-        private async Task LoadRoomsAsync()
-        {
-            cboRoom.DataSource = null;
-            if (cboHouse.SelectedValue == null || !int.TryParse(cboHouse.SelectedValue.ToString(), out int houseId))
-                return;
-
-            var rooms = (await _roomService.GetRoomsByHouseAsync(houseId))
-                .Where(r => r.Status == "Available")
-                .ToList();
-            cboRoom.DataSource = rooms;
-            cboRoom.DisplayMember = nameof(RoomDto.RoomNumber);
-            cboRoom.ValueMember = nameof(RoomDto.RoomID);
-        }
-
-        private void CboRoom_SelectedIndexChanged(object? sender, EventArgs e)
+        private void UpdateRentFromSelectedRoom()
         {
             if (cboRoom.SelectedItem is RoomDto room)
                 txtRent.Text = room.Price.ToString("0");
         }
 
-        private async Task LoadContractsAsync()
-        {
-            var list = await _contractService.GetContractsByLandlordAsync(UserSession.CurrentUser!.UserID);
-            dgv.DataSource = list.OrderByDescending(c => c.ContractID).ToList();
-        }
-
         private async Task CreateContractAsync()
         {
-            if (cboRoom.SelectedValue == null)
+            int roomId = 0;
+            if (cboRoom.SelectedItem is RoomDto r)
+                roomId = r.RoomID;
+            else if (cboRoom.SelectedValue != null)
+                int.TryParse(cboRoom.SelectedValue.ToString(), out roomId);
+
+            if (roomId <= 0)
             {
                 AppDialog.ShowWarning("Vui lòng chọn phòng.");
                 return;
@@ -357,38 +434,52 @@ namespace RPMS.WinForms.Forms.Landlord
             }
 
             int? tenantId = null;
-            if (cboTenant.SelectedValue != null &&
-                int.TryParse(cboTenant.SelectedValue.ToString(), out int tid) &&
-                tid > 0)
+            if (cboTenant.SelectedItem is UserDto u && u.UserID > 0)
+                tenantId = u.UserID;
+            else if (cboTenant.SelectedValue != null &&
+                     int.TryParse(cboTenant.SelectedValue.ToString(), out int tid) &&
+                     tid > 0)
             {
                 tenantId = tid;
             }
 
             try
             {
-                var created = await _contractService.CreateContractAsync(new CreateContractDto
-                {
-                    RoomID = Convert.ToInt32(cboRoom.SelectedValue),
-                    TenantID = tenantId,
-                    StartDate = dtpStart.Value.Date,
-                    EndDate = dtpEnd.Value.Date,
-                    Deposit = deposit,
-                    MonthlyRent = rent,
-                    ElectricPrice = electric,
-                    WaterPrice = water
-                }, UserSession.CurrentUser!.UserID);
+                var created = await WithServicesAsync(async (_, __, contracts, ___) =>
+                    await contracts.CreateContractAsync(new CreateContractDto
+                    {
+                        RoomID = roomId,
+                        TenantID = tenantId,
+                        StartDate = dtpStart.Value.Date,
+                        EndDate = dtpEnd.Value.Date,
+                        Deposit = deposit,
+                        MonthlyRent = rent,
+                        ElectricPrice = electric,
+                        WaterPrice = water
+                    }, UserSession.CurrentUser!.UserID));
 
-                if (tenantId.HasValue)
-                    AppDialog.ShowInfo("Tạo hợp đồng thành công (đã gắn khách thuê).");
-                else
-                    AppDialog.ShowInfo("Đã lưu hợp đồng nháp. Khi có khách, bấm \"Gán khách\" trên danh sách.");
-
+                AppDialog.ShowInfo(tenantId.HasValue
+                    ? "Tạo hợp đồng thành công (đã gắn khách thuê)."
+                    : "Đã lưu hợp đồng nháp. Khi có khách, bấm \"Gán khách\" trên danh sách.");
                 ToastNotifier.Show(this,
                     created.Status == "Draft" ? "Đã lưu hợp đồng nháp" : "Đã tạo hợp đồng Active",
                     ToastKind.Success);
 
-                await LoadRoomsAsync();
-                await LoadContractsAsync();
+                await _uiLoadLock.WaitAsync();
+                try
+                {
+                    _suppressComboEvents = true;
+                    await WithServicesAsync(async (_, rooms, contracts, _) =>
+                    {
+                        await BindRoomsAsync(rooms);
+                        await BindContractsAsync(contracts);
+                    });
+                }
+                finally
+                {
+                    _suppressComboEvents = false;
+                    _uiLoadLock.Release();
+                }
             }
             catch (Exception ex)
             {
@@ -407,7 +498,8 @@ namespace RPMS.WinForms.Forms.Landlord
             {
                 if (col == "PrintCol")
                 {
-                    var detail = await _contractService.GetContractByIdAsync(contract.ContractID);
+                    var detail = await WithServicesAsync(async (_, __, contracts, ___) =>
+                        await contracts.GetContractByIdAsync(contract.ContractID));
                     ContractPrintHelper.OpenAndPrint(detail);
                     return;
                 }
@@ -432,9 +524,10 @@ namespace RPMS.WinForms.Forms.Landlord
                         return;
                     }
                     var newEnd = contract.EndDate.AddMonths(months);
-                    await _contractService.ExtendContractAsync(contract.ContractID, newEnd, UserSession.CurrentUser!.UserID);
+                    await WithServicesAsync(async (_, __, contracts, ___) =>
+                        await contracts.ExtendContractAsync(contract.ContractID, newEnd, UserSession.CurrentUser!.UserID));
                     AppDialog.ShowInfo($"Đã gia hạn đến {newEnd:dd/MM/yyyy}.");
-                    await LoadContractsAsync();
+                    await WithServicesAsync(async (_, __, contracts, ___) => await BindContractsAsync(contracts));
                     return;
                 }
 
@@ -447,10 +540,24 @@ namespace RPMS.WinForms.Forms.Landlord
                     }
                     if (!AppDialog.Confirm($"Hủy hợp đồng {contract.ContractCode}?"))
                         return;
-                    await _contractService.TerminateContractAsync(contract.ContractID);
+                    await WithServicesAsync(async (_, __, contracts, ___) =>
+                        await contracts.TerminateContractAsync(contract.ContractID));
                     AppDialog.ShowInfo("Đã hủy hợp đồng.");
-                    await LoadRoomsAsync();
-                    await LoadContractsAsync();
+                    await _uiLoadLock.WaitAsync();
+                    try
+                    {
+                        _suppressComboEvents = true;
+                        await WithServicesAsync(async (_, rooms, contracts, _) =>
+                        {
+                            await BindRoomsAsync(rooms);
+                            await BindContractsAsync(contracts);
+                        });
+                    }
+                    finally
+                    {
+                        _suppressComboEvents = false;
+                        _uiLoadLock.Release();
+                    }
                 }
             }
             catch (Exception ex)
@@ -471,9 +578,13 @@ namespace RPMS.WinForms.Forms.Landlord
                 AppDialog.ShowWarning("Không thể gán khách cho hợp đồng đã kết thúc.");
                 return;
             }
-            if (_tenants.Count == 0)
+
+            var candidates = await WithServicesAsync(async (_, __, ___, landlord) =>
+                (await landlord.GetAppointmentTenantsAsync(UserSession.CurrentUser!.UserID, null)).ToList());
+
+            if (candidates.Count == 0)
             {
-                AppDialog.ShowWarning("Chưa có khách đặt lịch xem phòng liên quan. Khách cần đặt lịch trước khi được gán vào hợp đồng.");
+                AppDialog.ShowWarning("Chưa có khách đặt lịch xem phòng của bạn. Khách cần đặt lịch trước khi được gán vào hợp đồng.");
                 return;
             }
 
@@ -500,14 +611,6 @@ namespace RPMS.WinForms.Forms.Landlord
                 Size = new Size(380, 28),
                 DropDownStyle = ComboBoxStyle.DropDownList
             };
-            // Khách đã đặt lịch xem phòng thuộc nhà của landlord
-            var candidates = (await _landlordService.GetAppointmentTenantsAsync(
-                UserSession.CurrentUser!.UserID, null)).ToList();
-            if (candidates.Count == 0)
-            {
-                AppDialog.ShowWarning("Chưa có khách đặt lịch xem phòng của bạn.");
-                return;
-            }
             cbo.DataSource = candidates.Select(t => new UserDto
             {
                 UserID = t.UserID,
@@ -539,22 +642,43 @@ namespace RPMS.WinForms.Forms.Landlord
             dlg.CancelButton = btnCancel;
 
             if (dlg.ShowDialog(this) != DialogResult.OK) return;
-            if (cbo.SelectedValue == null || !int.TryParse(cbo.SelectedValue.ToString(), out int tenantId) || tenantId <= 0)
+
+            int tenantId = 0;
+            if (cbo.SelectedItem is UserDto sel)
+                tenantId = sel.UserID;
+            else if (cbo.SelectedValue != null)
+                int.TryParse(cbo.SelectedValue.ToString(), out tenantId);
+            if (tenantId <= 0)
             {
                 AppDialog.ShowWarning("Vui lòng chọn khách thuê.");
                 return;
             }
 
-            await _contractService.AssignTenantAsync(new AssignTenantDto
-            {
-                ContractID = contract.ContractID,
-                TenantID = tenantId
-            }, UserSession.CurrentUser!.UserID);
+            await WithServicesAsync(async (_, __, contracts, ___) =>
+                await contracts.AssignTenantAsync(new AssignTenantDto
+                {
+                    ContractID = contract.ContractID,
+                    TenantID = tenantId
+                }, UserSession.CurrentUser!.UserID));
 
             ToastNotifier.Show(this, "Đã gán khách thuê", ToastKind.Success);
             AppDialog.ShowInfo("Đã gán khách thuê. Hợp đồng chuyển sang Active, phòng đánh dấu đã thuê.");
-            await LoadRoomsAsync();
-            await LoadContractsAsync();
+
+            await _uiLoadLock.WaitAsync();
+            try
+            {
+                _suppressComboEvents = true;
+                await WithServicesAsync(async (_, rooms, contracts, _) =>
+                {
+                    await BindRoomsAsync(rooms);
+                    await BindContractsAsync(contracts);
+                });
+            }
+            finally
+            {
+                _suppressComboEvents = false;
+                _uiLoadLock.Release();
+            }
         }
     }
 }
