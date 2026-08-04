@@ -96,7 +96,8 @@ namespace RPMS.BLL.Services
 
         public async Task<bool> ApprovePostAsync(int postId, int approvedByAdminId)
         {
-            var post = await _unitOfWork.Posts.GetByIdAsync(postId);
+            var post = await _unitOfWork.Posts.FirstOrDefaultAsync(
+                p => p.PostID == postId, "Room.House");
             if (post == null) throw new NotFoundException("Tin đăng", postId);
             if (post.Status != "Pending")
                 throw new BadRequestException("Chỉ có thể duyệt tin đang chờ duyệt.");
@@ -105,17 +106,52 @@ namespace RPMS.BLL.Services
             post.ApprovedDate = DateTime.Now;
             post.UpdatedDate = DateTime.Now;
             _unitOfWork.Posts.Update(post);
+
+            int? ownerId = post.Room?.House?.OwnerID;
+            if (ownerId is > 0)
+            {
+                string roomNo = post.Room?.RoomNumber ?? "?";
+                await _unitOfWork.Notifications.AddAsync(new Notification
+                {
+                    UserID = ownerId.Value,
+                    Title = "Tin đăng đã được duyệt",
+                    Content = $"Tin «{post.Title}» (phòng {roomNo}) đã được Admin duyệt và đang hiển thị công khai.",
+                    IsRead = false,
+                    CreatedDate = DateTime.Now,
+                    UpdatedDate = DateTime.Now
+                });
+            }
+
             await _unitOfWork.SaveChangesAsync();
             return true;
         }
 
         public async Task<bool> RejectPostAsync(int postId)
         {
-            var post = await _unitOfWork.Posts.GetByIdAsync(postId);
+            var post = await _unitOfWork.Posts.FirstOrDefaultAsync(
+                p => p.PostID == postId, "Room.House");
             if (post == null) throw new NotFoundException("Tin đăng", postId);
+            if (post.Status != "Pending")
+                throw new BadRequestException("Chỉ có thể từ chối tin đang chờ duyệt.");
             post.Status = "Rejected";
             post.UpdatedDate = DateTime.Now;
             _unitOfWork.Posts.Update(post);
+
+            int? ownerId = post.Room?.House?.OwnerID;
+            if (ownerId is > 0)
+            {
+                string roomNo = post.Room?.RoomNumber ?? "?";
+                await _unitOfWork.Notifications.AddAsync(new Notification
+                {
+                    UserID = ownerId.Value,
+                    Title = "Tin đăng bị từ chối",
+                    Content = $"Tin «{post.Title}» (phòng {roomNo}) đã bị Admin từ chối. Bạn có thể chỉnh sửa và đăng lại.",
+                    IsRead = false,
+                    CreatedDate = DateTime.Now,
+                    UpdatedDate = DateTime.Now
+                });
+            }
+
             await _unitOfWork.SaveChangesAsync();
             return true;
         }
