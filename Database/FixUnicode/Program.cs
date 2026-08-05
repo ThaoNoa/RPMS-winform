@@ -25,6 +25,19 @@ await Exec("UPDATE Amenities SET AmenityName=N'Wifi' WHERE AmenityID=3");
 await Exec("UPDATE Amenities SET AmenityName=N'Ban công' WHERE AmenityID=4");
 await Exec("UPDATE Amenities SET AmenityName=N'Bếp' WHERE AmenityID=5");
 await Exec("UPDATE Amenities SET AmenityName=N'Gara xe' WHERE AmenityID=6");
+await Exec("UPDATE Amenities SET AmenityName=N'Máy giặt' WHERE AmenityID=7");
+await Exec("UPDATE Amenities SET AmenityName=N'Tủ lạnh' WHERE AmenityID=8");
+await Exec("UPDATE Amenities SET AmenityName=N'Tủ quần áo' WHERE AmenityID=9");
+await Exec("UPDATE Amenities SET AmenityName=N'Bồn rửa bát' WHERE AmenityID=10");
+await Exec("UPDATE Amenities SET AmenityName=N'Sofa' WHERE AmenityID=11");
+await Exec("UPDATE Amenities SET AmenityName=N'Bàn ghế' WHERE AmenityID=12");
+// Bổ sung nếu DB cũ thiếu (không phụ thuộc AmenityID)
+await Exec(@"IF NOT EXISTS (SELECT 1 FROM Amenities WHERE AmenityName=N'Máy giặt') INSERT INTO Amenities (AmenityName) VALUES (N'Máy giặt')");
+await Exec(@"IF NOT EXISTS (SELECT 1 FROM Amenities WHERE AmenityName=N'Tủ lạnh') INSERT INTO Amenities (AmenityName) VALUES (N'Tủ lạnh')");
+await Exec(@"IF NOT EXISTS (SELECT 1 FROM Amenities WHERE AmenityName=N'Tủ quần áo') INSERT INTO Amenities (AmenityName) VALUES (N'Tủ quần áo')");
+await Exec(@"IF NOT EXISTS (SELECT 1 FROM Amenities WHERE AmenityName=N'Bồn rửa bát') INSERT INTO Amenities (AmenityName) VALUES (N'Bồn rửa bát')");
+await Exec(@"IF NOT EXISTS (SELECT 1 FROM Amenities WHERE AmenityName=N'Sofa') INSERT INTO Amenities (AmenityName) VALUES (N'Sofa')");
+await Exec(@"IF NOT EXISTS (SELECT 1 FROM Amenities WHERE AmenityName=N'Bàn ghế') INSERT INTO Amenities (AmenityName) VALUES (N'Bàn ghế')");
 
 await Exec("UPDATE Posts SET Title=N'Cho thuê phòng 101 giá rẻ', Description=N'Phòng đẹp, đầy đủ tiện nghi' WHERE PostID=1");
 await Exec("UPDATE Appointments SET Note=N'Khách muốn xem phòng' WHERE AppointmentID=1");

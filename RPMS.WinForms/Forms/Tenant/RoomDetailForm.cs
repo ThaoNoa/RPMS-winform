@@ -15,8 +15,7 @@ namespace RPMS.WinForms.Forms.Tenant
 {
     public class RoomDetailForm : Form
     {
-        private readonly IPostService _postService;
-        private readonly ITenantInteractionService _interactionService;
+        private readonly IServiceScopeFactory _scopeFactory;
         private PictureBox picMain = null!;
         private FlowLayoutPanel flpThumbs = null!;
         private Label lblTitle = null!;
@@ -30,10 +29,9 @@ namespace RPMS.WinForms.Forms.Tenant
         public int PostId { get; set; }
         public PostDto? SeedPost { get; set; }
 
-        public RoomDetailForm(IPostService postService, ITenantInteractionService interactionService)
+        public RoomDetailForm(IServiceScopeFactory scopeFactory)
         {
-            _postService = postService;
-            _interactionService = interactionService;
+            _scopeFactory = scopeFactory;
             InitializeUI();
             Load += async (s, e) => await LoadAsync();
         }
@@ -68,7 +66,8 @@ namespace RPMS.WinForms.Forms.Tenant
             {
                 try
                 {
-                    var modal = Program.ServiceProvider.GetRequiredService<TenantAppointmentModalForm>();
+                    using var scope = _scopeFactory.CreateScope();
+                    var modal = scope.ServiceProvider.GetRequiredService<TenantAppointmentModalForm>();
                     modal.RoomIdToBook = SeedPost?.RoomID ?? 0;
                     modal.RoomInfo = lblTitle.Text;
                     modal.ShowDialog(this);
@@ -84,7 +83,15 @@ namespace RPMS.WinForms.Forms.Tenant
                 {
                     int roomId = SeedPost?.RoomID ?? 0;
                     if (roomId <= 0) return;
-                    var isFav = await _interactionService.ToggleFavoriteAsync(UserSession.CurrentUser!.UserID, roomId);
+                    bool isFav;
+                    int roomIdCapture = roomId;
+                    isFav = await System.Threading.Tasks.Task.Run(async () =>
+                    {
+                        using var scope = _scopeFactory.CreateScope();
+                        return await scope.ServiceProvider.GetRequiredService<ITenantInteractionService>()
+                            .ToggleFavoriteAsync(UserSession.CurrentUser!.UserID, roomIdCapture)
+                            .ConfigureAwait(false);
+                    }).ConfigureAwait(true);
                     AppDialog.ShowInfo(isFav ? "Đã thêm yêu thích" : "Đã bỏ yêu thích");
                 }
                 catch (Exception ex)
@@ -264,23 +271,34 @@ namespace RPMS.WinForms.Forms.Tenant
             try
             {
                 PostDetailDto detail;
-                if (PostId > 0)
+                int postId = PostId;
+                int seedId = SeedPost?.PostID ?? 0;
+                detail = await System.Threading.Tasks.Task.Run(async () =>
                 {
-                    detail = await _postService.GetPostByIdAsync(PostId);
-                    await _postService.IncrementViewCountAsync(PostId);
-                }
-                else if (SeedPost != null)
-                {
-                    detail = await _postService.GetPostByIdAsync(SeedPost.PostID);
-                    PostId = SeedPost.PostID;
-                    await _postService.IncrementViewCountAsync(PostId);
-                }
-                else
+                    using var scope = _scopeFactory.CreateScope();
+                    var postService = scope.ServiceProvider.GetRequiredService<IPostService>();
+                    if (postId > 0)
+                    {
+                        var d = await postService.GetPostByIdAsync(postId).ConfigureAwait(false);
+                        await postService.IncrementViewCountAsync(postId).ConfigureAwait(false);
+                        return d;
+                    }
+                    if (seedId > 0)
+                    {
+                        var d = await postService.GetPostByIdAsync(seedId).ConfigureAwait(false);
+                        await postService.IncrementViewCountAsync(seedId).ConfigureAwait(false);
+                        return d;
+                    }
+                    return null!;
+                }).ConfigureAwait(true);
+
+                if (detail == null)
                 {
                     AppDialog.ShowWarning("Không có thông tin phòng.");
                     Close();
                     return;
                 }
+                PostId = detail.PostID;
 
                 SeedPost = detail;
                 Text = detail.Title;

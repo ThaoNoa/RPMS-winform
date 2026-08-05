@@ -13,5 +13,7 @@ namespace RPMS.BLL.Interfaces
         Task<bool> MarkAllAsReadAsync(int userId);
         Task<bool> DeleteAsync(int notificationId);
         Task<bool> CreateAsync(CreateNotificationDto request);
+        /// <summary>Đánh dấu các TB Pending cùng ActionType+RelatedID đã xử lý.</summary>
+        Task<bool> CompleteRelatedActionsAsync(string actionType, int relatedId, string newStatus);
     }
 }

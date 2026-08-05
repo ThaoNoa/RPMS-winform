@@ -10,8 +10,8 @@ namespace RPMS.WinForms.Forms.Landlord
     {
         private System.ComponentModel.IContainer components = null;
         private Label lblTitle;
-        private Label lblName, lblAddress, lblDescription, lblStatus;
-        private ModernTextBox txtName, txtAddress, txtDescription;
+        private ModernTextBox txtName, txtAddress;
+        private TextBox txtDescription;
         private ComboBox cboStatus;
         private ModernButton btnSave, btnCancel;
 
@@ -23,26 +23,22 @@ namespace RPMS.WinForms.Forms.Landlord
 
         private void InitializeComponent()
         {
-            this.lblTitle = new Label();
-            this.lblName = new Label();
-            this.txtName = new ModernTextBox();
-            this.lblAddress = new Label();
-            this.txtAddress = new ModernTextBox();
-            this.lblDescription = new Label();
-            this.txtDescription = new ModernTextBox();
-            this.lblStatus = new Label();
-            this.cboStatus = new ComboBox();
-            this.btnSave = UIHelper.PrimaryButton("Lưu thông tin", 130);
-            this.btnCancel = UIHelper.SecondaryButton("Hủy bỏ");
+            lblTitle = new Label();
+            txtName = new ModernTextBox();
+            txtAddress = new ModernTextBox();
+            txtDescription = new TextBox();
+            cboStatus = new ComboBox();
+            btnSave = UIHelper.PrimaryButton("Lưu thông tin", 130);
+            btnCancel = UIHelper.SecondaryButton("Hủy bỏ");
 
-            this.SuspendLayout();
+            SuspendLayout();
 
-            this.lblTitle.Text = "Thông tin Nhà";
-            this.lblTitle.Font = AppTypography.Heading;
-            this.lblTitle.ForeColor = AppColors.TextMain;
-            this.lblTitle.Dock = DockStyle.Fill;
-            this.lblTitle.TextAlign = ContentAlignment.MiddleLeft;
-            this.lblTitle.Padding = new Padding(AppLayout.PagePadding, 0, 0, 0);
+            lblTitle.Text = "Thông tin Nhà";
+            lblTitle.Font = AppTypography.Heading;
+            lblTitle.ForeColor = AppColors.TextMain;
+            lblTitle.Dock = DockStyle.Fill;
+            lblTitle.TextAlign = ContentAlignment.MiddleLeft;
+            lblTitle.Padding = new Padding(AppLayout.PagePadding, 0, 0, 0);
 
             var header = new Panel
             {
@@ -51,7 +47,7 @@ namespace RPMS.WinForms.Forms.Landlord
                 BackColor = AppColors.Card,
                 Padding = new Padding(0, 8, 0, 8)
             };
-            header.Controls.Add(this.lblTitle);
+            header.Controls.Add(lblTitle);
 
             var body = new Panel
             {
@@ -61,54 +57,57 @@ namespace RPMS.WinForms.Forms.Landlord
                 BackColor = AppColors.Card
             };
 
-            int startX = AppLayout.PagePadding, startY = AppLayout.PagePadding, gapY = 70;
+            var stack = new TableLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                ColumnCount = 1,
+                Padding = new Padding(4),
+                GrowStyle = TableLayoutPanelGrowStyle.AddRows
+            };
+            stack.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
 
-            this.lblName.Text = "Tên nhà *";
-            this.lblName.Location = new Point(startX, startY);
-            this.lblName.AutoSize = true;
-            this.txtName.Location = new Point(startX, startY + 20);
-            this.txtName.Size = new Size(400, 35);
-            this.txtName.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            int row = 0;
+            void AddField(Control field, int height = 62)
+            {
+                stack.RowStyles.Add(new RowStyle(SizeType.Absolute, height));
+                stack.Controls.Add(field, 0, row);
+                row++;
+            }
 
-            this.lblAddress.Text = "Địa chỉ *";
-            this.lblAddress.Location = new Point(startX, startY + gapY);
-            this.lblAddress.AutoSize = true;
-            this.txtAddress.Location = new Point(startX, startY + gapY + 20);
-            this.txtAddress.Size = new Size(400, 35);
-            this.txtAddress.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            AddField(UIHelper.CreateDialogField("Tên nhà *", txtName));
+            AddField(UIHelper.CreateDialogField("Địa chỉ *", txtAddress));
 
-            this.lblDescription.Text = "Mô tả";
-            this.lblDescription.Location = new Point(startX, startY + gapY * 2);
-            this.lblDescription.AutoSize = true;
-            this.txtDescription.Location = new Point(startX, startY + gapY * 2 + 20);
-            this.txtDescription.Size = new Size(400, 35);
-            this.txtDescription.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            txtDescription.Multiline = true;
+            txtDescription.ScrollBars = ScrollBars.Vertical;
+            txtDescription.Font = AppTypography.Body;
+            txtDescription.BorderStyle = BorderStyle.FixedSingle;
+            txtDescription.AcceptsReturn = true;
+            AddField(UIHelper.CreateDialogField("Mô tả", txtDescription, 130), 130);
 
-            this.lblStatus.Text = "Trạng thái *";
-            this.lblStatus.Location = new Point(startX, startY + gapY * 3);
-            this.lblStatus.AutoSize = true;
-            this.cboStatus.Location = new Point(startX, startY + gapY * 3 + 20);
-            this.cboStatus.Size = new Size(200, 35);
-            this.cboStatus.DropDownStyle = ComboBoxStyle.DropDownList;
-            this.cboStatus.Items.AddRange(new object[] { "Active", "Inactive" });
+            cboStatus.DropDownStyle = ComboBoxStyle.DropDownList;
+            cboStatus.Items.AddRange(new object[] { "Active", "Inactive" });
+            AddField(UIHelper.CreateDialogField("Trạng thái *", cboStatus));
 
-            body.Controls.AddRange(new Control[] {
-                lblName, txtName, lblAddress, txtAddress, lblDescription, txtDescription, lblStatus, cboStatus
-            });
+            // Chiều rộng tối thiểu để CreateDialogField Resize đúng khi hiện form
+            stack.MinimumSize = new Size(420, 0);
+            body.Controls.Add(stack);
 
-            this.btnSave.Click += new System.EventHandler(this.btnSave_Click);
-            this.btnCancel.Click += new System.EventHandler(this.btnCancel_Click);
-            var footer = UIHelper.CreateDialogFooter(this.btnSave, this.btnCancel);
+            btnSave.Click += btnSave_Click;
+            btnCancel.Click += btnCancel_Click;
+            var footer = UIHelper.CreateDialogFooter(btnSave, btnCancel);
 
-            this.ClientSize = new Size(520, 480);
-            this.Controls.Add(body);
-            this.Controls.Add(footer);
-            this.Controls.Add(header);
-            UIHelper.ApplyResizableDialog(this, new Size(480, 420));
-            this.Text = "Quản lý Nhà";
-            this.AutoScroll = false;
+            ClientSize = new Size(560, 520);
+            Controls.Add(body);
+            Controls.Add(footer);
+            Controls.Add(header);
+            UIHelper.ApplyResizableDialog(this, new Size(480, 440));
+            Text = "Quản lý Nhà";
+            AutoScroll = false;
+            StartPosition = FormStartPosition.CenterParent;
 
-            this.ResumeLayout(false);
+            ResumeLayout(false);
         }
     }
 }

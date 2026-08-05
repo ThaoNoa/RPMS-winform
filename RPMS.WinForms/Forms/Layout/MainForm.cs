@@ -13,6 +13,7 @@ namespace RPMS.WinForms.Forms.Layout
     public partial class MainForm : Form
     {
         private Form? _activeForm;
+        private IServiceScope? _activeScope;
         private SidebarButton? _currentActiveButton;
 
         public MainForm()
@@ -115,41 +116,47 @@ namespace RPMS.WinForms.Forms.Layout
             CloseActiveChild();
 
             Form? childForm = null;
+            IServiceScope? scope = null;
             try
             {
+                // Mỗi màn hình một DI scope riêng — tránh DbContext dùng chung từ root SP
+                // (concurrent async khi chuyển Dashboard → Tìm phòng / Yêu thích).
+                scope = Program.ServiceProvider.CreateScope();
+                var sp = scope.ServiceProvider;
                 childForm = tag switch
                 {
-                    "Dashboard" => Program.ServiceProvider.GetRequiredService<Forms.Dashboard.DashboardForm>(),
-                    "Notifications" => Program.ServiceProvider.GetRequiredService<Forms.Shared.NotificationCenterForm>(),
-                    "Profile" => Program.ServiceProvider.GetRequiredService<Forms.Shared.ProfileForm>(),
-                    "Chat" => Program.ServiceProvider.GetRequiredService<Forms.Shared.ChatForm>(),
-                    "Calendar" => Program.ServiceProvider.GetRequiredService<Forms.Shared.CalendarForm>(),
-                    "Reports" => Program.ServiceProvider.GetRequiredService<Forms.Shared.ReportForm>(),
-                    "Backup" => Program.ServiceProvider.GetRequiredService<Forms.Admin.BackupForm>(),
-                    "UserManagement" => Program.ServiceProvider.GetRequiredService<Forms.Admin.UserManagementForm>(),
-                    "PostManagement" => Program.ServiceProvider.GetRequiredService<Forms.Admin.PostManagementForm>(),
-                    "ActivityLog" => Program.ServiceProvider.GetRequiredService<Forms.Admin.ActivityLogForm>(),
-                    "AdminReviews" => Program.ServiceProvider.GetRequiredService<Forms.Admin.ReviewManagementForm>(),
-                    "LandlordHouse" => Program.ServiceProvider.GetRequiredService<Forms.Landlord.LandlordHouseForm>(),
-                    "LandlordRoom" => Program.ServiceProvider.GetRequiredService<Forms.Landlord.LandlordRoomForm>(),
-                    "LandlordAssignment" => Program.ServiceProvider.GetRequiredService<Forms.Landlord.LandlordAssignmentForm>(),
-                    "LandlordContract" => Program.ServiceProvider.GetRequiredService<Forms.Landlord.LandlordContractForm>(),
-                    "LandlordReviews" => Program.ServiceProvider.GetRequiredService<Forms.Landlord.LandlordReviewForm>(),
-                    "TenantHome" => Program.ServiceProvider.GetRequiredService<Forms.Tenant.TenantHomeForm>(),
-                    "TenantFavorite" => Program.ServiceProvider.GetRequiredService<Forms.Tenant.TenantFavoriteForm>(),
-                    "TenantContract" => Program.ServiceProvider.GetRequiredService<Forms.Tenant.TenantContractForm>(),
-                    "TenantReviews" => Program.ServiceProvider.GetRequiredService<Forms.Tenant.TenantReviewForm>(),
-                    "ManagerMeter" => Program.ServiceProvider.GetRequiredService<Forms.Manager.ManagerMeterForm>(),
-                    "LandlordAppointment" => Program.ServiceProvider.GetRequiredService<Forms.Landlord.LandlordAppointmentForm>(),
-                    "LandlordPost" => Program.ServiceProvider.GetRequiredService<Forms.Landlord.LandlordPostForm>(),
-                    "TenantInvoice" => Program.ServiceProvider.GetRequiredService<Forms.Tenant.TenantInvoiceForm>(),
-                    "TenantMaintenance" => Program.ServiceProvider.GetRequiredService<Forms.Tenant.TenantMaintenanceForm>(),
-                    "ManagerMaintenance" => Program.ServiceProvider.GetRequiredService<Forms.Manager.ManagerMaintenanceForm>(),
+                    "Dashboard" => sp.GetRequiredService<Forms.Dashboard.DashboardForm>(),
+                    "Notifications" => sp.GetRequiredService<Forms.Shared.NotificationCenterForm>(),
+                    "Profile" => sp.GetRequiredService<Forms.Shared.ProfileForm>(),
+                    "Chat" => sp.GetRequiredService<Forms.Shared.ChatForm>(),
+                    "Calendar" => sp.GetRequiredService<Forms.Shared.CalendarForm>(),
+                    "Reports" => sp.GetRequiredService<Forms.Shared.ReportForm>(),
+                    "Backup" => sp.GetRequiredService<Forms.Admin.BackupForm>(),
+                    "UserManagement" => sp.GetRequiredService<Forms.Admin.UserManagementForm>(),
+                    "PostManagement" => sp.GetRequiredService<Forms.Admin.PostManagementForm>(),
+                    "ActivityLog" => sp.GetRequiredService<Forms.Admin.ActivityLogForm>(),
+                    "AdminReviews" => sp.GetRequiredService<Forms.Admin.ReviewManagementForm>(),
+                    "LandlordHouse" => sp.GetRequiredService<Forms.Landlord.LandlordHouseForm>(),
+                    "LandlordRoom" => sp.GetRequiredService<Forms.Landlord.LandlordRoomForm>(),
+                    "LandlordAssignment" => sp.GetRequiredService<Forms.Landlord.LandlordAssignmentForm>(),
+                    "LandlordContract" => sp.GetRequiredService<Forms.Landlord.LandlordContractForm>(),
+                    "LandlordReviews" => sp.GetRequiredService<Forms.Landlord.LandlordReviewForm>(),
+                    "TenantHome" => sp.GetRequiredService<Forms.Tenant.TenantHomeForm>(),
+                    "TenantFavorite" => sp.GetRequiredService<Forms.Tenant.TenantFavoriteForm>(),
+                    "TenantContract" => sp.GetRequiredService<Forms.Tenant.TenantContractForm>(),
+                    "TenantReviews" => sp.GetRequiredService<Forms.Tenant.TenantReviewForm>(),
+                    "ManagerMeter" => sp.GetRequiredService<Forms.Manager.ManagerMeterForm>(),
+                    "LandlordAppointment" => sp.GetRequiredService<Forms.Landlord.LandlordAppointmentForm>(),
+                    "LandlordPost" => sp.GetRequiredService<Forms.Landlord.LandlordPostForm>(),
+                    "TenantInvoice" => sp.GetRequiredService<Forms.Tenant.TenantInvoiceForm>(),
+                    "TenantMaintenance" => sp.GetRequiredService<Forms.Tenant.TenantMaintenanceForm>(),
+                    "ManagerMaintenance" => sp.GetRequiredService<Forms.Manager.ManagerMaintenanceForm>(),
                     _ => null
                 };
             }
             catch (Exception ex)
             {
+                try { scope?.Dispose(); } catch { /* ignore */ }
                 var detail = ex.GetBaseException().Message;
                 AppDialog.ShowError("Không mở được màn hình: " + detail);
                 return;
@@ -157,10 +164,12 @@ namespace RPMS.WinForms.Forms.Layout
 
             if (childForm != null)
             {
+                _activeScope = scope;
                 OpenChildForm(childForm);
             }
             else
             {
+                try { scope?.Dispose(); } catch { /* ignore */ }
                 pnlContent.Controls.Clear();
                 var lblPlaceholder = new Label
                 {
@@ -176,12 +185,15 @@ namespace RPMS.WinForms.Forms.Layout
 
         private void CloseActiveChild()
         {
-            if (_activeForm == null) return;
+            if (_activeForm == null && _activeScope == null) return;
             try
             {
-                pnlContent.Controls.Remove(_activeForm);
-                _activeForm.Close();
-                _activeForm.Dispose();
+                if (_activeForm != null)
+                {
+                    pnlContent.Controls.Remove(_activeForm);
+                    _activeForm.Close();
+                    _activeForm.Dispose();
+                }
             }
             catch
             {
@@ -191,6 +203,8 @@ namespace RPMS.WinForms.Forms.Layout
             {
                 _activeForm = null;
                 pnlContent.Tag = null;
+                try { _activeScope?.Dispose(); } catch { /* in-flight async may observe disposed DbContext */ }
+                _activeScope = null;
             }
         }
 

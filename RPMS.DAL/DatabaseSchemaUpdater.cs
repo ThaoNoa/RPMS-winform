@@ -111,6 +111,53 @@ END
             await EnsureContractColumnAsync(context, "PreviousElectricPrice", "decimal(18,2) NULL");
             await EnsureContractColumnAsync(context, "PreviousWaterPrice", "decimal(18,2) NULL");
             await EnsureContractColumnAsync(context, "PriceEffectiveDate", "datetime NULL");
+            await EnsureContractColumnAsync(context, "CancelRequestStatus", "nvarchar(20) NULL");
+            await EnsureContractColumnAsync(context, "CancelRequestedBy", "nvarchar(20) NULL");
+            await EnsureContractColumnAsync(context, "CancelRequestNote", "nvarchar(500) NULL");
+            await EnsureContractColumnAsync(context, "CancelRequestAt", "datetime NULL");
+
+            await ExecAsync(context, @"
+IF OBJECT_ID('Notifications', 'U') IS NOT NULL
+BEGIN
+    IF COL_LENGTH('Notifications', 'ActionType') IS NULL
+        ALTER TABLE Notifications ADD ActionType nvarchar(50) NULL;
+    IF COL_LENGTH('Notifications', 'RelatedID') IS NULL
+        ALTER TABLE Notifications ADD RelatedID int NULL;
+    IF COL_LENGTH('Notifications', 'ActionStatus') IS NULL
+        ALTER TABLE Notifications ADD ActionStatus nvarchar(20) NULL;
+END
+");
+
+            // Tiện ích phòng — bổ sung catalog nếu DB cũ thiếu
+            await ExecAsync(context, @"
+IF OBJECT_ID('Amenities', 'U') IS NOT NULL
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM Amenities WHERE AmenityName = N'Điều hòa')
+        INSERT INTO Amenities (AmenityName) VALUES (N'Điều hòa');
+    IF NOT EXISTS (SELECT 1 FROM Amenities WHERE AmenityName = N'Nóng lạnh')
+        INSERT INTO Amenities (AmenityName) VALUES (N'Nóng lạnh');
+    IF NOT EXISTS (SELECT 1 FROM Amenities WHERE AmenityName = N'Wifi')
+        INSERT INTO Amenities (AmenityName) VALUES (N'Wifi');
+    IF NOT EXISTS (SELECT 1 FROM Amenities WHERE AmenityName = N'Ban công')
+        INSERT INTO Amenities (AmenityName) VALUES (N'Ban công');
+    IF NOT EXISTS (SELECT 1 FROM Amenities WHERE AmenityName = N'Bếp')
+        INSERT INTO Amenities (AmenityName) VALUES (N'Bếp');
+    IF NOT EXISTS (SELECT 1 FROM Amenities WHERE AmenityName = N'Gara xe')
+        INSERT INTO Amenities (AmenityName) VALUES (N'Gara xe');
+    IF NOT EXISTS (SELECT 1 FROM Amenities WHERE AmenityName = N'Máy giặt')
+        INSERT INTO Amenities (AmenityName) VALUES (N'Máy giặt');
+    IF NOT EXISTS (SELECT 1 FROM Amenities WHERE AmenityName = N'Tủ lạnh')
+        INSERT INTO Amenities (AmenityName) VALUES (N'Tủ lạnh');
+    IF NOT EXISTS (SELECT 1 FROM Amenities WHERE AmenityName = N'Tủ quần áo')
+        INSERT INTO Amenities (AmenityName) VALUES (N'Tủ quần áo');
+    IF NOT EXISTS (SELECT 1 FROM Amenities WHERE AmenityName = N'Bồn rửa bát')
+        INSERT INTO Amenities (AmenityName) VALUES (N'Bồn rửa bát');
+    IF NOT EXISTS (SELECT 1 FROM Amenities WHERE AmenityName = N'Sofa')
+        INSERT INTO Amenities (AmenityName) VALUES (N'Sofa');
+    IF NOT EXISTS (SELECT 1 FROM Amenities WHERE AmenityName = N'Bàn ghế')
+        INSERT INTO Amenities (AmenityName) VALUES (N'Bàn ghế');
+END
+");
         }
 
         private static async Task EnsureContractColumnAsync(RPMSContext context, string columnName, string sqlType)

@@ -34,7 +34,8 @@ namespace RPMS.WinForms.Forms.Landlord
                 cboStatus.SelectedIndex = 0;
                 cboStatus.Enabled = false;
             }
-            UIHelper.SoftAnchorDialogControls(this);
+            // Không SoftAnchor — layout TableLayout + CreateDialogField đã kéo giãn đúng,
+            // SoftAnchor làm hỏng Dock của footer / ModernTextBox.
         }
 
         private async Task LoadHouseDetailsAsync()
@@ -72,7 +73,7 @@ namespace RPMS.WinForms.Forms.Landlord
                         HouseName = txtName.Text.Trim(),
                         Address = txtAddress.Text.Trim(),
                         Description = txtDescription.Text.Trim(),
-                        Status = cboStatus.SelectedItem.ToString()
+                        Status = cboStatus.SelectedItem?.ToString() ?? "Active"
                     };
                     await _houseService.UpdateHouseAsync(HouseIdToEdit, updateRequest);
                 }

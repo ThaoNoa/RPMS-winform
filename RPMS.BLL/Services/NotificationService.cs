@@ -1,5 +1,6 @@
 using RPMS.BLL.Exceptions;
 using RPMS.BLL.Interfaces;
+using RPMS.Common.Constants;
 using RPMS.DAL.Entities;
 using RPMS.DAL.UnitOfWork.Interfaces;
 using RPMS.DTO.Notification;
@@ -87,19 +88,42 @@ namespace RPMS.BLL.Services
 
         public async Task<bool> CreateAsync(CreateNotificationDto request)
         {
-            var entity = new Notification
-            {
-                UserID = request.UserID,
-                Title = request.Title,
-                Content = request.Content,
-                IsRead = false,
-                CreatedDate = DateTime.Now,
-                UpdatedDate = DateTime.Now
-            };
+            var entity = BuildEntity(request);
             await _unitOfWork.Notifications.AddAsync(entity);
             await _unitOfWork.SaveChangesAsync();
             return true;
         }
+
+        public async Task<bool> CompleteRelatedActionsAsync(string actionType, int relatedId, string newStatus)
+        {
+            var items = await _unitOfWork.Notifications.FindAsync(n =>
+                n.RelatedID == relatedId
+                && n.ActionType == actionType
+                && n.ActionStatus == NotificationActions.Pending);
+            foreach (var item in items)
+            {
+                item.ActionStatus = newStatus;
+                item.IsRead = true;
+                item.UpdatedDate = DateTime.Now;
+                _unitOfWork.Notifications.Update(item);
+            }
+            if (items.Any())
+                await _unitOfWork.SaveChangesAsync();
+            return true;
+        }
+
+        public static Notification BuildEntity(CreateNotificationDto request) => new()
+        {
+            UserID = request.UserID,
+            Title = request.Title,
+            Content = request.Content,
+            ActionType = request.ActionType,
+            RelatedID = request.RelatedID,
+            ActionStatus = request.ActionStatus,
+            IsRead = false,
+            CreatedDate = DateTime.Now,
+            UpdatedDate = DateTime.Now
+        };
 
         private static NotificationDto Map(Notification n) => new()
         {
@@ -108,6 +132,9 @@ namespace RPMS.BLL.Services
             Title = n.Title,
             Content = n.Content,
             IsRead = n.IsRead,
+            ActionType = n.ActionType,
+            RelatedID = n.RelatedID,
+            ActionStatus = n.ActionStatus,
             CreatedDate = n.CreatedDate,
             UpdatedDate = n.UpdatedDate,
             UserName = n.User?.FullName ?? ""

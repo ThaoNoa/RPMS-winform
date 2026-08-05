@@ -30,12 +30,12 @@ namespace RPMS.DAL.Repositories.Implements
                     query = query.Include(includeProperty.Trim());
                 }
             }
-            return await query.ToListAsync();
+            return await query.ToListAsync().ConfigureAwait(false);
         }
 
         public async Task<T> GetByIdAsync(object id)
         {
-            return await _dbSet.FindAsync(id);
+            return await _dbSet.FindAsync(id).ConfigureAwait(false);
         }
 
         public async Task<IEnumerable<T>> FindAsync(Expression<Func<T, bool>> expression, string includeProperties = "")
@@ -48,7 +48,7 @@ namespace RPMS.DAL.Repositories.Implements
                     query = query.Include(includeProperty.Trim());
                 }
             }
-            return await query.ToListAsync();
+            return await query.ToListAsync().ConfigureAwait(false);
         }
 
         public async Task<T> FirstOrDefaultAsync(Expression<Func<T, bool>> expression, string includeProperties = "")
@@ -61,17 +61,17 @@ namespace RPMS.DAL.Repositories.Implements
                     query = query.Include(includeProperty.Trim());
                 }
             }
-            return await query.FirstOrDefaultAsync();
+            return await query.FirstOrDefaultAsync().ConfigureAwait(false);
         }
 
         public async Task AddAsync(T entity)
         {
-            await _dbSet.AddAsync(entity);
+            await _dbSet.AddAsync(entity).ConfigureAwait(false);
         }
 
         public async Task AddRangeAsync(IEnumerable<T> entities)
         {
-            await _dbSet.AddRangeAsync(entities);
+            await _dbSet.AddRangeAsync(entities).ConfigureAwait(false);
         }
 
         public void Update(T entity)
@@ -96,14 +96,14 @@ namespace RPMS.DAL.Repositories.Implements
 
         public async Task<bool> ExistsAsync(Expression<Func<T, bool>> expression)
         {
-            return await _dbSet.AnyAsync(expression);
+            return await _dbSet.AnyAsync(expression).ConfigureAwait(false);
         }
 
         public async Task<int> CountAsync(Expression<Func<T, bool>> expression = null)
         {
             if (expression == null)
-                return await _dbSet.CountAsync();
-            return await _dbSet.CountAsync(expression);
+                return await _dbSet.CountAsync().ConfigureAwait(false);
+            return await _dbSet.CountAsync(expression).ConfigureAwait(false);
         }
     }
 }

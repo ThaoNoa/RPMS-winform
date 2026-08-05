@@ -17,5 +17,12 @@ namespace RPMS.DTO.Contract
         public string Status { get; set; } = "";
         /// <summary>Pending khi chủ sửa và chờ khách xác nhận.</summary>
         public string? PendingEditStatus { get; set; }
+        /// <summary>Pending khi khách xin hủy thuê, chờ chủ duyệt.</summary>
+        public string? CancelRequestStatus { get; set; }
+        /// <summary>Tenant | Landlord — ai gửi yêu cầu hủy.</summary>
+        public string? CancelRequestedBy { get; set; }
+        public string? CancelRequestNote { get; set; }
+        /// <summary>Hiển thị lưới: "Khách xin" / "Chủ xin" / rỗng.</summary>
+        public string CancelRequestLabel { get; set; } = "";
     }
 }

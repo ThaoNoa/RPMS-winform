@@ -14,12 +14,12 @@ namespace RPMS.WinForms.Forms.Tenant
 {
     public class TenantFavoriteForm : Form
     {
-        private readonly ITenantInteractionService _interactionService;
+        private readonly IServiceScopeFactory _scopeFactory;
         private ModernDataGridView dgv = null!;
 
-        public TenantFavoriteForm(ITenantInteractionService interactionService)
+        public TenantFavoriteForm(IServiceScopeFactory scopeFactory)
         {
-            _interactionService = interactionService;
+            _scopeFactory = scopeFactory;
             InitializeUI();
             Load += async (s, e) => await LoadDataAsync();
         }
@@ -58,12 +58,20 @@ namespace RPMS.WinForms.Forms.Tenant
         {
             try
             {
-                var list = await _interactionService.GetFavoritesAsync(UserSession.CurrentUser!.UserID);
-                dgv.DataSource = list.ToList();
+                var list = await System.Threading.Tasks.Task.Run(async () =>
+                {
+                    using var scope = _scopeFactory.CreateScope();
+                    return (await scope.ServiceProvider.GetRequiredService<ITenantInteractionService>()
+                        .GetFavoritesAsync(UserSession.CurrentUser!.UserID)
+                        .ConfigureAwait(false)).ToList();
+                }).ConfigureAwait(true);
+                if (!IsDisposed)
+                    dgv.DataSource = list;
             }
             catch (Exception ex)
             {
-                AppDialog.ShowError(ex.Message);
+                if (!IsDisposed)
+                    AppDialog.ShowError(ex.Message);
             }
         }
 
@@ -78,16 +86,23 @@ namespace RPMS.WinForms.Forms.Tenant
             {
                 if (col == "BookCol")
                 {
-                    var modal = Program.ServiceProvider.GetRequiredService<TenantAppointmentModalForm>();
+                    using var scope = _scopeFactory.CreateScope();
+                    var modal = scope.ServiceProvider.GetRequiredService<TenantAppointmentModalForm>();
                     modal.RoomIdToBook = item.RoomID;
                     modal.RoomInfo = $"Phòng {item.RoomNumber} - {item.HouseAddress}";
-                    modal.ShowDialog();
+                    modal.ShowDialog(this);
                 }
                 else if (col == "RemoveCol")
                 {
                     if (AppDialog.Confirm($"Xóa phòng {item.RoomNumber} khỏi yêu thích?"))
                     {
-                        await _interactionService.RemoveFavoriteAsync(UserSession.CurrentUser!.UserID, item.RoomID);
+                        await System.Threading.Tasks.Task.Run(async () =>
+                        {
+                            using var scope = _scopeFactory.CreateScope();
+                            await scope.ServiceProvider.GetRequiredService<ITenantInteractionService>()
+                                .RemoveFavoriteAsync(UserSession.CurrentUser!.UserID, item.RoomID)
+                                .ConfigureAwait(false);
+                        }).ConfigureAwait(true);
                         await LoadDataAsync();
                     }
                 }

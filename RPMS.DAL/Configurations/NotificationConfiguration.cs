@@ -13,6 +13,8 @@ namespace RPMS.DAL.Configurations
             builder.Property(n => n.Title).IsRequired().HasMaxLength(200);
             builder.Property(n => n.Content).IsRequired();
             builder.Property(n => n.IsRead).HasDefaultValue(false);
+            builder.Property(n => n.ActionType).HasMaxLength(50);
+            builder.Property(n => n.ActionStatus).HasMaxLength(20);
             builder.Property(n => n.CreatedDate).HasDefaultValueSql("GETDATE()");
             builder.Property(n => n.UpdatedDate).HasDefaultValueSql("GETDATE()");
             builder.HasOne(n => n.User)

@@ -9,6 +9,11 @@ namespace RPMS.DAL.Entities
         public string Title { get; set; } = "";
         public string Content { get; set; } = "";
         public bool IsRead { get; set; }
+        /// <summary>ContractEdit | ContractCancel | null</summary>
+        public string? ActionType { get; set; }
+        public int? RelatedID { get; set; }
+        /// <summary>Pending | Completed | Declined | null</summary>
+        public string? ActionStatus { get; set; }
         public DateTime CreatedDate { get; set; }
         public DateTime UpdatedDate { get; set; }
 

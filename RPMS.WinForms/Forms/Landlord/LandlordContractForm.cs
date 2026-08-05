@@ -43,6 +43,14 @@ namespace RPMS.WinForms.Forms.Landlord
             _scopeFactory = scopeFactory;
             InitializeUI();
             Load += async (s, e) => await OnLoadAsync();
+            Activated += async (s, e) =>
+            {
+                try
+                {
+                    await WithServicesAsync(async (_, __, contracts, ___) => await BindContractsAsync(contracts));
+                }
+                catch { /* ignore refresh errors on activate */ }
+            };
         }
 
         private async Task<T> WithServicesAsync<T>(Func<IHouseService, IRoomService, IContractService, ILandlordService, Task<T>> action)
@@ -168,91 +176,76 @@ namespace RPMS.WinForms.Forms.Landlord
 
             dgv = new ModernDataGridView();
             UIHelper.ApplyGridFill(dgv);
-            dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "ContractCode", HeaderText = "Mã HĐ", FillWeight = 12 });
-            dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "RoomNumber", HeaderText = "Phòng", FillWeight = 7 });
-            dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "TenantName", HeaderText = "Khách thuê", FillWeight = 12 });
-            dgv.Columns.Add(new DataGridViewTextBoxColumn
-            {
-                DataPropertyName = "StartDate",
-                HeaderText = "Bắt đầu",
-                FillWeight = 8,
-                DefaultCellStyle = new DataGridViewCellStyle { Format = "dd/MM/yyyy" }
-            });
-            dgv.Columns.Add(new DataGridViewTextBoxColumn
-            {
-                DataPropertyName = "EndDate",
-                HeaderText = "Kết thúc",
-                FillWeight = 8,
-                DefaultCellStyle = new DataGridViewCellStyle { Format = "dd/MM/yyyy" }
-            });
+            // Prefer single-line cells so dates/actions stay readable under Fill mode.
+            dgv.DefaultCellStyle.WrapMode = DataGridViewTriState.False;
+            dgv.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.None;
+            dgv.RowTemplate.Height = 40;
+
+            dgv.Columns.Add(TextCol("ContractCode", "Mã HĐ", 11, 95));
+            dgv.Columns.Add(TextCol("HouseName", "Nhà", 14, 100));
+            dgv.Columns.Add(TextCol("RoomNumber", "Phòng", 7, 50));
+            dgv.Columns.Add(TextCol("TenantName", "Khách thuê", 13, 90));
+            dgv.Columns.Add(DateCol("StartDate", "Bắt đầu", 10, 88));
+            dgv.Columns.Add(DateCol("EndDate", "Kết thúc", 10, 88));
             dgv.Columns.Add(new DataGridViewTextBoxColumn
             {
                 DataPropertyName = "MonthlyRent",
                 HeaderText = "Tiền thuê",
                 FillWeight = 9,
+                MinimumWidth = 80,
                 DefaultCellStyle = new DataGridViewCellStyle { Format = "N0" }
             });
-            dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Status", HeaderText = "TT", FillWeight = 6 });
-            dgv.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "PendingEditStatus", HeaderText = "Sửa?", FillWeight = 6 });
-            dgv.Columns.Add(new DataGridViewLinkColumn
-            {
-                Name = "EditCol",
-                HeaderText = "",
-                Text = "Sửa",
-                UseColumnTextForLinkValue = true,
-                FillWeight = 5,
-                LinkColor = AppColors.Primary
-            });
-            dgv.Columns.Add(new DataGridViewLinkColumn
-            {
-                Name = "CancelPendingCol",
-                HeaderText = "",
-                Text = "Hủy đề xuất",
-                UseColumnTextForLinkValue = true,
-                FillWeight = 8,
-                LinkColor = AppColors.Warning
-            });
-            dgv.Columns.Add(new DataGridViewLinkColumn
-            {
-                Name = "AssignCol",
-                HeaderText = "",
-                Text = "Gán khách",
-                UseColumnTextForLinkValue = true,
-                FillWeight = 7,
-                LinkColor = AppColors.Primary
-            });
-            dgv.Columns.Add(new DataGridViewLinkColumn
-            {
-                Name = "PrintCol",
-                HeaderText = "",
-                Text = "In/PDF",
-                UseColumnTextForLinkValue = true,
-                FillWeight = 6,
-                LinkColor = AppColors.Primary
-            });
-            dgv.Columns.Add(new DataGridViewLinkColumn
-            {
-                Name = "ExtendCol",
-                HeaderText = "",
-                Text = "Gia hạn",
-                UseColumnTextForLinkValue = true,
-                FillWeight = 6,
-                LinkColor = AppColors.Success
-            });
-            dgv.Columns.Add(new DataGridViewLinkColumn
-            {
-                Name = "TerminateCol",
-                HeaderText = "",
-                Text = "Hủy HĐ",
-                UseColumnTextForLinkValue = true,
-                FillWeight = 6,
-                LinkColor = AppColors.Danger
-            });
+            dgv.Columns.Add(TextCol("Status", "TT", 8, 72));
+            dgv.Columns.Add(TextCol("PendingEditStatus", "Sửa?", 6, 48));
+            dgv.Columns.Add(TextCol("CancelRequestLabel", "Xin hủy?", 8, 70));
+            dgv.Columns.Add(LinkCol("DetailCol", "Chi tiết", "Xem", 7, AppColors.Primary));
+            dgv.Columns.Add(LinkCol("EditCol", "Sửa", "Sửa", 6, AppColors.Primary));
+            dgv.Columns.Add(LinkCol("ActionsCol", "Thao tác", "⋯", 6, AppColors.Primary));
+
             dgv.CellContentClick += async (s, e) => await Dgv_CellContentClick(e);
+            dgv.CellDoubleClick += async (s, e) =>
+            {
+                if (e.RowIndex < 0) return;
+                if (dgv.Rows[e.RowIndex].DataBoundItem is ContractDto c)
+                    await OpenContractDetailAsync(c.ContractID);
+            };
 
             UIHelper.WirePage(this, dgv, header, pnlCreate);
             SyncCreateFieldWidths();
         }
+
+        private static DataGridViewTextBoxColumn TextCol(string prop, string header, float weight, int minWidth) =>
+            new()
+            {
+                DataPropertyName = prop,
+                HeaderText = header,
+                FillWeight = weight,
+                MinimumWidth = minWidth
+            };
+
+        private static DataGridViewTextBoxColumn DateCol(string prop, string header, float weight, int minWidth) =>
+            new()
+            {
+                DataPropertyName = prop,
+                HeaderText = header,
+                FillWeight = weight,
+                MinimumWidth = minWidth,
+                DefaultCellStyle = new DataGridViewCellStyle { Format = "dd/MM/yyyy" }
+            };
+
+        private static DataGridViewLinkColumn LinkCol(string name, string header, string text, float weight, Color linkColor) =>
+            new()
+            {
+                Name = name,
+                HeaderText = header,
+                Text = text,
+                UseColumnTextForLinkValue = true,
+                FillWeight = weight,
+                MinimumWidth = 52,
+                LinkColor = linkColor,
+                ActiveLinkColor = linkColor,
+                VisitedLinkColor = linkColor
+            };
 
         private void SyncCreateFieldWidths()
         {
@@ -593,11 +586,9 @@ namespace RPMS.WinForms.Forms.Landlord
 
             try
             {
-                if (col == "PrintCol")
+                if (col == "DetailCol")
                 {
-                    var detail = await WithServicesAsync(async (_, __, contracts, ___) =>
-                        await contracts.GetContractByIdAsync(contract.ContractID));
-                    ContractPrintHelper.OpenAndPrint(detail);
+                    await OpenContractDetailAsync(contract.ContractID);
                     return;
                 }
 
@@ -607,81 +598,188 @@ namespace RPMS.WinForms.Forms.Landlord
                     return;
                 }
 
-                if (col == "CancelPendingCol")
+                if (col == "ActionsCol")
                 {
-                    if (!string.Equals(contract.PendingEditStatus, "Pending", StringComparison.OrdinalIgnoreCase))
-                    {
-                        AppDialog.ShowInfo("Hợp đồng này không có đề xuất sửa đang chờ.");
-                        return;
-                    }
-                    if (!AppDialog.Confirm($"Hủy đề xuất sửa {contract.ContractCode}?"))
-                        return;
-                    await WithServicesAsync(async (_, __, contracts, ___) =>
-                        await contracts.CancelPendingContractEditAsync(contract.ContractID, UserSession.CurrentUser!.UserID));
-                    ToastNotifier.Show(this, "Đã hủy đề xuất sửa", ToastKind.Info);
-                    await WithServicesAsync(async (_, __, contracts, ___) => await BindContractsAsync(contracts));
-                    return;
-                }
-
-                if (col == "AssignCol")
-                {
-                    await AssignTenantAsync(contract);
-                    return;
-                }
-
-                if (col == "ExtendCol")
-                {
-                    if (contract.Status != "Active" || !contract.TenantID.HasValue)
-                    {
-                        AppDialog.ShowWarning("Chỉ gia hạn hợp đồng Active đã có khách thuê.");
-                        return;
-                    }
-                    var monthsText = AppDialog.Prompt("Gia hạn thêm bao nhiêu tháng?", "Gia hạn hợp đồng", "6");
-                    if (string.IsNullOrWhiteSpace(monthsText) || !int.TryParse(monthsText, out int months) || months <= 0)
-                    {
-                        AppDialog.ShowWarning("Số tháng không hợp lệ.");
-                        return;
-                    }
-                    var newEnd = contract.EndDate.AddMonths(months);
-                    await WithServicesAsync(async (_, __, contracts, ___) =>
-                        await contracts.ExtendContractAsync(contract.ContractID, newEnd, UserSession.CurrentUser!.UserID));
-                    AppDialog.ShowInfo($"Đã gia hạn đến {newEnd:dd/MM/yyyy}.");
-                    await WithServicesAsync(async (_, __, contracts, ___) => await BindContractsAsync(contracts));
-                    return;
-                }
-
-                if (col == "TerminateCol")
-                {
-                    if (contract.Status != "Active" && contract.Status != "Draft" && contract.Status != "PendingConfirm")
-                    {
-                        AppDialog.ShowWarning("Chỉ hủy hợp đồng nháp, chờ xác nhận hoặc Active.");
-                        return;
-                    }
-                    if (!AppDialog.Confirm($"Hủy hợp đồng {contract.ContractCode}?"))
-                        return;
-                    await WithServicesAsync(async (_, __, contracts, ___) =>
-                        await contracts.TerminateContractAsync(contract.ContractID));
-                    AppDialog.ShowInfo("Đã hủy hợp đồng.");
-                    await _uiLoadLock.WaitAsync();
-                    try
-                    {
-                        _suppressComboEvents = true;
-                        await WithServicesAsync(async (_, rooms, contracts, _) =>
-                        {
-                            await BindRoomsAsync(rooms);
-                            await BindContractsAsync(contracts);
-                        });
-                    }
-                    finally
-                    {
-                        _suppressComboEvents = false;
-                        _uiLoadLock.Release();
-                    }
+                    ShowContractActionsMenu(contract, e.RowIndex, e.ColumnIndex);
                 }
             }
             catch (Exception ex)
             {
                 AppDialog.ShowError(ex.Message);
+            }
+        }
+
+        private void ShowContractActionsMenu(ContractDto contract, int rowIndex, int colIndex)
+        {
+            var menu = new ContextMenuStrip();
+
+            void Add(string text, Func<Task> action, bool enabled = true)
+            {
+                var item = new ToolStripMenuItem(text) { Enabled = enabled };
+                item.Click += async (_, _) =>
+                {
+                    try { await action(); }
+                    catch (Exception ex) { AppDialog.ShowError(ex.Message); }
+                };
+                menu.Items.Add(item);
+            }
+
+            bool isDraft = contract.Status == "Draft";
+            bool isPendingConfirm = contract.Status == "PendingConfirm";
+            bool isActive = contract.Status == "Active";
+            bool hasTenant = contract.TenantID.HasValue;
+            bool pendingEdit = string.Equals(contract.PendingEditStatus, "Pending", StringComparison.OrdinalIgnoreCase);
+            bool pendingCancel = string.Equals(contract.CancelRequestStatus, "Pending", StringComparison.OrdinalIgnoreCase);
+
+            Add("Gán khách", () => AssignTenantAsync(contract), enabled: isDraft && !hasTenant);
+            Add("In / PDF", async () =>
+            {
+                var detail = await WithServicesAsync(async (_, __, contracts, ___) =>
+                    await contracts.GetContractByIdAsync(contract.ContractID));
+                ContractPrintHelper.OpenAndPrint(detail);
+            });
+            Add("Gia hạn", () => ExtendContractAsync(contract), enabled: isActive && hasTenant);
+            Add("Thu hồi sửa", () => CancelPendingEditAsync(contract), enabled: pendingEdit);
+            Add("Xin hủy thuê", () => RequestCancelAsync(contract), enabled: isActive && hasTenant);
+            menu.Items.Add(new ToolStripSeparator());
+            Add("Hủy HĐ", () => TerminateContractAsync(contract),
+                enabled: isDraft || isPendingConfirm || isActive);
+
+            if (pendingCancel)
+            {
+                menu.Items.Insert(0, new ToolStripMenuItem("Đang xin hủy — duyệt trong «Thông báo»") { Enabled = false });
+                menu.Items.Insert(1, new ToolStripSeparator());
+            }
+
+            var rect = dgv.GetCellDisplayRectangle(colIndex, rowIndex, true);
+            menu.Show(dgv, rect.Left, rect.Bottom);
+        }
+
+        private async Task CancelPendingEditAsync(ContractDto contract)
+        {
+            if (!string.Equals(contract.PendingEditStatus, "Pending", StringComparison.OrdinalIgnoreCase))
+            {
+                AppDialog.ShowInfo("Hợp đồng này không có đề xuất sửa đang chờ.");
+                return;
+            }
+            if (!AppDialog.Confirm($"Thu hồi đề xuất sửa {contract.ContractCode}?"))
+                return;
+            await WithServicesAsync(async (_, __, contracts, ___) =>
+                await contracts.CancelPendingContractEditAsync(contract.ContractID, UserSession.CurrentUser!.UserID));
+            ToastNotifier.Show(this, "Đã thu hồi đề xuất sửa", ToastKind.Info);
+            await WithServicesAsync(async (_, __, contracts, ___) => await BindContractsAsync(contracts));
+        }
+
+        private async Task RequestCancelAsync(ContractDto contract)
+        {
+            if (contract.Status != "Active" || !contract.TenantID.HasValue)
+            {
+                AppDialog.ShowWarning("Chỉ xin hủy khi HĐ Active đã có khách.");
+                return;
+            }
+            if (string.Equals(contract.CancelRequestStatus, "Pending", StringComparison.OrdinalIgnoreCase))
+            {
+                AppDialog.ShowInfo(string.Equals(contract.CancelRequestedBy, "Landlord", StringComparison.OrdinalIgnoreCase)
+                    ? "Bạn đã xin hủy — khách duyệt/từ chối trong «Thông báo»."
+                    : "Khách đang xin hủy — bạn duyệt/từ chối trong «Thông báo» → Xem chi tiết.");
+                return;
+            }
+            var reason = AppDialog.Prompt("Lý do xin hủy thuê (gửi khách qua Thông báo):", "Xin hủy thuê", "");
+            if (string.IsNullOrWhiteSpace(reason)) return;
+            if (!AppDialog.Confirm("Gửi yêu cầu hủy? Khách sẽ nhận Thông báo để Duyệt/Từ chối.")) return;
+            await WithServicesAsync(async (_, __, contracts, ___) =>
+                await contracts.RequestCancelAsync(contract.ContractID, UserSession.CurrentUser!.UserID, reason));
+            AppDialog.ShowInfo("Đã gửi. Khách mở «Thông báo» → Xem chi tiết để phản hồi. HĐ hai bên sẽ đồng bộ sau khi xử lý.");
+            ToastNotifier.Show(this, "Đã xin hủy thuê", ToastKind.Info);
+            await WithServicesAsync(async (_, __, contracts, ___) => await BindContractsAsync(contracts));
+        }
+
+        private async Task ExtendContractAsync(ContractDto contract)
+        {
+            if (contract.Status != "Active" || !contract.TenantID.HasValue)
+            {
+                AppDialog.ShowWarning("Chỉ gia hạn hợp đồng Active đã có khách thuê.");
+                return;
+            }
+            var monthsText = AppDialog.Prompt("Gia hạn thêm bao nhiêu tháng?", "Gia hạn hợp đồng", "6");
+            if (string.IsNullOrWhiteSpace(monthsText) || !int.TryParse(monthsText, out int months) || months <= 0)
+            {
+                AppDialog.ShowWarning("Số tháng không hợp lệ.");
+                return;
+            }
+            var newEnd = contract.EndDate.AddMonths(months);
+            await WithServicesAsync(async (_, __, contracts, ___) =>
+                await contracts.ExtendContractAsync(contract.ContractID, newEnd, UserSession.CurrentUser!.UserID));
+            AppDialog.ShowInfo($"Đã gia hạn đến {newEnd:dd/MM/yyyy}.");
+            await WithServicesAsync(async (_, __, contracts, ___) => await BindContractsAsync(contracts));
+        }
+
+        private async Task TerminateContractAsync(ContractDto contract)
+        {
+            if (contract.Status == "Active")
+            {
+                AppDialog.ShowInfo(
+                    "HĐ Active: dùng «Xin hủy thuê» để khách xác nhận qua Thông báo.\n" +
+                    "Hoặc xác nhận bên dưới nếu muốn kết thúc ngay (không chờ khách).");
+                if (!AppDialog.Confirm($"Kết thúc ngay {contract.ContractCode} (không chờ khách)?"))
+                    return;
+                var reason = AppDialog.Prompt("Lý do hủy (tuỳ chọn):", "Hủy hợp đồng", "");
+                await WithServicesAsync(async (_, __, contracts, ___) =>
+                    await contracts.TerminateContractAsync(
+                        contract.ContractID, UserSession.CurrentUser!.UserID, reason));
+                AppDialog.ShowInfo("Đã hủy hợp đồng.");
+                await ReloadContractsAndRoomsAsync();
+                return;
+            }
+            if (contract.Status != "Draft" && contract.Status != "PendingConfirm")
+            {
+                AppDialog.ShowWarning("Chỉ hủy hợp đồng nháp, chờ xác nhận hoặc Active.");
+                return;
+            }
+            string msg = contract.Status == "PendingConfirm"
+                ? $"Hủy đề nghị thuê {contract.ContractCode}?\n\nKhách sẽ được thông báo."
+                : $"Hủy hợp đồng nháp {contract.ContractCode}?";
+            if (!AppDialog.Confirm(msg))
+                return;
+            await WithServicesAsync(async (_, __, contracts, ___) =>
+                await contracts.TerminateContractAsync(
+                    contract.ContractID, UserSession.CurrentUser!.UserID, null));
+            AppDialog.ShowInfo("Đã hủy hợp đồng.");
+            ToastNotifier.Show(this, "Đã hủy HĐ", ToastKind.Success);
+            await ReloadContractsAndRoomsAsync();
+        }
+
+        private async Task OpenContractDetailAsync(int contractId)
+        {
+            try
+            {
+                var detail = await WithServicesAsync(async (_, __, contracts, ___) =>
+                    await contracts.GetContractByIdAsync(contractId));
+                using var dlg = new Forms.Shared.ContractDetailViewForm(detail);
+                dlg.ShowDialog(this);
+            }
+            catch (Exception ex)
+            {
+                AppDialog.ShowError(ex.Message);
+            }
+        }
+
+        private async Task ReloadContractsAndRoomsAsync()
+        {
+            await _uiLoadLock.WaitAsync();
+            try
+            {
+                _suppressComboEvents = true;
+                await WithServicesAsync(async (_, rooms, contracts, _) =>
+                {
+                    await BindRoomsAsync(rooms);
+                    await BindContractsAsync(contracts);
+                });
+            }
+            finally
+            {
+                _suppressComboEvents = false;
+                _uiLoadLock.Release();
             }
         }
 
@@ -694,7 +792,7 @@ namespace RPMS.WinForms.Forms.Landlord
             }
             if (string.Equals(contract.PendingEditStatus, "Pending", StringComparison.OrdinalIgnoreCase))
             {
-                AppDialog.ShowWarning("Đang chờ khách xác nhận đề xuất trước. Hãy «Hủy đề xuất» nếu muốn sửa lại.");
+                AppDialog.ShowWarning("Đang chờ khách duyệt đề xuất trong «Thông báo». Hãy «Thu hồi sửa» nếu muốn sửa lại.");
                 return;
             }
 
@@ -803,7 +901,7 @@ namespace RPMS.WinForms.Forms.Landlord
                     }, UserSession.CurrentUser!.UserID));
 
                 AppDialog.ShowInfo(contract.TenantID.HasValue
-                    ? "Đã gửi đề xuất sửa. Hợp đồng chỉ đổi sau khi khách xác nhận. Giá mới áp dụng từ ngày xác nhận."
+                    ? "Đã gửi đề xuất sửa. Khách nhận «Thông báo» → Xem chi tiết để Xác nhận/Từ chối. Sau đó HĐ hai bên đồng bộ."
                     : "Đã cập nhật hợp đồng.");
                 ToastNotifier.Show(this, "Đã lưu thay đổi HĐ", ToastKind.Success);
                 await WithServicesAsync(async (_, __, contracts, ___) => await BindContractsAsync(contracts));
@@ -848,7 +946,7 @@ namespace RPMS.WinForms.Forms.Landlord
             };
             var lbl = new Label
             {
-                Text = $"Phòng {contract.RoomNumber} — khách đã đặt lịch xem:",
+                Text = $"{contract.HouseName} · Phòng {contract.RoomNumber} — khách đã đặt lịch xem:",
                 Location = new Point(16, 16),
                 AutoSize = true,
                 ForeColor = AppColors.TextMain

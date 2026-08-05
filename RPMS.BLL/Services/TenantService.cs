@@ -88,9 +88,20 @@ namespace RPMS.BLL.Services
         public async Task<IEnumerable<PostDto>> SearchRoomsAsync(RoomSearchFilterDto filter)
         {
             filter ??= new RoomSearchFilterDto();
+            bool needAmenities =
+                filter.HasAirConditioner == true ||
+                filter.HasWifi == true ||
+                filter.HasWashingMachine == true ||
+                filter.HasParking == true ||
+                filter.AllowPet == true;
+
+            string includes = needAmenities
+                ? "Room.House, Room.RoomAmenities.Amenity, Room.RoomImages, PostImages"
+                : "Room.House, Room.RoomImages, PostImages";
+
             var posts = await _unitOfWork.Posts.FindAsync(
                 p => p.Status == "Approved" && (p.ExpiryDate == null || p.ExpiryDate >= DateTime.Now),
-                "Room.House, Room.RoomAmenities.Amenity, Room.RoomImages, PostImages");
+                includes).ConfigureAwait(false);
             var query = posts.AsEnumerable();
 
             if (!string.IsNullOrWhiteSpace(filter.Keyword))
@@ -116,10 +127,10 @@ namespace RPMS.BLL.Services
             {
                 query = filter.AreaFilter.Value switch
                 {
-                    1 => query.Where(p => p.Room.Area < 25),
-                    2 => query.Where(p => p.Room.Area >= 25 && p.Room.Area <= 50),
-                    3 => query.Where(p => p.Room.Area > 50 && p.Room.Area <= 100),
-                    4 => query.Where(p => p.Room.Area > 100),
+                    1 => query.Where(p => p.Room != null && p.Room.Area < 25),
+                    2 => query.Where(p => p.Room != null && p.Room.Area >= 25 && p.Room.Area <= 50),
+                    3 => query.Where(p => p.Room != null && p.Room.Area > 50 && p.Room.Area <= 100),
+                    4 => query.Where(p => p.Room != null && p.Room.Area > 100),
                     _ => query
                 };
             }
@@ -142,7 +153,7 @@ namespace RPMS.BLL.Services
             query = ApplyAmenityFilter(query, filter.AllowPet, new[] { "thú cưng", "thu cung", "pet" });
 
             if (filter.HasFurniture == true)
-                query = query.Where(p => !string.IsNullOrWhiteSpace(p.Room.Furniture));
+                query = query.Where(p => p.Room != null && !string.IsNullOrWhiteSpace(p.Room.Furniture));
 
             if (!string.IsNullOrWhiteSpace(filter.RoomStatus) &&
                 !string.Equals(filter.RoomStatus, "All", StringComparison.OrdinalIgnoreCase))
@@ -156,7 +167,7 @@ namespace RPMS.BLL.Services
 
             if (filter.MinRating.HasValue && filter.MinRating.Value > 0)
             {
-                var reviews = await _unitOfWork.Reviews.GetAllAsync("Contract.Room");
+                var reviews = await _unitOfWork.Reviews.GetAllAsync("Contract.Room").ConfigureAwait(false);
                 var ratingByRoom = reviews
                     .GroupBy(r => r.Contract.RoomID)
                     .ToDictionary(g => g.Key, g => g.Average(x => x.Rating));
@@ -178,7 +189,7 @@ namespace RPMS.BLL.Services
         {
             if (flag != true) return query;
             return query.Where(p =>
-                p.Room.RoomAmenities != null &&
+                p.Room?.RoomAmenities != null &&
                 p.Room.RoomAmenities.Any(ra =>
                     keywords.Any(k => (ra.Amenity?.AmenityName ?? "").ToLowerInvariant().Contains(k))));
         }

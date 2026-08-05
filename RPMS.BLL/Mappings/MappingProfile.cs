@@ -74,7 +74,12 @@ namespace RPMS.BLL.Mappings
                     src.Room != null && src.Room.House != null ? src.Room.House.HouseName : ""))
                 .ForMember(dest => dest.RoomNumber, opt => opt.MapFrom(src => src.Room != null ? src.Room.RoomNumber : ""))
                 .ForMember(dest => dest.TenantName, opt => opt.MapFrom(src =>
-                    src.Tenant != null ? src.Tenant.FullName : "(Chưa có khách)"));
+                    src.Tenant != null ? src.Tenant.FullName : "(Chưa có khách)"))
+                .ForMember(dest => dest.CancelRequestLabel, opt => opt.MapFrom(src =>
+                    !string.Equals(src.CancelRequestStatus, "Pending", StringComparison.OrdinalIgnoreCase) ? ""
+                    : string.Equals(src.CancelRequestedBy, "Landlord", StringComparison.OrdinalIgnoreCase) ? "Chủ xin"
+                    : string.Equals(src.CancelRequestedBy, "Tenant", StringComparison.OrdinalIgnoreCase) ? "Khách xin"
+                    : "Pending"));
             CreateMap<Contract, ContractDetailDto>()
                 .IncludeBase<Contract, ContractDto>()
                 .ForMember(dest => dest.CreatedByName, opt => opt.MapFrom(src =>

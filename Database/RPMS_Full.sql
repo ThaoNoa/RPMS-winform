@@ -392,7 +392,8 @@ GO
 
 SET IDENTITY_INSERT Amenities ON;
 INSERT INTO Amenities (AmenityID, AmenityName) VALUES
-(1, N'Điều hòa'), (2, N'Nóng lạnh'), (3, N'Wifi'), (4, N'Ban công'), (5, N'Bếp'), (6, N'Gara xe');
+(1, N'Điều hòa'), (2, N'Nóng lạnh'), (3, N'Wifi'), (4, N'Ban công'), (5, N'Bếp'), (6, N'Gara xe'),
+(7, N'Máy giặt'), (8, N'Tủ lạnh'), (9, N'Tủ quần áo'), (10, N'Bồn rửa bát'), (11, N'Sofa'), (12, N'Bàn ghế');
 SET IDENTITY_INSERT Amenities OFF;
 GO
 

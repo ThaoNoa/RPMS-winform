@@ -28,6 +28,9 @@ namespace RPMS.BLL
             // Sửa tên tiếng Việt nếu sample SQL bị mojibake encoding
             await FixSampleDisplayNamesAsync(db);
 
+            // Đảm bảo catalog tiện ích phòng (DB cũ / EnsureCreated thiếu dòng)
+            await EnsureAmenitiesAsync(db);
+
             // Đồng bộ ngày sample về thời điểm thực (tháng trước nhận phòng ngày 15 → prorate)
             await SyncSampleTimelineAsync(db);
 
@@ -112,6 +115,24 @@ namespace RPMS.BLL
             }
         }
 
+        /// <summary>Catalog tiện ích chuẩn — insert nếu thiếu (theo tên, không đụng ID cũ).</summary>
+        private static async Task EnsureAmenitiesAsync(RPMSContext db)
+        {
+            var required = new[]
+            {
+                "Điều hòa", "Nóng lạnh", "Wifi", "Ban công", "Bếp", "Gara xe",
+                "Máy giặt", "Tủ lạnh", "Tủ quần áo", "Bồn rửa bát", "Sofa", "Bàn ghế"
+            };
+            var existing = await db.Amenities.Select(a => a.AmenityName).ToListAsync();
+            var missing = required
+                .Where(name => !existing.Any(e => string.Equals(e, name, StringComparison.OrdinalIgnoreCase)))
+                .Select(name => new Amenity { AmenityName = name })
+                .ToList();
+            if (missing.Count == 0) return;
+            db.Amenities.AddRange(missing);
+            await db.SaveChangesAsync();
+        }
+
         private static bool LooksLikeBcrypt(string password) =>
             password.StartsWith("$2a$", StringComparison.Ordinal) ||
             password.StartsWith("$2b$", StringComparison.Ordinal) ||
@@ -179,7 +200,13 @@ namespace RPMS.BLL
                 [3] = "Wifi",
                 [4] = "Ban công",
                 [5] = "Bếp",
-                [6] = "Gara xe"
+                [6] = "Gara xe",
+                [7] = "Máy giặt",
+                [8] = "Tủ lạnh",
+                [9] = "Tủ quần áo",
+                [10] = "Bồn rửa bát",
+                [11] = "Sofa",
+                [12] = "Bàn ghế"
             };
             foreach (var a in await db.Amenities.ToListAsync())
             {

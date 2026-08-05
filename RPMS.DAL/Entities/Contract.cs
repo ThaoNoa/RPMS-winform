@@ -45,6 +45,13 @@ namespace RPMS.DAL.Entities
         public decimal? PreviousWaterPrice { get; set; }
         public DateTime? PriceEffectiveDate { get; set; }
 
+        /// <summary>Pending = đang chờ bên kia phản hồi.</summary>
+        public string? CancelRequestStatus { get; set; }
+        /// <summary>Tenant | Landlord</summary>
+        public string? CancelRequestedBy { get; set; }
+        public string? CancelRequestNote { get; set; }
+        public DateTime? CancelRequestAt { get; set; }
+
         public virtual Room Room { get; set; } = null!;
         public virtual User? Tenant { get; set; }
         public virtual User CreatedByUser { get; set; } = null!;

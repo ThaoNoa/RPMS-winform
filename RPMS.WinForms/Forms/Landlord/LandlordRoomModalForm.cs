@@ -1,11 +1,13 @@
 ﻿using RPMS.BLL.Exceptions;
 using RPMS.BLL.Interfaces;
+using RPMS.Common.Constants;
 using RPMS.DTO.Amenity;
 using RPMS.DTO.Room;
 using RPMS.WinForms.Controls;
 using RPMS.WinForms.UI;
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -46,21 +48,35 @@ namespace RPMS.WinForms.Forms.Landlord
                 txtCapacity.Text = "1";
                 txtBedroom.Text = "0";
                 txtBathroom.Text = "0";
-                // Mở sẵn tab Ảnh để chủ nhà thấy chỗ tải ngay khi tạo mới
-                tabMain.SelectedTab = tpImages;
+                tabMain.SelectedTab = tpGeneral;
             }
-            // Không gọi SoftAnchorDialogControls — sẽ kéo giãn ListBox/PictureBox
-            // và che mất nút «Thêm ảnh/video».
         }
 
         private async Task LoadAmenitiesAsync()
         {
             try
             {
-                var amenities = await _amenityService.GetAllAmenitiesAsync();
-                clbAmenities.DataSource = amenities.ToList();
-                clbAmenities.DisplayMember = "AmenityName";
-                clbAmenities.ValueMember = "AmenityID";
+                var amenities = (await _amenityService.GetAllAmenitiesAsync())
+                    .OrderBy(a => a.AmenityName, StringComparer.CurrentCultureIgnoreCase)
+                    .ToList();
+                flpAmenities.SuspendLayout();
+                flpAmenities.Controls.Clear();
+                foreach (var amenity in amenities)
+                {
+                    var chk = new CheckBox
+                    {
+                        Text = amenity.AmenityName,
+                        Tag = amenity.AmenityID,
+                        AutoSize = true,
+                        Font = AppTypography.Body,
+                        ForeColor = AppColors.TextMain,
+                        Margin = new Padding(4, 6, 16, 6),
+                        MinimumSize = new Size(160, 28),
+                        Cursor = Cursors.Hand
+                    };
+                    flpAmenities.Controls.Add(chk);
+                }
+                flpAmenities.ResumeLayout();
             }
             catch (Exception ex)
             {
@@ -84,12 +100,11 @@ namespace RPMS.WinForms.Forms.Landlord
                 txtFurniture.Text = room.Furniture;
                 txtDescription.Text = room.Description;
 
-                var roomAmenityIds = room.Amenities.Select(a => a.AmenityID).ToList();
-                for (int i = 0; i < clbAmenities.Items.Count; i++)
+                var roomAmenityIds = new HashSet<int>(room.Amenities.Select(a => a.AmenityID));
+                foreach (Control c in flpAmenities.Controls)
                 {
-                    var item = clbAmenities.Items[i] as AmenityDto;
-                    if (item != null && roomAmenityIds.Contains(item.AmenityID))
-                        clbAmenities.SetItemChecked(i, true);
+                    if (c is CheckBox chk && chk.Tag is int id)
+                        chk.Checked = roomAmenityIds.Contains(id);
                 }
 
                 _tempImagePaths = room.Images.ToList();
@@ -100,6 +115,15 @@ namespace RPMS.WinForms.Forms.Landlord
                 AppDialog.ShowError("Lỗi tải thông tin phòng: " + ex.Message);
                 this.Close();
             }
+        }
+
+        private List<int> GetSelectedAmenityIds()
+        {
+            return flpAmenities.Controls
+                .OfType<CheckBox>()
+                .Where(c => c.Checked && c.Tag is int)
+                .Select(c => (int)c.Tag!)
+                .ToList();
         }
 
         private void btnAddImage_Click(object sender, EventArgs e)
@@ -160,6 +184,7 @@ namespace RPMS.WinForms.Forms.Landlord
                 !int.TryParse(txtBathroom.Text, out int bath) || bath < 0)
             {
                 AppDialog.ShowWarning("Vui lòng nhập đúng các trường số (diện tích, giá, sức chứa, số phòng).");
+                tabMain.SelectedTab = tpGeneral;
                 return;
             }
 
@@ -180,7 +205,7 @@ namespace RPMS.WinForms.Forms.Landlord
                         Bathroom = bath,
                         Furniture = txtFurniture.Text.Trim(),
                         Description = txtDescription.Text.Trim(),
-                        Status = cboStatus.SelectedItem.ToString()
+                        Status = cboStatus.SelectedItem?.ToString() ?? "Available"
                     };
                     await _roomService.UpdateRoomAsync(RoomIdToEdit, updateRequest);
                     roomId = RoomIdToEdit;
@@ -204,13 +229,7 @@ namespace RPMS.WinForms.Forms.Landlord
                     roomId = createdRoom.RoomID;
                 }
 
-                var selectedAmenities = new List<int>();
-                foreach (var item in clbAmenities.CheckedItems)
-                {
-                    if (item is AmenityDto amenity)
-                        selectedAmenities.Add(amenity.AmenityID);
-                }
-                await _roomService.AssignAmenitiesAsync(roomId, selectedAmenities);
+                await _roomService.AssignAmenitiesAsync(roomId, GetSelectedAmenityIds());
 
                 var finalImagePaths = new List<string>();
                 string uploadFolder = Path.Combine(Application.StartupPath, "uploads", "rooms");

@@ -7,14 +7,14 @@ using RPMS.WinForms.Controls;
 using RPMS.WinForms.UI;
 using System;
 using System.Drawing;
+using System.Linq;
 using System.Windows.Forms;
 
 namespace RPMS.WinForms.Forms.Tenant
 {
     public class TenantHomeForm : Form
     {
-        private readonly ITenantService _tenantService;
-        private readonly ITenantInteractionService _interactionService;
+        private readonly IServiceScopeFactory _scopeFactory;
         private Panel pnlFilter = null!;
         private FlowLayoutPanel flpRooms = null!;
         private Label lblResult = null!;
@@ -24,10 +24,9 @@ namespace RPMS.WinForms.Forms.Tenant
         private LoadingPanel _loading = null!;
         private EmptyStatePanel _empty = null!;
 
-        public TenantHomeForm(ITenantService tenantService, ITenantInteractionService interactionService)
+        public TenantHomeForm(IServiceScopeFactory scopeFactory)
         {
-            _tenantService = tenantService;
-            _interactionService = interactionService;
+            _scopeFactory = scopeFactory;
             InitializeUI();
             Load += async (s, e) => await PerformSearchAsync();
         }
@@ -270,7 +269,15 @@ namespace RPMS.WinForms.Forms.Tenant
                     }
                 };
 
-                var posts = await _tenantService.SearchRoomsAsync(filter);
+                // Off UI sync-context — EF await trên WinForms message loop bị treo.
+                var posts = await System.Threading.Tasks.Task.Run(async () =>
+                {
+                    using var scope = _scopeFactory.CreateScope();
+                    return (await scope.ServiceProvider.GetRequiredService<ITenantService>()
+                        .SearchRoomsAsync(filter)
+                        .ConfigureAwait(false)).ToList();
+                }).ConfigureAwait(true);
+
                 if (IsDisposed || !IsHandleCreated) return;
 
                 flpRooms.SuspendLayout();
@@ -286,7 +293,8 @@ namespace RPMS.WinForms.Forms.Tenant
                         if (IsDisposed) return;
                         try
                         {
-                            var modal = Program.ServiceProvider.GetRequiredService<TenantAppointmentModalForm>();
+                            using var scope = _scopeFactory.CreateScope();
+                            var modal = scope.ServiceProvider.GetRequiredService<TenantAppointmentModalForm>();
                             modal.RoomIdToBook = p.RoomID;
                             modal.RoomInfo = $"Phòng {p.RoomNumber} - {p.HouseAddress}";
                             modal.ShowDialog(this);
@@ -300,7 +308,13 @@ namespace RPMS.WinForms.Forms.Tenant
                     {
                         try
                         {
-                            var isFav = await _interactionService.ToggleFavoriteAsync(UserSession.CurrentUser!.UserID, p.RoomID);
+                            var isFav = await System.Threading.Tasks.Task.Run(async () =>
+                            {
+                                using var scope = _scopeFactory.CreateScope();
+                                return await scope.ServiceProvider.GetRequiredService<ITenantInteractionService>()
+                                    .ToggleFavoriteAsync(UserSession.CurrentUser!.UserID, p.RoomID)
+                                    .ConfigureAwait(false);
+                            }).ConfigureAwait(true);
                             if (!IsDisposed)
                                 ToastNotifier.Show(this, isFav ? "Đã thêm yêu thích" : "Đã bỏ yêu thích", ToastKind.Success);
                         }
@@ -334,7 +348,8 @@ namespace RPMS.WinForms.Forms.Tenant
             }
             finally
             {
-                _loading.HideLoading();
+                if (!IsDisposed)
+                    _loading.HideLoading();
             }
         }
 
@@ -342,7 +357,8 @@ namespace RPMS.WinForms.Forms.Tenant
         {
             try
             {
-                var detail = Program.ServiceProvider.GetRequiredService<RoomDetailForm>();
+                using var scope = _scopeFactory.CreateScope();
+                var detail = scope.ServiceProvider.GetRequiredService<RoomDetailForm>();
                 detail.PostId = post.PostID;
                 detail.SeedPost = post;
                 detail.ShowDialog(this);

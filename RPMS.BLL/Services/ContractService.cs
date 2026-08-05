@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using RPMS.BLL.Exceptions;
 using RPMS.BLL.Interfaces;
+using RPMS.Common.Constants;
 using RPMS.DAL.Entities;
 using RPMS.DAL.UnitOfWork.Interfaces;
 using RPMS.DTO.Contract;
@@ -434,26 +435,95 @@ namespace RPMS.BLL.Services
         }
 
         public async Task<bool> TerminateContractAsync(int contractId)
+            => await TerminateContractAsync(contractId, 0, null);
+
+        public async Task<bool> TerminateContractAsync(int contractId, int actorUserId, string? reason = null)
         {
             using var transaction = await _unitOfWork.BeginTransactionAsync();
             try
             {
-                var contract = await _unitOfWork.Contracts.FirstOrDefaultAsync(c => c.ContractID == contractId, "Room");
+                var contract = await _unitOfWork.Contracts.FirstOrDefaultAsync(
+                    c => c.ContractID == contractId, "Room, Room.House, Tenant");
                 if (contract == null) throw new NotFoundException("Hợp đồng", contractId);
                 if (contract.Status != "Active" && contract.Status != "Draft" && contract.Status != "PendingConfirm")
                     throw new BadRequestException("Chỉ có thể kết thúc hợp đồng nháp, chờ xác nhận hoặc đang hiệu lực.");
 
-                bool wasOccupied = contract.Room != null && contract.Room.Status == "Occupied";
+                string prevStatus = contract.Status;
+                bool freeRoom = string.Equals(prevStatus, "Active", StringComparison.OrdinalIgnoreCase)
+                    || (contract.Room != null && contract.Room.Status == "Occupied");
+
+                // CHECK MoveOutDate >= MoveInDate — nếu hủy trước ngày nhận phòng thì gán MoveOut = MoveIn
+                var moveIn = contract.MoveInDate == default ? contract.StartDate.Date : contract.MoveInDate.Date;
+                var moveOut = DateTime.Now;
+                if (moveOut.Date < moveIn)
+                    moveOut = moveIn;
+
                 contract.Status = "Terminated";
-                contract.MoveOutDate = DateTime.Now;
+                contract.MoveOutDate = moveOut;
                 contract.UpdatedDate = DateTime.Now;
+                ClearPending(contract);
+                ClearCancelRequest(contract);
                 _unitOfWork.Contracts.Update(contract);
 
-                if (wasOccupied && contract.Room != null)
+                await CompletePendingActionNotificationsAsync(
+                    NotificationActions.ContractCancel, contractId, NotificationActions.Completed, save: false);
+                await CompletePendingActionNotificationsAsync(
+                    NotificationActions.ContractEdit, contractId, NotificationActions.Declined, save: false);
+
+                if (freeRoom && contract.Room != null)
                 {
                     contract.Room.Status = "Available";
                     contract.Room.UpdatedDate = DateTime.Now;
                     _unitOfWork.Rooms.Update(contract.Room);
+                }
+
+                string reasonText = string.IsNullOrWhiteSpace(reason) ? "" : $" Lý do: {reason.Trim()}";
+                string roomNo = contract.Room?.RoomNumber ?? "?";
+
+                if (contract.TenantID is > 0)
+                {
+                    string title = prevStatus == "PendingConfirm"
+                        ? "Chủ nhà đã hủy đề nghị thuê"
+                        : "Hợp đồng đã kết thúc";
+                    string content = prevStatus == "PendingConfirm"
+                        ? $"Đề nghị thuê phòng {roomNo} (HĐ {contract.ContractCode}) đã bị chủ nhà hủy.{reasonText}"
+                        : $"Hợp đồng {contract.ContractCode} (phòng {roomNo}) đã được kết thúc.{reasonText} Phòng trở lại trống.";
+                    await _unitOfWork.Notifications.AddAsync(new Notification
+                    {
+                        UserID = contract.TenantID.Value,
+                        Title = title,
+                        Content = content,
+                        IsRead = false,
+                        CreatedDate = DateTime.Now,
+                        UpdatedDate = DateTime.Now
+                    });
+                }
+
+                int? landlordId = contract.Room?.House?.OwnerID;
+                if (landlordId is > 0 && actorUserId > 0 && actorUserId != landlordId.Value
+                    && contract.TenantID == actorUserId)
+                {
+                    // Trường hợp hiếm: tenant gọi terminate trực tiếp — vẫn báo chủ
+                    await _unitOfWork.Notifications.AddAsync(new Notification
+                    {
+                        UserID = landlordId.Value,
+                        Title = "Hợp đồng đã kết thúc",
+                        Content = $"HĐ {contract.ContractCode} (phòng {roomNo}) đã kết thúc.{reasonText}",
+                        IsRead = false,
+                        CreatedDate = DateTime.Now,
+                        UpdatedDate = DateTime.Now
+                    });
+                }
+
+                if (actorUserId > 0)
+                {
+                    await _unitOfWork.ActivityLogs.AddAsync(new ActivityLog
+                    {
+                        UserID = actorUserId,
+                        Action = "TerminateContract",
+                        Details = $"Hủy {contract.ContractCode} ({prevStatus}→Terminated).{reasonText}",
+                        CreatedDate = DateTime.Now
+                    });
                 }
 
                 await _unitOfWork.SaveChangesAsync();
@@ -465,6 +535,173 @@ namespace RPMS.BLL.Services
                 await _unitOfWork.RollbackTransactionAsync();
                 throw;
             }
+        }
+
+        public async Task<bool> RequestCancelAsync(int contractId, int actorUserId, string reason)
+        {
+            if (string.IsNullOrWhiteSpace(reason))
+                throw new BadRequestException("Vui lòng nhập lý do xin hủy thuê.");
+
+            var contract = await _unitOfWork.Contracts.FirstOrDefaultAsync(
+                c => c.ContractID == contractId, "Room.House, Tenant");
+            if (contract == null) throw new NotFoundException("Hợp đồng", contractId);
+            if (!string.Equals(contract.Status, "Active", StringComparison.OrdinalIgnoreCase))
+                throw new BadRequestException("Chỉ xin hủy khi hợp đồng đang Active.");
+            if (!contract.TenantID.HasValue)
+                throw new BadRequestException("Hợp đồng chưa có khách thuê.");
+
+            int landlordId = contract.Room?.House?.OwnerID ?? 0;
+            bool isTenant = contract.TenantID == actorUserId;
+            bool isLandlord = landlordId > 0 && landlordId == actorUserId;
+            if (!isTenant && !isLandlord)
+                throw new BadRequestException("Bạn không có quyền xin hủy hợp đồng này.");
+
+            if (string.Equals(contract.CancelRequestStatus, "Pending", StringComparison.OrdinalIgnoreCase))
+            {
+                string who = string.Equals(contract.CancelRequestedBy, "Landlord", StringComparison.OrdinalIgnoreCase)
+                    ? "chủ nhà" : "khách thuê";
+                throw new BadRequestException($"Đã có yêu cầu hủy từ {who} đang chờ phản hồi.");
+            }
+
+            string by = isLandlord ? "Landlord" : "Tenant";
+            contract.CancelRequestStatus = "Pending";
+            contract.CancelRequestedBy = by;
+            contract.CancelRequestNote = reason.Trim();
+            contract.CancelRequestAt = DateTime.Now;
+            contract.UpdatedDate = DateTime.Now;
+            _unitOfWork.Contracts.Update(contract);
+
+            string roomNo = contract.Room?.RoomNumber ?? "?";
+            string tenantName = contract.Tenant?.FullName ?? "Khách thuê";
+            if (isTenant && landlordId > 0)
+            {
+                await _unitOfWork.Notifications.AddAsync(new Notification
+                {
+                    UserID = landlordId,
+                    Title = $"Khách xin hủy thuê — {contract.ContractCode}",
+                    Content = $"Khách {tenantName} (phòng {roomNo}) xin hủy thuê.\nChi tiết: {reason.Trim()}\n\nMở thông báo này → Xem chi tiết để Duyệt hủy hoặc Từ chối hủy.",
+                    ActionType = NotificationActions.ContractCancel,
+                    RelatedID = contract.ContractID,
+                    ActionStatus = NotificationActions.Pending,
+                    IsRead = false,
+                    CreatedDate = DateTime.Now,
+                    UpdatedDate = DateTime.Now
+                });
+            }
+            else if (isLandlord)
+            {
+                await _unitOfWork.Notifications.AddAsync(new Notification
+                {
+                    UserID = contract.TenantID.Value,
+                    Title = $"Chủ nhà xin hủy thuê — {contract.ContractCode}",
+                    Content = $"Chủ nhà đề nghị kết thúc HĐ phòng {roomNo}.\nChi tiết: {reason.Trim()}\n\nMở thông báo này → Xem chi tiết để Duyệt hủy hoặc Từ chối hủy.",
+                    ActionType = NotificationActions.ContractCancel,
+                    RelatedID = contract.ContractID,
+                    ActionStatus = NotificationActions.Pending,
+                    IsRead = false,
+                    CreatedDate = DateTime.Now,
+                    UpdatedDate = DateTime.Now
+                });
+            }
+
+            await _unitOfWork.ActivityLogs.AddAsync(new ActivityLog
+            {
+                UserID = actorUserId,
+                Action = "RequestCancel",
+                Details = $"{by} xin hủy {contract.ContractCode}: {reason.Trim()}",
+                CreatedDate = DateTime.Now
+            });
+
+            await _unitOfWork.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<bool> ApproveCancelRequestAsync(int contractId, int actorUserId)
+        {
+            var contract = await _unitOfWork.Contracts.FirstOrDefaultAsync(
+                c => c.ContractID == contractId, "Room.House, Tenant");
+            if (contract == null) throw new NotFoundException("Hợp đồng", contractId);
+            if (!string.Equals(contract.CancelRequestStatus, "Pending", StringComparison.OrdinalIgnoreCase))
+                throw new BadRequestException("Không có yêu cầu hủy đang chờ.");
+
+            int landlordId = contract.Room?.House?.OwnerID ?? 0;
+            string by = contract.CancelRequestedBy ?? "";
+            // Người duyệt phải là bên kia
+            if (string.Equals(by, "Tenant", StringComparison.OrdinalIgnoreCase))
+            {
+                if (landlordId != actorUserId)
+                    throw new BadRequestException("Chỉ chủ nhà được duyệt yêu cầu hủy của khách.");
+            }
+            else if (string.Equals(by, "Landlord", StringComparison.OrdinalIgnoreCase))
+            {
+                if (contract.TenantID != actorUserId)
+                    throw new BadRequestException("Chỉ khách thuê được duyệt yêu cầu hủy của chủ nhà.");
+            }
+            else
+                throw new BadRequestException("Yêu cầu hủy không hợp lệ.");
+
+            string reason = string.IsNullOrWhiteSpace(contract.CancelRequestNote)
+                ? $"Duyệt yêu cầu hủy từ {(by == "Landlord" ? "chủ nhà" : "khách")}"
+                : $"Duyệt hủy: {contract.CancelRequestNote}";
+
+            bool ok = await TerminateContractAsync(contractId, actorUserId, reason);
+            await CompletePendingActionNotificationsAsync(
+                NotificationActions.ContractCancel, contractId, NotificationActions.Completed);
+            return ok;
+        }
+
+        public async Task<bool> RejectCancelRequestAsync(int contractId, int actorUserId, string? note = null)
+        {
+            var contract = await _unitOfWork.Contracts.FirstOrDefaultAsync(
+                c => c.ContractID == contractId, "Room.House, Tenant");
+            if (contract == null) throw new NotFoundException("Hợp đồng", contractId);
+            if (!string.Equals(contract.CancelRequestStatus, "Pending", StringComparison.OrdinalIgnoreCase))
+                throw new BadRequestException("Hợp đồng không có yêu cầu hủy đang chờ.");
+
+            int landlordId = contract.Room?.House?.OwnerID ?? 0;
+            string by = contract.CancelRequestedBy ?? "";
+            int notifyUserId;
+            string rejectorLabel;
+
+            if (string.Equals(by, "Tenant", StringComparison.OrdinalIgnoreCase))
+            {
+                if (landlordId != actorUserId)
+                    throw new BadRequestException("Chỉ chủ nhà được từ chối yêu cầu hủy của khách.");
+                notifyUserId = contract.TenantID ?? 0;
+                rejectorLabel = "Chủ nhà";
+            }
+            else if (string.Equals(by, "Landlord", StringComparison.OrdinalIgnoreCase))
+            {
+                if (contract.TenantID != actorUserId)
+                    throw new BadRequestException("Chỉ khách thuê được từ chối yêu cầu hủy của chủ nhà.");
+                notifyUserId = landlordId;
+                rejectorLabel = "Khách thuê";
+            }
+            else
+                throw new BadRequestException("Yêu cầu hủy không hợp lệ.");
+
+            ClearCancelRequest(contract);
+            contract.UpdatedDate = DateTime.Now;
+            _unitOfWork.Contracts.Update(contract);
+
+            if (notifyUserId > 0)
+            {
+                string extra = string.IsNullOrWhiteSpace(note) ? "" : $" Phản hồi: {note.Trim()}";
+                await _unitOfWork.Notifications.AddAsync(new Notification
+                {
+                    UserID = notifyUserId,
+                    Title = "Yêu cầu hủy thuê bị từ chối",
+                    Content = $"{rejectorLabel} từ chối yêu cầu hủy HĐ {contract.ContractCode}.{extra} Hợp đồng vẫn Active.",
+                    IsRead = false,
+                    CreatedDate = DateTime.Now,
+                    UpdatedDate = DateTime.Now
+                });
+            }
+
+            await CompletePendingActionNotificationsAsync(
+                NotificationActions.ContractCancel, contractId, NotificationActions.Declined, save: false);
+            await _unitOfWork.SaveChangesAsync();
+            return true;
         }
 
         public async Task<bool> ExtendContractAsync(int contractId, DateTime newEndDate, int actorUserId)
@@ -552,7 +789,10 @@ namespace RPMS.BLL.Services
             {
                 UserID = contract.TenantID!.Value,
                 Title = "Yêu cầu sửa hợp đồng",
-                Content = $"Chủ nhà đề xuất sửa {contract.ContractCode}: thuê {request.MonthlyRent:N0}đ, điện {request.ElectricPrice:N0}, nước {request.WaterPrice:N0}, hết hạn {request.EndDate:dd/MM/yyyy}. Vui lòng xác nhận hoặc từ chối.",
+                Content = $"Chủ nhà đề xuất sửa {contract.ContractCode}:\n• Thuê: {request.MonthlyRent:N0}đ\n• Điện: {request.ElectricPrice:N0}\n• Nước: {request.WaterPrice:N0}\n• Hết hạn: {request.EndDate:dd/MM/yyyy}\n{(string.IsNullOrWhiteSpace(request.Note) ? "" : "• Ghi chú: " + request.Note.Trim() + "\n")}\nMở thông báo → Xem chi tiết để Xác nhận hoặc Từ chối.",
+                ActionType = NotificationActions.ContractEdit,
+                RelatedID = contract.ContractID,
+                ActionStatus = NotificationActions.Pending,
                 IsRead = false,
                 CreatedDate = DateTime.Now,
                 UpdatedDate = DateTime.Now
@@ -600,6 +840,8 @@ namespace RPMS.BLL.Services
                 UpdatedDate = DateTime.Now
             });
 
+            await CompletePendingActionNotificationsAsync(
+                NotificationActions.ContractEdit, contractId, NotificationActions.Completed, save: false);
             await _unitOfWork.SaveChangesAsync();
             return true;
         }
@@ -628,6 +870,8 @@ namespace RPMS.BLL.Services
                 UpdatedDate = DateTime.Now
             });
 
+            await CompletePendingActionNotificationsAsync(
+                NotificationActions.ContractEdit, contractId, NotificationActions.Declined, save: false);
             await _unitOfWork.SaveChangesAsync();
             return true;
         }
@@ -659,6 +903,8 @@ namespace RPMS.BLL.Services
                 });
             }
 
+            await CompletePendingActionNotificationsAsync(
+                NotificationActions.ContractEdit, contractId, NotificationActions.Declined, save: false);
             await _unitOfWork.SaveChangesAsync();
             return true;
         }
@@ -682,6 +928,32 @@ namespace RPMS.BLL.Services
             contract.PendingEditStatus = null;
             contract.PendingEditNote = null;
             contract.PendingEditAt = null;
+        }
+
+        private static void ClearCancelRequest(Contract contract)
+        {
+            contract.CancelRequestStatus = null;
+            contract.CancelRequestedBy = null;
+            contract.CancelRequestNote = null;
+            contract.CancelRequestAt = null;
+        }
+
+        private async Task CompletePendingActionNotificationsAsync(
+            string actionType, int relatedId, string newStatus, bool save = true)
+        {
+            var items = await _unitOfWork.Notifications.FindAsync(n =>
+                n.RelatedID == relatedId
+                && n.ActionType == actionType
+                && n.ActionStatus == NotificationActions.Pending);
+            foreach (var n in items)
+            {
+                n.ActionStatus = newStatus;
+                n.IsRead = true;
+                n.UpdatedDate = DateTime.Now;
+                _unitOfWork.Notifications.Update(n);
+            }
+            if (save && items.Any())
+                await _unitOfWork.SaveChangesAsync();
         }
     }
 }

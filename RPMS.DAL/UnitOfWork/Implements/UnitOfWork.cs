@@ -66,11 +66,11 @@ namespace RPMS.DAL.UnitOfWork.Implements
         public IChatMessageRepository ChatMessages => _chatMessages ??= new ChatMessageRepository(_context);
 
         // Các phương thức khác giữ nguyên
-        public async Task<int> SaveChangesAsync() => await _context.SaveChangesAsync();
+        public async Task<int> SaveChangesAsync() => await _context.SaveChangesAsync().ConfigureAwait(false);
 
         public async Task<IDbContextTransaction> BeginTransactionAsync()
         {
-            _transaction = await _context.Database.BeginTransactionAsync();
+            _transaction = await _context.Database.BeginTransactionAsync().ConfigureAwait(false);
             return _transaction;
         }
 
@@ -78,8 +78,8 @@ namespace RPMS.DAL.UnitOfWork.Implements
         {
             if (_transaction != null)
             {
-                await _transaction.CommitAsync();
-                await _transaction.DisposeAsync();
+                await _transaction.CommitAsync().ConfigureAwait(false);
+                await _transaction.DisposeAsync().ConfigureAwait(false);
                 _transaction = null;
             }
         }
@@ -88,8 +88,8 @@ namespace RPMS.DAL.UnitOfWork.Implements
         {
             if (_transaction != null)
             {
-                await _transaction.RollbackAsync();
-                await _transaction.DisposeAsync();
+                await _transaction.RollbackAsync().ConfigureAwait(false);
+                await _transaction.DisposeAsync().ConfigureAwait(false);
                 _transaction = null;
             }
         }

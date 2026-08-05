@@ -1,4 +1,5 @@
-﻿using RPMS.BLL.Interfaces;
+﻿using Microsoft.Extensions.DependencyInjection;
+using RPMS.BLL.Interfaces;
 using RPMS.Common.Constants;
 using RPMS.Common.Globals;
 using RPMS.WinForms.Controls;
@@ -12,17 +13,15 @@ namespace RPMS.WinForms.Forms.Dashboard
 {
     public class DashboardForm : Form
     {
-        private readonly IStatisticService _statisticService;
-        private readonly ITenantService _tenantService;
+        private readonly IServiceScopeFactory _scopeFactory;
         private FlowLayoutPanel flpCards = null!;
         private FlowLayoutPanel flpCharts = null!;
         private Label lblWelcome = null!;
         private LoadingPanel _loading = null!;
 
-        public DashboardForm(IStatisticService statisticService, ITenantService tenantService)
+        public DashboardForm(IServiceScopeFactory scopeFactory)
         {
-            _statisticService = statisticService;
-            _tenantService = tenantService;
+            _scopeFactory = scopeFactory;
             InitializeUI();
             Load += DashboardForm_Load!;
         }
@@ -99,9 +98,18 @@ namespace RPMS.WinForms.Forms.Dashboard
 
             try
             {
-                if (user.RoleID == 1)
+                int roleId = user.RoleID;
+                int userId = user.UserID;
+
+                if (roleId == 1)
                 {
-                    var stats = await _statisticService.GetAdminDashboardStatsAsync();
+                    var stats = await System.Threading.Tasks.Task.Run(async () =>
+                    {
+                        using var scope = _scopeFactory.CreateScope();
+                        return await scope.ServiceProvider.GetRequiredService<IStatisticService>()
+                            .GetAdminDashboardStatsAsync().ConfigureAwait(false);
+                    }).ConfigureAwait(true);
+                    if (IsDisposed) return;
                     AddCard("Người dùng", stats.TotalUsers.ToString(), AppColors.Primary);
                     AddCard("Nhà trọ", stats.TotalHouses.ToString(), AppColors.Success);
                     AddCard("Phòng", stats.TotalRooms.ToString(), AppColors.Primary);
@@ -116,9 +124,15 @@ namespace RPMS.WinForms.Forms.Dashboard
                     RenderList("Top Landlord (theo số phòng)", stats.TopLandlords.Select(x => $"{x.Name}: {x.Count} phòng").ToList());
                     RenderList("User theo Role", stats.UsersByRole.Select(x => $"{x.Name}: {x.Count}").ToList());
                 }
-                else if (user.RoleID == 2)
+                else if (roleId == 2)
                 {
-                    var stats = await _statisticService.GetLandlordDashboardStatsAsync(user.UserID);
+                    var stats = await System.Threading.Tasks.Task.Run(async () =>
+                    {
+                        using var scope = _scopeFactory.CreateScope();
+                        return await scope.ServiceProvider.GetRequiredService<IStatisticService>()
+                            .GetLandlordDashboardStatsAsync(userId).ConfigureAwait(false);
+                    }).ConfigureAwait(true);
+                    if (IsDisposed) return;
                     AddCard("Nhà quản lý", stats.TotalHouses.ToString(), AppColors.Primary);
                     AddCard("Tổng phòng", stats.TotalRooms.ToString(), AppColors.Primary);
                     AddCard("Đã thuê", stats.OccupiedRooms.ToString(), AppColors.Success);
@@ -132,9 +146,15 @@ namespace RPMS.WinForms.Forms.Dashboard
                     AddOccupancyChart(stats.OccupiedRooms, stats.AvailableRooms, stats.MaintenanceRooms);
                     RenderBarChart("Doanh thu 6 tháng", stats.RevenueByMonth.Select(x => ($"T{x.Month}", x.Total)).ToList());
                 }
-                else if (user.RoleID == 3)
+                else if (roleId == 3)
                 {
-                    var dash = await _tenantService.GetTenantDashboardAsync(user.UserID);
+                    var dash = await System.Threading.Tasks.Task.Run(async () =>
+                    {
+                        using var scope = _scopeFactory.CreateScope();
+                        return await scope.ServiceProvider.GetRequiredService<ITenantService>()
+                            .GetTenantDashboardAsync(userId).ConfigureAwait(false);
+                    }).ConfigureAwait(true);
+                    if (IsDisposed) return;
                     string roomInfo = dash.CurrentContract != null
                         ? $"{dash.CurrentContract.RoomNumber}"
                         : "Chưa thuê";
@@ -145,9 +165,15 @@ namespace RPMS.WinForms.Forms.Dashboard
                     AddCard("Thông báo mới", (dash.RecentNotifications?.Count(n => !n.IsRead) ?? 0).ToString(), AppColors.Primary);
                     AddCard("Bảo trì gần đây", (dash.RecentMaintenances?.Count ?? 0).ToString(), AppColors.Warning);
                 }
-                else if (user.RoleID == 4)
+                else if (roleId == 4)
                 {
-                    var stats = await _statisticService.GetManagerDashboardStatsAsync(user.UserID);
+                    var stats = await System.Threading.Tasks.Task.Run(async () =>
+                    {
+                        using var scope = _scopeFactory.CreateScope();
+                        return await scope.ServiceProvider.GetRequiredService<IStatisticService>()
+                            .GetManagerDashboardStatsAsync(userId).ConfigureAwait(false);
+                    }).ConfigureAwait(true);
+                    if (IsDisposed) return;
                     AddCard("Nhà được giao", stats.ManagedHouses.ToString(), AppColors.Primary);
                     AddCard("Phòng", stats.ManagedRooms.ToString(), AppColors.Success);
                     AddCard("Bảo trì mới", stats.PendingMaintenances.ToString(), AppColors.Danger);
@@ -156,15 +182,18 @@ namespace RPMS.WinForms.Forms.Dashboard
                     AddCard("Công việc hôm nay", stats.TodayTasks.ToString(), AppColors.Primary);
                 }
 
-                ToastNotifier.Show(this, "Đã cập nhật thống kê", ToastKind.Success, 1800);
+                if (!IsDisposed)
+                    ToastNotifier.Show(this, "Đã cập nhật thống kê", ToastKind.Success, 1800);
             }
             catch (Exception ex)
             {
-                AppDialog.ShowError("Lỗi tải thống kê: " + ex.Message);
+                if (!IsDisposed)
+                    AppDialog.ShowError("Lỗi tải thống kê: " + ex.Message);
             }
             finally
             {
-                _loading.HideLoading();
+                if (!IsDisposed)
+                    _loading.HideLoading();
             }
         }
 

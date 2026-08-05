@@ -24,7 +24,14 @@ namespace RPMS.BLL.Interfaces
         Task<bool> ConfirmContractEditAsync(int contractId, int tenantId);
         Task<bool> RejectContractEditAsync(int contractId, int tenantId);
         Task<bool> CancelPendingContractEditAsync(int contractId, int landlordId);
+        /// <summary>Xin hủy thuê Active (Tenant hoặc Landlord) — chờ bên kia duyệt.</summary>
+        Task<bool> RequestCancelAsync(int contractId, int actorUserId, string reason);
+        /// <summary>Bên kia duyệt yêu cầu hủy → Terminated.</summary>
+        Task<bool> ApproveCancelRequestAsync(int contractId, int actorUserId);
+        /// <summary>Bên kia từ chối yêu cầu hủy — HĐ vẫn Active.</summary>
+        Task<bool> RejectCancelRequestAsync(int contractId, int actorUserId, string? note = null);
         Task<bool> TerminateContractAsync(int contractId);
+        Task<bool> TerminateContractAsync(int contractId, int actorUserId, string? reason = null);
         Task<bool> ExtendContractAsync(int contractId, DateTime newEndDate, int actorUserId);
     }
 }

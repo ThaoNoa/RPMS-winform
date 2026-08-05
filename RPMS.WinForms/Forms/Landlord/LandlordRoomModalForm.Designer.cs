@@ -13,12 +13,12 @@ namespace RPMS.WinForms.Forms.Landlord
         private TabControl tabMain;
         private TabPage tpGeneral, tpAmenities, tpImages;
 
-        private Label lblRoomNumber, lblFloor, lblArea, lblPrice, lblCapacity, lblBedroom, lblBathroom, lblStatus, lblFurniture, lblDescription;
         private ModernTextBox txtRoomNumber, txtFloor, txtArea, txtPrice, txtCapacity, txtBedroom, txtBathroom, txtFurniture;
         private TextBox txtDescription;
         private ComboBox cboStatus;
 
-        private CheckedListBox clbAmenities;
+        private FlowLayoutPanel flpAmenities;
+        private Label lblAmenitiesHint;
 
         private ListBox lstImages;
         private PictureBox picPreview;
@@ -41,28 +41,19 @@ namespace RPMS.WinForms.Forms.Landlord
             tpAmenities = new TabPage();
             tpImages = new TabPage();
 
-            lblRoomNumber = new Label();
             txtRoomNumber = new ModernTextBox();
-            lblFloor = new Label();
             txtFloor = new ModernTextBox();
-            lblArea = new Label();
             txtArea = new ModernTextBox();
-            lblPrice = new Label();
             txtPrice = new ModernTextBox();
-            lblCapacity = new Label();
             txtCapacity = new ModernTextBox();
-            lblBedroom = new Label();
             txtBedroom = new ModernTextBox();
-            lblBathroom = new Label();
             txtBathroom = new ModernTextBox();
-            lblStatus = new Label();
             cboStatus = new ComboBox();
-            lblFurniture = new Label();
             txtFurniture = new ModernTextBox();
-            lblDescription = new Label();
             txtDescription = new TextBox();
 
-            clbAmenities = new CheckedListBox();
+            lblAmenitiesHint = new Label();
+            flpAmenities = new FlowLayoutPanel();
 
             lstImages = new ListBox();
             picPreview = new PictureBox();
@@ -105,7 +96,7 @@ namespace RPMS.WinForms.Forms.Landlord
             tabMain.Font = AppTypography.Body;
             tabMain.Padding = new Point(8, 8);
 
-            // ===== General (scroll + flow so nothing is clipped) =====
+            // ===== General =====
             tpGeneral.Text = "Thông tin";
             tpGeneral.BackColor = AppColors.Card;
             tpGeneral.AutoScroll = true;
@@ -122,72 +113,86 @@ namespace RPMS.WinForms.Forms.Landlord
             };
             generalStack.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
             generalStack.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
+            generalStack.MinimumSize = new Size(680, 0);
 
             int row = 0;
-            void AddRow(Control left, Control right)
+            void AddFull(Control field, float rowHeight = 62f)
             {
-                generalStack.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+                generalStack.RowStyles.Add(new RowStyle(SizeType.Absolute, rowHeight));
+                generalStack.Controls.Add(field, 0, row);
+                generalStack.SetColumnSpan(field, 2);
+                row++;
+            }
+            void AddRow(Control left, Control right, float rowHeight = 62f)
+            {
+                generalStack.RowStyles.Add(new RowStyle(SizeType.Absolute, rowHeight));
                 generalStack.Controls.Add(left, 0, row);
-                if (right != null)
-                    generalStack.Controls.Add(right, 1, row);
-                else
-                    generalStack.SetColumnSpan(left, 2);
+                generalStack.Controls.Add(right, 1, row);
                 row++;
             }
 
             AddRow(
-                UIHelper.CreateLabeledField("Mã phòng *", txtRoomNumber, 280),
-                UIHelper.CreateLabeledField("Tầng", txtFloor, 280));
+                UIHelper.CreateDialogField("Mã phòng *", txtRoomNumber),
+                UIHelper.CreateDialogField("Tầng", txtFloor));
             AddRow(
-                UIHelper.CreateLabeledField("Diện tích (m²) *", txtArea, 280),
-                UIHelper.CreateLabeledField("Giá thuê (VND) *", txtPrice, 280));
+                UIHelper.CreateDialogField("Diện tích (m²) *", txtArea),
+                UIHelper.CreateDialogField("Giá thuê (VND) *", txtPrice));
             AddRow(
-                UIHelper.CreateLabeledField("Số người tối đa *", txtCapacity, 280),
-                UIHelper.CreateLabeledField("Số phòng ngủ", txtBedroom, 280));
+                UIHelper.CreateDialogField("Số người tối đa *", txtCapacity),
+                UIHelper.CreateDialogField("Số phòng ngủ", txtBedroom));
 
             cboStatus.DropDownStyle = ComboBoxStyle.DropDownList;
             cboStatus.Items.AddRange(new object[] { "Available", "Occupied", "Maintenance" });
-            UIHelper.StyleCombo(cboStatus);
             AddRow(
-                UIHelper.CreateLabeledField("Số phòng tắm", txtBathroom, 280),
-                UIHelper.CreateLabeledField("Trạng thái *", cboStatus, 280));
-            AddRow(UIHelper.CreateLabeledField("Nội thất", txtFurniture, 600), null!);
+                UIHelper.CreateDialogField("Số phòng tắm", txtBathroom),
+                UIHelper.CreateDialogField("Trạng thái *", cboStatus));
+            AddFull(UIHelper.CreateDialogField("Nội thất", txtFurniture));
 
-            lblDescription.Text = "Mô tả thêm";
-            lblDescription.Font = AppTypography.Caption;
-            lblDescription.ForeColor = AppColors.TextMuted;
-            lblDescription.AutoSize = true;
             txtDescription.Multiline = true;
             txtDescription.ScrollBars = ScrollBars.Vertical;
-            txtDescription.Height = 90;
-            txtDescription.Width = 600;
             txtDescription.Font = AppTypography.Body;
             txtDescription.BorderStyle = BorderStyle.FixedSingle;
-            var descWrap = new Panel
-            {
-                Width = 620,
-                Height = 120,
-                Margin = new Padding(0, 0, AppLayout.FieldGap, 6)
-            };
-            lblDescription.Location = new Point(0, 0);
-            txtDescription.Location = new Point(0, 18);
-            descWrap.Controls.Add(lblDescription);
-            descWrap.Controls.Add(txtDescription);
-            AddRow(descWrap, null!);
+            txtDescription.AcceptsReturn = true;
+            AddFull(UIHelper.CreateDialogField("Mô tả thêm", txtDescription, 120), 120);
 
             tpGeneral.Controls.Add(generalStack);
 
-            // ===== Amenities =====
+            // ===== Amenities — checkbox panel =====
             tpAmenities.Text = "Tiện ích";
             tpAmenities.BackColor = AppColors.Card;
             tpAmenities.Padding = new Padding(AppLayout.PagePadding);
-            clbAmenities.Dock = DockStyle.Fill;
-            clbAmenities.BorderStyle = BorderStyle.FixedSingle;
-            clbAmenities.CheckOnClick = true;
-            clbAmenities.Font = AppTypography.Body;
-            tpAmenities.Controls.Add(clbAmenities);
+            tpAmenities.AutoScroll = true;
 
-            // ===== Images — docked layout, upload always visible =====
+            var amenitiesRoot = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                RowCount = 2,
+                Padding = new Padding(0)
+            };
+            amenitiesRoot.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            amenitiesRoot.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+            amenitiesRoot.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+
+            lblAmenitiesHint.Text = "Chọn các tiện ích có trong phòng (điều hòa, máy giặt, tủ lạnh, …).";
+            lblAmenitiesHint.Font = AppTypography.Caption;
+            lblAmenitiesHint.ForeColor = AppColors.TextMuted;
+            lblAmenitiesHint.AutoSize = true;
+            lblAmenitiesHint.Dock = DockStyle.Fill;
+            lblAmenitiesHint.Padding = new Padding(0, 0, 0, 8);
+            amenitiesRoot.Controls.Add(lblAmenitiesHint, 0, 0);
+
+            flpAmenities.Dock = DockStyle.Fill;
+            flpAmenities.AutoScroll = true;
+            flpAmenities.WrapContents = true;
+            flpAmenities.FlowDirection = FlowDirection.LeftToRight;
+            flpAmenities.Padding = new Padding(4);
+            flpAmenities.BackColor = AppColors.Card;
+            amenitiesRoot.Controls.Add(flpAmenities, 0, 1);
+
+            tpAmenities.Controls.Add(amenitiesRoot);
+
+            // ===== Images =====
             tpImages.Text = "Ảnh & Video";
             tpImages.BackColor = AppColors.Card;
             tpImages.Padding = new Padding(AppLayout.PagePadding);
@@ -205,7 +210,7 @@ namespace RPMS.WinForms.Forms.Landlord
             imagesRoot.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
             imagesRoot.RowStyles.Add(new RowStyle(SizeType.Absolute, 52));
 
-            lblImageHint.Text = "Chọn tab này → bấm «Thêm ảnh/video» để tải file từ máy. Có thể chọn nhiều file.";
+            lblImageHint.Text = "Bấm «Thêm ảnh/video» để tải file từ máy. Có thể chọn nhiều file.";
             lblImageHint.Font = AppTypography.Caption;
             lblImageHint.ForeColor = AppColors.TextMuted;
             lblImageHint.AutoSize = true;

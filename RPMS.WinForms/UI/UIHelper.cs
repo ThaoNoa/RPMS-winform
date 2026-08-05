@@ -156,6 +156,51 @@ namespace RPMS.WinForms.UI
             return wrap;
         }
 
+        /// <summary>
+        /// Khối label + input kéo giãn theo cột TableLayout (dialog Thêm/Sửa).
+        /// </summary>
+        public static Panel CreateDialogField(string label, Control input, int minHeight = 62)
+        {
+            var wrap = new Panel
+            {
+                Dock = DockStyle.Fill,
+                MinimumSize = new Size(80, minHeight),
+                Height = minHeight,
+                Margin = new Padding(0, 0, AppLayout.FieldGap, 10),
+                Padding = new Padding(0)
+            };
+            var lbl = new Label
+            {
+                Text = label,
+                Font = AppTypography.Caption,
+                ForeColor = AppColors.TextMuted,
+                AutoSize = true,
+                Location = new Point(0, 0)
+            };
+            if (input is ModernTextBox)
+                input.Height = AppLayout.InputHeight;
+            else if (input is ComboBox)
+            {
+                input.Height = AppLayout.ComboHeight;
+                StyleCombo((ComboBox)input);
+            }
+
+            void LayoutInput()
+            {
+                int top = 20;
+                input.Location = new Point(0, top);
+                input.Width = Math.Max(40, wrap.ClientSize.Width);
+                if (input is TextBox tb && tb.Multiline)
+                    input.Height = Math.Max(80, wrap.ClientSize.Height - top);
+            }
+
+            wrap.Controls.Add(lbl);
+            wrap.Controls.Add(input);
+            wrap.Resize += (_, _) => LayoutInput();
+            LayoutInput();
+            return wrap;
+        }
+
         public static Panel CreateSideFormPanel(int width = 0)
         {
             return new Panel
@@ -217,6 +262,10 @@ namespace RPMS.WinForms.UI
         {
             foreach (Control c in parent.Controls)
             {
+                // Không đụng ModernTextBox (inner TextBox đã Dock=Fill) — Anchor sẽ phá layout nhập liệu
+                if (c is ModernTextBox)
+                    continue;
+
                 SoftAnchorDialogControls(c);
                 if (c is TextBox or RichTextBox or ComboBox or ListBox or CheckedListBox)
                     c.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
@@ -230,11 +279,12 @@ namespace RPMS.WinForms.UI
                     dgv.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
                     dgv.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
                 }
-                else if (c is Button or Panel)
+                else if (c is Button)
                 {
                     if (parent is Form f && c.Top > f.ClientSize.Height * 0.7)
                         c.Anchor = AnchorStyles.Bottom | (c.Left > f.ClientSize.Width / 2 ? AnchorStyles.Right : AnchorStyles.Left);
                 }
+                // Không đổi Anchor Panel đã Dock (footer/header/body)
             }
         }
 
