@@ -141,8 +141,13 @@ namespace RPMS.WinForms.Forms.Shared
                 btnReject.Click += async (s, e) => await ActAsync(approve: false);
                 bottom.Controls.Add(btnReject);
 
-                var btnApprove = UIHelper.PrimaryButton(
-                    item.ActionType == NotificationActions.ContractCancel ? "Duyệt hủy" : "Xác nhận", 120);
+                string approveText = item.ActionType switch
+                {
+                    NotificationActions.ContractCancel => "Duyệt hủy",
+                    NotificationActions.ContractConfirm => "Đồng ý thuê",
+                    _ => "Xác nhận"
+                };
+                var btnApprove = UIHelper.PrimaryButton(approveText, 120);
                 btnApprove.BackColor = AppColors.Success;
                 btnApprove.Click += async (s, e) => await ActAsync(approve: true);
                 bottom.Controls.Add(btnApprove);
@@ -204,6 +209,24 @@ namespace RPMS.WinForms.Forms.Shared
                             return;
                         await _contracts.RejectCancelRequestAsync(contractId, uid, note);
                         AppDialog.ShowInfo("Đã từ chối hủy. Hợp đồng vẫn hiệu lực.");
+                    }
+                }
+                else if (_item.ActionType == NotificationActions.ContractConfirm)
+                {
+                    if (approve)
+                    {
+                        if (!AppDialog.Confirm(
+                            "Đồng ý thuê phòng theo hợp đồng này?\n\nSau khi đồng ý, hợp đồng Active và phòng được đánh dấu đã thuê."))
+                            return;
+                        await _contracts.AcceptRentalOfferAsync(contractId, uid);
+                        AppDialog.ShowInfo("Bạn đã đồng ý thuê. Hợp đồng đang Active.");
+                    }
+                    else
+                    {
+                        if (!AppDialog.Confirm("Từ chối đề nghị thuê? Hợp đồng trở lại nháp, chủ nhà sẽ nhận thông báo."))
+                            return;
+                        await _contracts.RejectRentalOfferAsync(contractId, uid);
+                        AppDialog.ShowInfo("Đã từ chối. Chủ nhà sẽ nhận thông báo.");
                     }
                 }
                 else

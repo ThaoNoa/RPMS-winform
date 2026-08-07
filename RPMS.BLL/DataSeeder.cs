@@ -115,22 +115,98 @@ namespace RPMS.BLL
             }
         }
 
-        /// <summary>Catalog tiện ích chuẩn — insert nếu thiếu (theo tên, không đụng ID cũ).</summary>
+        /// <summary>
+        /// Catalog tiện ích chuẩn. DB sample bị mojibake + SchemaUpdater từng insert thêm
+        /// → trùng tên khi rename theo AmenityID (UQ AmenityName). Gộp/xóa bản thừa an toàn.
+        /// </summary>
         private static async Task EnsureAmenitiesAsync(RPMSContext db)
         {
-            var required = new[]
+            var catalog = new (int SampleId, string Name)[]
             {
-                "Điều hòa", "Nóng lạnh", "Wifi", "Ban công", "Bếp", "Gara xe",
-                "Máy giặt", "Tủ lạnh", "Tủ quần áo", "Bồn rửa bát", "Sofa", "Bàn ghế"
+                (1, "Điều hòa"), (2, "Nóng lạnh"), (3, "Wifi"), (4, "Ban công"),
+                (5, "Bếp"), (6, "Gara xe"), (7, "Máy giặt"), (8, "Tủ lạnh"),
+                (9, "Tủ quần áo"), (10, "Bồn rửa bát"), (11, "Sofa"), (12, "Bàn ghế")
             };
-            var existing = await db.Amenities.Select(a => a.AmenityName).ToListAsync();
-            var missing = required
-                .Where(name => !existing.Any(e => string.Equals(e, name, StringComparison.OrdinalIgnoreCase)))
-                .Select(name => new Amenity { AmenityName = name })
-                .ToList();
-            if (missing.Count == 0) return;
-            db.Amenities.AddRange(missing);
+
+            var all = await db.Amenities.ToListAsync();
+            var usedIds = (await db.RoomAmenities.Select(ra => ra.AmenityID).Distinct().ToListAsync()).ToHashSet();
+            var catalogNames = new HashSet<string>(catalog.Select(c => c.Name), StringComparer.OrdinalIgnoreCase);
+
+            foreach (var (sampleId, name) in catalog)
+            {
+                var holders = all
+                    .Where(a => string.Equals(a.AmenityName, name, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+                var sample = all.FirstOrDefault(a => a.AmenityID == sampleId);
+
+                Amenity keeper;
+                if (sample != null)
+                    keeper = sample;
+                else if (holders.Count > 0)
+                    keeper = holders.FirstOrDefault(h => usedIds.Contains(h.AmenityID))
+                             ?? holders.OrderBy(h => h.AmenityID).First();
+                else
+                {
+                    keeper = new Amenity { AmenityName = name };
+                    db.Amenities.Add(keeper);
+                    all.Add(keeper);
+                    continue;
+                }
+
+                foreach (var extra in holders.Where(h => h.AmenityID != keeper.AmenityID).ToList())
+                    await RemoveOrRemapAmenityAsync(db, all, usedIds, extra, keeper);
+
+                // Free unique name if another row still blocks rename (e.g. different casing already handled)
+                if (!string.Equals(keeper.AmenityName, name, StringComparison.Ordinal))
+                {
+                    foreach (var blocker in all
+                        .Where(a => a.AmenityID != keeper.AmenityID
+                                    && string.Equals(a.AmenityName, name, StringComparison.OrdinalIgnoreCase))
+                        .ToList())
+                        await RemoveOrRemapAmenityAsync(db, all, usedIds, blocker, keeper);
+
+                    keeper.AmenityName = name;
+                }
+            }
+
+            // Dọn amenity không thuộc catalog và không được phòng nào dùng (mojibake / bản thừa)
+            foreach (var orphan in all
+                .Where(a => !catalogNames.Contains(a.AmenityName) && !usedIds.Contains(a.AmenityID))
+                .ToList())
+            {
+                db.Amenities.Remove(orphan);
+                all.Remove(orphan);
+            }
+
             await db.SaveChangesAsync();
+        }
+
+        private static async Task RemoveOrRemapAmenityAsync(
+            RPMSContext db,
+            List<Amenity> all,
+            HashSet<int> usedIds,
+            Amenity extra,
+            Amenity keeper)
+        {
+            if (usedIds.Contains(extra.AmenityID))
+            {
+                var links = await db.RoomAmenities.Where(ra => ra.AmenityID == extra.AmenityID).ToListAsync();
+                foreach (var link in links)
+                {
+                    bool alreadyLinked = await db.RoomAmenities.AnyAsync(ra =>
+                        ra.RoomID == link.RoomID && ra.AmenityID == keeper.AmenityID);
+                    if (alreadyLinked || keeper.AmenityID == 0)
+                        db.RoomAmenities.Remove(link);
+                    else
+                        link.AmenityID = keeper.AmenityID;
+                }
+                usedIds.Remove(extra.AmenityID);
+                if (keeper.AmenityID != 0)
+                    usedIds.Add(keeper.AmenityID);
+            }
+
+            db.Amenities.Remove(extra);
+            all.Remove(extra);
         }
 
         private static bool LooksLikeBcrypt(string password) =>
@@ -193,26 +269,8 @@ namespace RPMS.BLL
                 room2.Description = "Phòng rộng, có ban công";
             }
 
-            var amenities = new Dictionary<int, string>
-            {
-                [1] = "Điều hòa",
-                [2] = "Nóng lạnh",
-                [3] = "Wifi",
-                [4] = "Ban công",
-                [5] = "Bếp",
-                [6] = "Gara xe",
-                [7] = "Máy giặt",
-                [8] = "Tủ lạnh",
-                [9] = "Tủ quần áo",
-                [10] = "Bồn rửa bát",
-                [11] = "Sofa",
-                [12] = "Bàn ghế"
-            };
-            foreach (var a in await db.Amenities.ToListAsync())
-            {
-                if (amenities.TryGetValue(a.AmenityID, out var name))
-                    a.AmenityName = name;
-            }
+            // Amenities: không rename theo ID tại đây — dễ đụng UQ AmenityName khi DB đã có
+            // bản insert đúng Unicode (SchemaUpdater / seed trước). Xử lý trong EnsureAmenitiesAsync.
 
             var post = await db.Posts.FirstOrDefaultAsync(p => p.PostID == 1);
             if (post != null)

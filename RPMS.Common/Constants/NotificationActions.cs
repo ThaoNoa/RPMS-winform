@@ -5,6 +5,8 @@ namespace RPMS.Common.Constants
     {
         public const string ContractEdit = "ContractEdit";
         public const string ContractCancel = "ContractCancel";
+        /// <summary>Đề nghị thuê mới — khách Đồng ý / Từ chối (PendingConfirm).</summary>
+        public const string ContractConfirm = "ContractConfirm";
 
         public const string Pending = "Pending";
         public const string Completed = "Completed";

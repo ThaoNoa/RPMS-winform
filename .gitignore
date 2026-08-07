@@ -361,3 +361,6 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+# PlantUML local jar (downloaded for diagram rendering)
+Docs/FlowDiagrams/tools/
+

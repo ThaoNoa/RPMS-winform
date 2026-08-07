@@ -176,6 +176,7 @@ namespace RPMS.WinForms.Forms.Shared
         {
             NotificationActions.ContractEdit => "Sửa HĐ",
             NotificationActions.ContractCancel => "Hủy thuê",
+            NotificationActions.ContractConfirm => "Xác nhận thuê",
             _ => ""
         };
 
@@ -257,6 +258,8 @@ namespace RPMS.WinForms.Forms.Shared
                     else if (item.ActionType == NotificationActions.ContractCancel)
                         canAct = string.Equals(d.CancelRequestStatus, "Pending", StringComparison.OrdinalIgnoreCase)
                                  && d.Status == "Active";
+                    else if (item.ActionType == NotificationActions.ContractConfirm)
+                        canAct = string.Equals(d.Status, "PendingConfirm", StringComparison.OrdinalIgnoreCase);
                 }
                 catch { canAct = false; }
             }

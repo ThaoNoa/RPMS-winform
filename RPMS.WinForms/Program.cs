@@ -7,6 +7,7 @@ using RPMS.DAL.Data;
 using RPMS.WinForms.Forms.Auth;
 using RPMS.WinForms.Forms.Layout;
 using System;
+using System.Text;
 using System.Windows.Forms;
 
 namespace RPMS.WinForms
@@ -48,10 +49,21 @@ namespace RPMS.WinForms
             }
             catch (Exception ex)
             {
+                var server = GetDataSource(ConnectionString);
+                var detail = GetInnermostMessage(ex);
+                var sb = new StringBuilder();
+                sb.AppendLine("Không thể khởi tạo/cập nhật database.");
+                sb.AppendLine(ex.Message);
+                if (!string.Equals(detail, ex.Message, StringComparison.Ordinal))
+                {
+                    sb.AppendLine();
+                    sb.AppendLine("Chi tiết: " + detail);
+                }
+                sb.AppendLine();
+                sb.AppendLine("Kiểm tra SQL Server: " + server);
+                sb.Append("Đảm bảo đã chạy script tạo database RPMS.");
                 MessageBox.Show(
-                    "Không thể khởi tạo/cập nhật database.\n" + ex.Message +
-                    "\n\nKiểm tra SQL Server: .\\SQLEXPRESS\n" +
-                    "Đảm bảo đã chạy script tạo database RPMS.",
+                    sb.ToString(),
                     "Lỗi Database",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
@@ -77,6 +89,27 @@ namespace RPMS.WinForms
                         keepRunning = false;
                 }
             }
+        }
+
+        private static string GetDataSource(string connectionString)
+        {
+            foreach (var part in connectionString.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                var idx = part.IndexOf('=');
+                if (idx <= 0) continue;
+                var key = part[..idx].Trim();
+                if (key.Equals("Server", StringComparison.OrdinalIgnoreCase) ||
+                    key.Equals("Data Source", StringComparison.OrdinalIgnoreCase))
+                    return part[(idx + 1)..].Trim();
+            }
+            return "(unknown)";
+        }
+
+        private static string GetInnermostMessage(Exception ex)
+        {
+            while (ex.InnerException != null)
+                ex = ex.InnerException;
+            return ex.Message;
         }
 
         private static void ConfigureServices(IServiceCollection services)

@@ -128,36 +128,9 @@ BEGIN
 END
 ");
 
-            // Tiện ích phòng — bổ sung catalog nếu DB cũ thiếu
-            await ExecAsync(context, @"
-IF OBJECT_ID('Amenities', 'U') IS NOT NULL
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM Amenities WHERE AmenityName = N'Điều hòa')
-        INSERT INTO Amenities (AmenityName) VALUES (N'Điều hòa');
-    IF NOT EXISTS (SELECT 1 FROM Amenities WHERE AmenityName = N'Nóng lạnh')
-        INSERT INTO Amenities (AmenityName) VALUES (N'Nóng lạnh');
-    IF NOT EXISTS (SELECT 1 FROM Amenities WHERE AmenityName = N'Wifi')
-        INSERT INTO Amenities (AmenityName) VALUES (N'Wifi');
-    IF NOT EXISTS (SELECT 1 FROM Amenities WHERE AmenityName = N'Ban công')
-        INSERT INTO Amenities (AmenityName) VALUES (N'Ban công');
-    IF NOT EXISTS (SELECT 1 FROM Amenities WHERE AmenityName = N'Bếp')
-        INSERT INTO Amenities (AmenityName) VALUES (N'Bếp');
-    IF NOT EXISTS (SELECT 1 FROM Amenities WHERE AmenityName = N'Gara xe')
-        INSERT INTO Amenities (AmenityName) VALUES (N'Gara xe');
-    IF NOT EXISTS (SELECT 1 FROM Amenities WHERE AmenityName = N'Máy giặt')
-        INSERT INTO Amenities (AmenityName) VALUES (N'Máy giặt');
-    IF NOT EXISTS (SELECT 1 FROM Amenities WHERE AmenityName = N'Tủ lạnh')
-        INSERT INTO Amenities (AmenityName) VALUES (N'Tủ lạnh');
-    IF NOT EXISTS (SELECT 1 FROM Amenities WHERE AmenityName = N'Tủ quần áo')
-        INSERT INTO Amenities (AmenityName) VALUES (N'Tủ quần áo');
-    IF NOT EXISTS (SELECT 1 FROM Amenities WHERE AmenityName = N'Bồn rửa bát')
-        INSERT INTO Amenities (AmenityName) VALUES (N'Bồn rửa bát');
-    IF NOT EXISTS (SELECT 1 FROM Amenities WHERE AmenityName = N'Sofa')
-        INSERT INTO Amenities (AmenityName) VALUES (N'Sofa');
-    IF NOT EXISTS (SELECT 1 FROM Amenities WHERE AmenityName = N'Bàn ghế')
-        INSERT INTO Amenities (AmenityName) VALUES (N'Bàn ghế');
-END
-");
+            // Amenities catalog: không insert ở đây.
+            // Sample SQL bị mojibake + INSERT theo tên đúng Unicode → trùng khi DataSeeder rename theo ID.
+            // DataSeeder.EnsureAmenitiesAsync gộp/xóa bản thừa và bổ sung thiếu.
         }
 
         private static async Task EnsureContractColumnAsync(RPMSContext context, string columnName, string sqlType)

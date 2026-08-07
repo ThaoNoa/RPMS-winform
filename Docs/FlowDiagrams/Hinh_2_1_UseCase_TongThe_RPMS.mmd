@@ -1,0 +1,66 @@
+%% Hình 2.1: Biểu đồ Use Case tổng thể của hệ thống RPMS
+%% BẢN PHÁC THẢO (Mermaid) – nguồn chuẩn UML: Hinh_2_1_UseCase_TongThe_RPMS.puml
+%% Xuất PNG/SVG chuyên nghiệp: xem README_UseCase.md
+
+flowchart LR
+  Admin((Admin))
+  Landlord((Chủ trọ))
+  Tenant((Khách thuê))
+  Manager((Quản lý))
+  Guest((Guest))
+  User((User))
+
+  Admin -.->|kế thừa| User
+  Landlord -.->|kế thừa| User
+  Tenant -.->|kế thừa| User
+  Manager -.->|kế thừa| User
+
+  subgraph RPMS["Hệ thống RPMS (Rental Property Management System)"]
+    direction TB
+    subgraph Auth["a. Tài khoản"]
+      UC_Login([Đăng nhập])
+      UC_Register([Đăng ký])
+      UC_Profile([Cập nhật hồ sơ])
+    end
+    subgraph Asset["b. Tài sản"]
+      UC_House([Quản lý nhà])
+      UC_Room([Quản lý phòng])
+    end
+    subgraph Post["c. Tin đăng"]
+      UC_CreatePost([Đăng tin])
+      UC_ApprovePost([Duyệt tin])
+      UC_ViewPosts([Xem tin])
+    end
+    subgraph Contract["d. Hợp đồng"]
+      UC_Contract([Quản lý hợp đồng])
+    end
+    subgraph Invoice["e. Hóa đơn"]
+      UC_Invoice([Hóa đơn / thanh toán])
+    end
+    subgraph Appt["f. Lịch hẹn"]
+      UC_Appt([Lịch hẹn xem phòng])
+    end
+    subgraph Maint["g. Sự cố"]
+      UC_Maint([Bảo trì])
+    end
+    subgraph Other["h. Tương tác"]
+      UC_Dash([Dashboard / Chat / Reviews])
+    end
+    subgraph AdminP["i. Quản trị"]
+      UC_Users([Quản lý người dùng])
+    end
+  end
+
+  Admin --- UC_Login
+  Admin --- UC_ApprovePost
+  Admin --- UC_Users
+  Landlord --- UC_House
+  Landlord --- UC_CreatePost
+  Landlord --- UC_Contract
+  Tenant --- UC_ViewPosts
+  Tenant --- UC_Appt
+  Tenant --- UC_Invoice
+  Manager --- UC_Invoice
+  Manager --- UC_Maint
+  Guest --- UC_ViewPosts
+  Guest --- UC_Register

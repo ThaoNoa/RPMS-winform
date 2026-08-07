@@ -1,0 +1,204 @@
+@startuml Hinh_2_1a_UseCase_QuanHe
+'==============================================================================
+' Hình 2.1a – Quan hệ <<include>> và <<extend>> của hệ thống RPMS
+' Bổ sung cho Hình 2.1 (Use Case tổng thể)
+'==============================================================================
+
+skinparam shadowing false
+skinparam handwritten false
+skinparam roundcorner 10
+skinparam dpi 300
+skinparam nodesep 20
+skinparam ranksep 25
+skinparam packageStyle rectangle
+
+skinparam usecase {
+  BackgroundColor #FFFBEB
+  BorderColor #111827
+  FontSize 10
+  FontColor #111827
+}
+
+skinparam package {
+  BackgroundColor #F8FAFC
+  BorderColor #64748B
+  FontColor #0F172A
+  FontSize 11
+  FontStyle bold
+}
+
+skinparam rectangle {
+  BackgroundColor #FFFFFF
+  BorderColor #0F172A
+  FontColor #0F172A
+  FontSize 12
+  FontStyle bold
+}
+
+skinparam note {
+  BackgroundColor #EFF6FF
+  BorderColor #2563EB
+  FontSize 10
+}
+
+skinparam arrow {
+  Color #334155
+  FontSize 9
+  FontColor #1E293B
+}
+
+title <b>Hình 2.1a – Quan hệ <<include>> và <<extend>></b>\nHệ thống RPMS (Rental Property Management System)
+
+rectangle "Hệ thống RPMS – Quan hệ phụ thuộc Use Case" {
+
+  package "Use Case dùng chung (được include)" as P_Shared #EFF6FF {
+    usecase "Đăng nhập\n(Login)" as UC_Login #DBEAFE
+    usecase "Xác thực quyền\n(Check Permission)" as UC_CheckPerm #DBEAFE
+    usecase "Gửi thông báo\n(Send Notification)" as UC_Notify #DBEAFE
+    usecase "Ghi nhật ký hoạt động\n(Log Activity)" as UC_Log #DBEAFE
+  }
+
+  package "1. <<include>> Login" as P_IncLogin #ECFDF5 {
+    usecase "Đổi mật khẩu" as UC_ChangePwd
+    usecase "Cập nhật hồ sơ" as UC_UpdateProfile
+    usecase "Quản lý nhà" as UC_Houses
+    usecase "Đăng tin cho thuê" as UC_CreatePost
+    usecase "Duyệt tin đăng" as UC_ApprovePost
+    usecase "Tạo hợp đồng" as UC_CreateContract
+    usecase "Xác nhận hợp đồng" as UC_AcceptContract
+    usecase "Ghi chỉ số ĐN" as UC_Meter
+    usecase "Tạo hóa đơn" as UC_GenInvoice
+    usecase "Thanh toán hóa đơn" as UC_PayInvoice
+    usecase "Đặt lịch hẹn" as UC_BookAppt
+    usecase "Xác nhận lịch hẹn" as UC_ConfirmAppt
+    usecase "Gửi YC bảo trì" as UC_CreateMaint
+    usecase "Xử lý YC bảo trì" as UC_ProcessMaint
+    usecase "Quản lý yêu thích" as UC_Favorites
+    usecase "Quản lý đánh giá" as UC_Reviews
+    usecase "Chat" as UC_Chat
+    usecase "Xem Dashboard" as UC_Dashboard
+    usecase "Xem báo cáo" as UC_Reports
+    usecase "Quản lý người dùng" as UC_ManageUsers
+    usecase "Sao lưu dữ liệu" as UC_Backup
+  }
+
+  package "2. <<include>> Check Permission" as P_IncPerm #FEF3C7 {
+    usecase "Quản lý người dùng " as UC_ManageUsers2
+    usecase "Duyệt tin đăng " as UC_ApprovePost2
+    usecase "Sao lưu dữ liệu " as UC_Backup2
+    usecase "Xem báo cáo " as UC_Reports2
+    usecase "Thanh lý hợp đồng" as UC_Terminate
+    usecase "Quản lý nhà " as UC_Houses2
+  }
+
+  package "3. <<include>> Send Notification" as P_IncNotify #FFEDD5 {
+    usecase "Tạo hợp đồng " as UC_CreateContract2
+    usecase "Gán khách thuê" as UC_AssignTenant
+    usecase "Xác nhận hợp đồng " as UC_AcceptContract2
+    usecase "Yêu cầu hủy HĐ" as UC_ReqCancel
+    usecase "Tạo hóa đơn " as UC_GenInvoice2
+    usecase "Xác nhận lịch hẹn " as UC_ConfirmAppt2
+    usecase "Xử lý sự cố" as UC_ProcessMaint2
+    usecase "Trả lời đánh giá" as UC_ReplyReview
+    usecase "Chat " as UC_Chat2
+  }
+
+  package "4. <<include>> Log Activity" as P_IncLog #FCE7F3 {
+    usecase "Đăng nhập " as UC_Login2
+    usecase "Đăng xuất" as UC_Logout
+    usecase "Tạo hợp đồng  " as UC_CreateContract3
+    usecase "Xác nhận hợp đồng  " as UC_AcceptContract3
+    usecase "Thanh toán hóa đơn " as UC_PayInvoice2
+    usecase "Xác nhận lịch hẹn  " as UC_ConfirmAppt3
+    usecase "Duyệt tin đăng  " as UC_ApprovePost3
+  }
+
+  package "5. Quan hệ <<extend>>" as P_Ext #E0E7FF {
+    usecase "Thanh toán hóa đơn  " as UC_PayInvoiceExt
+    usecase "Xem hóa đơn\n(View Invoices)" as UC_ViewInvoice
+    usecase "Xác nhận hợp đồng   " as UC_AcceptExt
+    usecase "Xem hợp đồng\n(View Contract Details)" as UC_ViewContract
+    usecase "Đặt lịch hẹn " as UC_BookApptExt
+    usecase "Thêm yêu thích\n(Add Favorite)" as UC_AddFav
+    usecase "Xem chi tiết phòng\n(View Room Details)" as UC_RoomDetails
+    usecase "Trả lời đánh giá " as UC_ReplyExt
+    usecase "Xem đánh giá\n(View Reviews)" as UC_ViewReviews
+    usecase "Gán khách thuê " as UC_AssignExt
+    usecase "Xem DS khách đặt lịch\n(View Appointment Tenants)" as UC_ViewApptTenants
+  }
+}
+
+'--- include Login ---
+UC_ChangePwd ..> UC_Login : <<include>>
+UC_UpdateProfile ..> UC_Login : <<include>>
+UC_Houses ..> UC_Login : <<include>>
+UC_CreatePost ..> UC_Login : <<include>>
+UC_ApprovePost ..> UC_Login : <<include>>
+UC_CreateContract ..> UC_Login : <<include>>
+UC_AcceptContract ..> UC_Login : <<include>>
+UC_Meter ..> UC_Login : <<include>>
+UC_GenInvoice ..> UC_Login : <<include>>
+UC_PayInvoice ..> UC_Login : <<include>>
+UC_BookAppt ..> UC_Login : <<include>>
+UC_ConfirmAppt ..> UC_Login : <<include>>
+UC_CreateMaint ..> UC_Login : <<include>>
+UC_ProcessMaint ..> UC_Login : <<include>>
+UC_Favorites ..> UC_Login : <<include>>
+UC_Reviews ..> UC_Login : <<include>>
+UC_Chat ..> UC_Login : <<include>>
+UC_Dashboard ..> UC_Login : <<include>>
+UC_Reports ..> UC_Login : <<include>>
+UC_ManageUsers ..> UC_Login : <<include>>
+UC_Backup ..> UC_Login : <<include>>
+
+'--- include Check Permission ---
+UC_ManageUsers2 ..> UC_CheckPerm : <<include>>
+UC_ApprovePost2 ..> UC_CheckPerm : <<include>>
+UC_Backup2 ..> UC_CheckPerm : <<include>>
+UC_Reports2 ..> UC_CheckPerm : <<include>>
+UC_Terminate ..> UC_CheckPerm : <<include>>
+UC_Houses2 ..> UC_CheckPerm : <<include>>
+
+'--- include Send Notification ---
+UC_CreateContract2 ..> UC_Notify : <<include>>
+UC_AssignTenant ..> UC_Notify : <<include>>
+UC_AcceptContract2 ..> UC_Notify : <<include>>
+UC_ReqCancel ..> UC_Notify : <<include>>
+UC_GenInvoice2 ..> UC_Notify : <<include>>
+UC_ConfirmAppt2 ..> UC_Notify : <<include>>
+UC_ProcessMaint2 ..> UC_Notify : <<include>>
+UC_ReplyReview ..> UC_Notify : <<include>>
+UC_Chat2 ..> UC_Notify : <<include>>
+
+'--- include Log Activity ---
+UC_Login2 ..> UC_Log : <<include>>
+UC_Logout ..> UC_Log : <<include>>
+UC_CreateContract3 ..> UC_Log : <<include>>
+UC_AcceptContract3 ..> UC_Log : <<include>>
+UC_PayInvoice2 ..> UC_Log : <<include>>
+UC_ConfirmAppt3 ..> UC_Log : <<include>>
+UC_ApprovePost3 ..> UC_Log : <<include>>
+
+'--- extend ---
+UC_PayInvoiceExt ..> UC_ViewInvoice : <<extend>>
+UC_AcceptExt ..> UC_ViewContract : <<extend>>
+UC_BookApptExt ..> UC_RoomDetails : <<extend>>
+UC_AddFav ..> UC_RoomDetails : <<extend>>
+UC_ReplyExt ..> UC_ViewReviews : <<extend>>
+UC_AssignExt ..> UC_ViewApptTenants : <<extend>>
+
+note as N1
+  <b>Quy ước UML</b>
+  ----
+  <b><<include>></b>: mũi tên nét đứt từ UC chính
+  → UC được bao gồm (hành vi bắt buộc).
+  ----
+  <b><<extend>></b>: mũi tên nét đứt từ UC mở rộng
+  → UC cơ sở (hành vi tùy chọn).
+  ----
+  <i>Login được include vào hầu hết UC
+  (trừ Register). Guest chỉ xem tin / chi tiết phòng
+  và đăng ký mà không cần Login.</i>
+end note
+
+@enduml

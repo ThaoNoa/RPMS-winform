@@ -1,0 +1,125 @@
+%% Hình 2.2: Sơ đồ lớp lĩnh vực của hệ thống RPMS
+%% Nguồn: RPMS.DAL/Entities + RPMSContext (không invent bảng)
+
+classDiagram
+    direction TB
+
+    class Role {
+        +int RoleID PK
+        +string RoleName
+    }
+
+    class User {
+        +int UserID PK
+        +int RoleID FK
+        +string Username
+        +string FullName
+        +string Status
+    }
+
+    class House {
+        +int HouseID PK
+        +int OwnerID FK
+        +string HouseName
+        +string Status
+    }
+
+    class Room {
+        +int RoomID PK
+        +int HouseID FK
+        +string RoomNumber
+        +decimal Price
+        +string Status
+    }
+
+    class Amenity {
+        +int AmenityID PK
+        +string AmenityName
+    }
+
+    class RoomAmenity {
+        +int RoomAmenityID PK
+        +int RoomID FK
+        +int AmenityID FK
+    }
+
+    class Post {
+        +int PostID PK
+        +int RoomID FK
+        +string Title
+        +string Status
+        +int ApprovedBy FK
+    }
+
+    class Favorite {
+        +int FavoriteID PK
+        +int UserID FK
+        +int RoomID FK
+    }
+
+    class Appointment {
+        +int AppointmentID PK
+        +int RoomID FK
+        +int TenantID FK
+        +string Status
+    }
+
+    class Contract {
+        +int ContractID PK
+        +int RoomID FK
+        +int TenantID FK
+        +int CreatedBy FK
+        +string Status
+    }
+
+    class Invoice {
+        +int InvoiceID PK
+        +int ContractID FK
+        +int ReadingID FK
+        +decimal Total
+        +string Status
+    }
+
+    class Assignment {
+        +int AssignmentID PK
+        +int HouseID FK
+        +int ManagerID FK
+        +string Status
+    }
+
+    class Notification {
+        +int NotificationID PK
+        +int UserID FK
+        +bool IsRead
+        +string ActionType
+    }
+
+    %% Identity
+    Role "1" --> "1..*" User : có
+
+    %% Property
+    User "1" --> "*" House : Owner
+    House "1" *-- "*" Room : chứa
+    House "1" --> "*" Assignment : phân công
+    User "1" --> "*" Assignment : Manager
+
+    %% Amenities (association class / junction)
+    Room "1" --> "*" RoomAmenity
+    Amenity "1" --> "*" RoomAmenity
+
+    %% Listing & engagement
+    Room "1" --> "*" Post
+    User "0..1" --> "*" Post : ApprovedBy
+    User "1" --> "*" Favorite
+    Room "1" --> "*" Favorite
+    Room "1" --> "*" Appointment
+    User "1" --> "*" Appointment : Tenant
+
+    %% Lease & billing
+    Room "1" --> "*" Contract
+    User "0..1" --> "*" Contract : Tenant
+    User "1" --> "*" Contract : CreatedBy
+    Contract "1" --> "*" Invoice
+
+    %% Alerts
+    User "1" --> "*" Notification

@@ -1,0 +1,315 @@
+﻿@startuml Hinh_2_1_UseCase_TongThe_RPMS
+'==============================================================================
+' Hình 2.1 – Biểu đồ Use Case tổng thể hệ thống RPMS
+' Rental Property Management System
+' Công cụ: PlantUML | Khuyến nghị in khổ A3 ngang | DPI 300
+' Quan hệ <<include>>/<<extend>> chi tiết bổ sung: Hinh_2_1a_UseCase_QuanHe.puml
+'==============================================================================
+
+skinparam shadowing false
+skinparam handwritten false
+skinparam roundcorner 8
+skinparam dpi 300
+skinparam nodesep 16
+skinparam ranksep 18
+skinparam packageStyle rectangle
+
+skinparam actor {
+  BackgroundColor #DBEAFE
+  BorderColor #2563EB
+  FontColor #1E3A8A
+  FontSize 11
+  FontStyle bold
+}
+
+skinparam usecase {
+  BackgroundColor #FFFBEB
+  BorderColor #111827
+  FontSize 9
+  FontColor #111827
+}
+
+skinparam package {
+  BackgroundColor #F8FAFC
+  BorderColor #64748B
+  FontColor #0F172A
+  FontSize 10
+  FontStyle bold
+}
+
+skinparam rectangle {
+  BackgroundColor #FFFFFF
+  BorderColor #0F172A
+  FontColor #0F172A
+  FontSize 12
+  FontStyle bold
+}
+
+skinparam note {
+  BackgroundColor #F8FAFC
+  BorderColor #94A3B8
+  FontSize 8
+}
+
+skinparam arrow {
+  Color #475569
+  FontSize 7
+}
+
+title <b>Hình 2.1 – Biểu đồ Use Case tổng thể</b>\nHệ thống RPMS (Rental Property Management System)
+
+actor "Admin\n(Quản trị viên)" as Admin #BFDBFE
+actor "Landlord\n(Chủ nhà)" as Landlord #BBF7D0
+actor "Tenant\n(Người thuê)" as Tenant #FDE68A
+actor "Manager\n(Quản lý viên)" as Manager #FBCFE8
+actor "Guest\n(Khách xem)" as Guest #E2E8F0
+actor "User\n(Người dùng)" as User #DBEAFE
+
+Admin --|> User
+Landlord --|> User
+Tenant --|> User
+Manager --|> User
+
+rectangle "Hệ thống RPMS (Rental Property Management System)" {
+
+  package "a. Tài khoản & xác thực" as P_Auth #EFF6FF {
+    usecase "Đăng nhập (Login)" as UC_Login
+    usecase "Đăng ký (Register)" as UC_Register
+    usecase "Đổi mật khẩu\n(Change Password)" as UC_ChangePwd
+    usecase "Cập nhật hồ sơ\n(Update Profile)" as UC_UpdateProfile
+    usecase "Đăng xuất (Logout)" as UC_Logout
+    usecase "Xác thực quyền\n(Check Permission)" as UC_CheckPerm
+    usecase "Gửi thông báo\n(Send Notification)" as UC_Notify
+    usecase "Ghi nhật ký\n(Log Activity)" as UC_Log
+  }
+
+  package "b. Quản lý tài sản" as P_Asset #ECFDF5 {
+    usecase "Quản lý nhà\n(Manage Houses)" as UC_Houses
+    usecase "Quản lý phòng\n(Manage Rooms)" as UC_Rooms
+    usecase "Quản lý tiện nghi\n(Manage Amenities)" as UC_Amenities
+    usecase "Quản lý ảnh phòng\n(Manage Room Images)" as UC_RoomImages
+    usecase "Xem chi tiết phòng\n(View Room Details)" as UC_RoomDetails
+  }
+
+  package "c. Quản lý tin đăng" as P_Post #FEF3C7 {
+    usecase "Đăng tin cho thuê\n(Create Post)" as UC_CreatePost
+    usecase "Duyệt tin đăng\n(Approve/Reject Post)" as UC_ApprovePost
+    usecase "Xem tin đăng\n(View Posts)" as UC_ViewPosts
+  }
+
+  package "d. Quản lý hợp đồng" as P_Contract #FFEDD5 {
+    usecase "Tạo hợp đồng\n(Create Contract)" as UC_CreateContract
+    usecase "Gán khách thuê\n(Assign Tenant)" as UC_AssignTenant
+    usecase "Xem hợp đồng\n(View Contract Details)" as UC_ViewContract
+    usecase "Xác nhận hợp đồng\n(Accept Contract)" as UC_AcceptContract
+    usecase "Từ chối hợp đồng\n(Reject Contract)" as UC_RejectContract
+    usecase "Sửa hợp đồng\n(Edit Contract)" as UC_EditContract
+    usecase "Xác nhận sửa HĐ\n(Confirm Contract Edit)" as UC_ConfirmEdit
+    usecase "Từ chối sửa HĐ\n(Reject Contract Edit)" as UC_RejectEdit
+    usecase "Yêu cầu hủy HĐ\n(Request Cancellation)" as UC_ReqCancel
+    usecase "Duyệt hủy HĐ\n(Approve Cancellation)" as UC_ApproveCancel
+    usecase "Từ chối hủy HĐ\n(Reject Cancellation)" as UC_RejectCancel
+    usecase "Thanh lý HĐ\n(Terminate Contract)" as UC_Terminate
+    usecase "Gia hạn HĐ\n(Extend Contract)" as UC_Extend
+    usecase "In hợp đồng\n(Print Contract)" as UC_PrintContract
+    usecase "Xem DS khách đặt lịch\n(View Appointment Tenants)" as UC_ViewApptTenants
+  }
+
+  package "e. Hóa đơn & thanh toán" as P_Invoice #FCE7F3 {
+    usecase "Ghi chỉ số ĐN\n(Record Meter Readings)" as UC_Meter
+    usecase "Tạo hóa đơn\n(Generate Invoice)" as UC_GenInvoice
+    usecase "Xem hóa đơn\n(View Invoices)" as UC_ViewInvoice
+    usecase "Thanh toán hóa đơn\n(Pay Invoice)" as UC_PayInvoice
+    usecase "Xuất hóa đơn\n(Export Invoice)" as UC_ExportInvoice
+  }
+
+  package "f. Lịch hẹn" as P_Appt #E0E7FF {
+    usecase "Đặt lịch hẹn\n(Book Appointment)" as UC_BookAppt
+    usecase "Xác nhận lịch hẹn\n(Confirm Appointment)" as UC_ConfirmAppt
+    usecase "Từ chối lịch hẹn\n(Reject Appointment)" as UC_RejectAppt
+  }
+
+  package "g. Sự cố / bảo trì" as P_Maint #FEE2E2 {
+    usecase "Gửi YC bảo trì\n(Create Maintenance Request)" as UC_CreateMaint
+    usecase "Xử lý YC bảo trì\n(Process Maintenance Request)" as UC_ProcessMaint
+  }
+
+  package "h. Tương tác khác" as P_Other #F3E8FF {
+    usecase "Quản lý yêu thích\n(Manage Favorites)" as UC_Favorites
+    usecase "Thêm yêu thích\n(Add Favorite)" as UC_AddFav
+    usecase "Quản lý đánh giá\n(Manage Reviews)" as UC_Reviews
+    usecase "Xem đánh giá\n(View Reviews)" as UC_ViewReviews
+    usecase "Trả lời đánh giá\n(Reply Review)" as UC_ReplyReview
+    usecase "Chat" as UC_Chat
+    usecase "Xem Dashboard\n(View Dashboard)" as UC_Dashboard
+    usecase "Xem báo cáo\n(View Reports)" as UC_Reports
+  }
+
+  package "i. Quản trị hệ thống" as P_Admin #DBEAFE {
+    usecase "Quản lý người dùng\n(Manage Users)" as UC_ManageUsers
+    usecase "Xem nhật ký\n(View Activity Log)" as UC_ViewLog
+    usecase "Sao lưu dữ liệu\n(Backup Database)" as UC_Backup
+  }
+}
+
+'===== Associations =====
+Admin --> UC_Login
+Admin --> UC_Logout
+Admin --> UC_ChangePwd
+Admin --> UC_UpdateProfile
+Admin --> UC_ApprovePost
+Admin --> UC_ManageUsers
+Admin --> UC_ViewLog
+Admin --> UC_Backup
+Admin --> UC_Reviews
+Admin --> UC_Dashboard
+Admin --> UC_Reports
+
+Landlord --> UC_Login
+Landlord --> UC_Logout
+Landlord --> UC_ChangePwd
+Landlord --> UC_UpdateProfile
+Landlord --> UC_Houses
+Landlord --> UC_Rooms
+Landlord --> UC_Amenities
+Landlord --> UC_RoomImages
+Landlord --> UC_CreatePost
+Landlord --> UC_CreateContract
+Landlord --> UC_AssignTenant
+Landlord --> UC_ViewContract
+Landlord --> UC_EditContract
+Landlord --> UC_ReqCancel
+Landlord --> UC_ApproveCancel
+Landlord --> UC_RejectCancel
+Landlord --> UC_Terminate
+Landlord --> UC_Extend
+Landlord --> UC_PrintContract
+Landlord --> UC_ViewApptTenants
+Landlord --> UC_ConfirmAppt
+Landlord --> UC_RejectAppt
+Landlord --> UC_Reviews
+Landlord --> UC_ViewReviews
+Landlord --> UC_ReplyReview
+Landlord --> UC_Chat
+Landlord --> UC_Dashboard
+Landlord --> UC_Reports
+
+Tenant --> UC_Login
+Tenant --> UC_Logout
+Tenant --> UC_Register
+Tenant --> UC_ChangePwd
+Tenant --> UC_UpdateProfile
+Tenant --> UC_ViewPosts
+Tenant --> UC_RoomDetails
+Tenant --> UC_ViewContract
+Tenant --> UC_AcceptContract
+Tenant --> UC_RejectContract
+Tenant --> UC_ConfirmEdit
+Tenant --> UC_RejectEdit
+Tenant --> UC_ReqCancel
+Tenant --> UC_ApproveCancel
+Tenant --> UC_RejectCancel
+Tenant --> UC_PrintContract
+Tenant --> UC_ViewInvoice
+Tenant --> UC_PayInvoice
+Tenant --> UC_ExportInvoice
+Tenant --> UC_BookAppt
+Tenant --> UC_CreateMaint
+Tenant --> UC_Favorites
+Tenant --> UC_AddFav
+Tenant --> UC_Reviews
+Tenant --> UC_Chat
+Tenant --> UC_Dashboard
+
+Manager --> UC_Login
+Manager --> UC_Logout
+Manager --> UC_ChangePwd
+Manager --> UC_UpdateProfile
+Manager --> UC_Meter
+Manager --> UC_GenInvoice
+Manager --> UC_ProcessMaint
+Manager --> UC_Dashboard
+
+Guest --> UC_ViewPosts
+Guest --> UC_RoomDetails
+Guest --> UC_Register
+
+User --> UC_Login
+User --> UC_Dashboard
+
+'===== <<include>> Check Permission =====
+UC_ManageUsers ..> UC_CheckPerm : <<include>>
+UC_ApprovePost ..> UC_CheckPerm : <<include>>
+UC_Backup ..> UC_CheckPerm : <<include>>
+UC_Reports ..> UC_CheckPerm : <<include>>
+UC_Terminate ..> UC_CheckPerm : <<include>>
+UC_Houses ..> UC_CheckPerm : <<include>>
+
+'===== <<include>> Send Notification =====
+UC_CreateContract ..> UC_Notify : <<include>>
+UC_AssignTenant ..> UC_Notify : <<include>>
+UC_AcceptContract ..> UC_Notify : <<include>>
+UC_ReqCancel ..> UC_Notify : <<include>>
+UC_GenInvoice ..> UC_Notify : <<include>>
+UC_ConfirmAppt ..> UC_Notify : <<include>>
+UC_ProcessMaint ..> UC_Notify : <<include>>
+UC_ReplyReview ..> UC_Notify : <<include>>
+UC_Chat ..> UC_Notify : <<include>>
+
+'===== <<include>> Log Activity =====
+UC_Login ..> UC_Log : <<include>>
+UC_Logout ..> UC_Log : <<include>>
+UC_CreateContract ..> UC_Log : <<include>>
+UC_AcceptContract ..> UC_Log : <<include>>
+UC_PayInvoice ..> UC_Log : <<include>>
+UC_ConfirmAppt ..> UC_Log : <<include>>
+UC_ApprovePost ..> UC_Log : <<include>>
+
+'===== <<include>> Login (đại diện theo nhóm) =====
+UC_ChangePwd ..> UC_Login : <<include>>
+UC_UpdateProfile ..> UC_Login : <<include>>
+UC_Houses ..> UC_Login : <<include>>
+UC_CreatePost ..> UC_Login : <<include>>
+UC_ApprovePost ..> UC_Login : <<include>>
+UC_CreateContract ..> UC_Login : <<include>>
+UC_AcceptContract ..> UC_Login : <<include>>
+UC_Meter ..> UC_Login : <<include>>
+UC_GenInvoice ..> UC_Login : <<include>>
+UC_PayInvoice ..> UC_Login : <<include>>
+UC_BookAppt ..> UC_Login : <<include>>
+UC_ConfirmAppt ..> UC_Login : <<include>>
+UC_CreateMaint ..> UC_Login : <<include>>
+UC_ProcessMaint ..> UC_Login : <<include>>
+UC_Favorites ..> UC_Login : <<include>>
+UC_Reviews ..> UC_Login : <<include>>
+UC_Chat ..> UC_Login : <<include>>
+UC_Dashboard ..> UC_Login : <<include>>
+UC_Reports ..> UC_Login : <<include>>
+UC_ManageUsers ..> UC_Login : <<include>>
+UC_Backup ..> UC_Login : <<include>>
+
+'===== <<extend>> =====
+UC_PayInvoice ..> UC_ViewInvoice : <<extend>>
+UC_AcceptContract ..> UC_ViewContract : <<extend>>
+UC_BookAppt ..> UC_RoomDetails : <<extend>>
+UC_AddFav ..> UC_RoomDetails : <<extend>>
+UC_ReplyReview ..> UC_ViewReviews : <<extend>>
+UC_AssignTenant ..> UC_ViewApptTenants : <<extend>>
+
+note as N_Legend
+  <b>Chú giải</b>
+  —|> Generalization (Actor kế thừa User)
+  ..> <<include>> (bao gồm – bắt buộc)
+  ..> <<extend>> (mở rộng – tùy chọn)
+  ----
+  <b>Màu Actor:</b>
+  Admin (#BFDBFE) · Landlord (#BBF7D0)
+  Tenant (#FDE68A) · Manager (#FBCFE8)
+  Guest (#E2E8F0) · User (#DBEAFE)
+  ----
+  Login <<include>> được vẽ đại diện theo nhóm UC;
+  trừ Register và Guest xem tin công khai.
+  Chi tiết đầy đủ: xem Hình 2.1a.
+end note
+
+@enduml

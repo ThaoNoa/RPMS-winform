@@ -32,7 +32,8 @@ namespace RPMS.WinForms.Forms.Tenant
             Text = "Hợp đồng của tôi";
             ClientSize = new Size(1180, 620);
 
-            var header = UIHelper.CreatePageHeader("Hợp đồng thuê phòng — bấm Chi tiết / đúp chuột để xem HĐ. Duyệt sửa·hủy trong Thông báo.");
+            var header = UIHelper.CreatePageHeader(
+                "Hợp đồng — PendingConfirm: bấm Đồng ý / Từ chối (hoặc «Thông báo» → Xem chi tiết). Sửa·hủy duyệt trong Thông báo.");
 
             dgvContracts = new ModernDataGridView();
             dgvContracts.DefaultCellStyle.WrapMode = DataGridViewTriState.False;
@@ -85,8 +86,7 @@ namespace RPMS.WinForms.Forms.Tenant
             {
                 Name = "AcceptOfferCol",
                 HeaderText = "Đồng ý",
-                Text = "Đồng ý",
-                UseColumnTextForLinkValue = true,
+                UseColumnTextForLinkValue = false,
                 FillWeight = 8,
                 MinimumWidth = 60,
                 LinkColor = AppColors.Success
@@ -95,8 +95,7 @@ namespace RPMS.WinForms.Forms.Tenant
             {
                 Name = "RejectOfferCol",
                 HeaderText = "Từ chối",
-                Text = "Từ chối",
-                UseColumnTextForLinkValue = true,
+                UseColumnTextForLinkValue = false,
                 FillWeight = 8,
                 MinimumWidth = 60,
                 LinkColor = AppColors.Danger
@@ -111,6 +110,7 @@ namespace RPMS.WinForms.Forms.Tenant
                 MinimumWidth = 52,
                 LinkColor = AppColors.Primary
             });
+            dgvContracts.CellFormatting += DgvContracts_CellFormatting!;
             dgvContracts.CellContentClick += DgvContracts_CellContentClick!;
             dgvContracts.CellDoubleClick += async (s, e) =>
             {
@@ -123,6 +123,28 @@ namespace RPMS.WinForms.Forms.Tenant
             Controls.Add(header);
             UIHelper.WireListPage(this, header, dgvContracts);
             UIHelper.ApplyGridFill(dgvContracts);
+        }
+
+        private static bool IsPendingConfirm(ContractDto? c) =>
+            c != null && string.Equals(c.Status, "PendingConfirm", StringComparison.OrdinalIgnoreCase);
+
+        private void DgvContracts_CellFormatting(object sender, DataGridViewCellFormattingEventArgs e)
+        {
+            if (e.RowIndex < 0) return;
+            string col = dgvContracts.Columns[e.ColumnIndex].Name;
+            if (col != "AcceptOfferCol" && col != "RejectOfferCol") return;
+
+            var contract = dgvContracts.Rows[e.RowIndex].DataBoundItem as ContractDto;
+            if (IsPendingConfirm(contract))
+            {
+                e.Value = col == "AcceptOfferCol" ? "Đồng ý" : "Từ chối";
+                e.FormattingApplied = true;
+            }
+            else
+            {
+                e.Value = "";
+                e.FormattingApplied = true;
+            }
         }
 
         private async System.Threading.Tasks.Task LoadDataAsync()
@@ -154,6 +176,37 @@ namespace RPMS.WinForms.Forms.Tenant
             }
         }
 
+        private async System.Threading.Tasks.Task AcceptOfferAsync(ContractDto contract)
+        {
+            if (!IsPendingConfirm(contract))
+            {
+                AppDialog.ShowInfo("Chỉ xác nhận khi hợp đồng đang chờ (PendingConfirm).");
+                return;
+            }
+            if (!AppDialog.Confirm(
+                $"Đồng ý thuê phòng {contract.RoomNumber} ({contract.HouseName})?\n\nSau khi đồng ý, hợp đồng Active và phòng được đánh dấu đã thuê."))
+                return;
+            await _contractService.AcceptRentalOfferAsync(contract.ContractID, UserSession.CurrentUser!.UserID);
+            AppDialog.ShowInfo("Bạn đã đồng ý thuê. Hợp đồng đang Active.");
+            ToastNotifier.Show(this, "Đã thuê thành công", ToastKind.Success);
+            await LoadDataAsync();
+        }
+
+        private async System.Threading.Tasks.Task RejectOfferAsync(ContractDto contract)
+        {
+            if (!IsPendingConfirm(contract))
+            {
+                AppDialog.ShowInfo("Chỉ từ chối khi hợp đồng đang chờ (PendingConfirm).");
+                return;
+            }
+            if (!AppDialog.Confirm($"Từ chối đề nghị thuê phòng {contract.RoomNumber} ({contract.HouseName})?"))
+                return;
+            await _contractService.RejectRentalOfferAsync(contract.ContractID, UserSession.CurrentUser!.UserID);
+            AppDialog.ShowInfo("Đã từ chối. Chủ nhà sẽ nhận thông báo.");
+            ToastNotifier.Show(this, "Đã từ chối đề nghị", ToastKind.Info);
+            await LoadDataAsync();
+        }
+
         private async void DgvContracts_CellContentClick(object sender, DataGridViewCellEventArgs e)
         {
             if (e.RowIndex < 0) return;
@@ -170,33 +223,15 @@ namespace RPMS.WinForms.Forms.Tenant
 
                 if (col == "AcceptOfferCol")
                 {
-                    if (!string.Equals(contract.Status, "PendingConfirm", StringComparison.OrdinalIgnoreCase))
-                    {
-                        AppDialog.ShowInfo("Chỉ xác nhận khi hợp đồng đang chờ (PendingConfirm).");
-                        return;
-                    }
-                    if (!AppDialog.Confirm(
-                        $"Đồng ý thuê phòng {contract.RoomNumber} ({contract.HouseName})?\n\nSau khi đồng ý, hợp đồng Active và phòng được đánh dấu đã thuê."))
-                        return;
-                    await _contractService.AcceptRentalOfferAsync(contract.ContractID, UserSession.CurrentUser!.UserID);
-                    AppDialog.ShowInfo("Bạn đã đồng ý thuê. Hợp đồng đang Active.");
-                    ToastNotifier.Show(this, "Đã thuê thành công", ToastKind.Success);
-                    await LoadDataAsync();
+                    if (!IsPendingConfirm(contract)) return;
+                    await AcceptOfferAsync(contract);
                     return;
                 }
 
                 if (col == "RejectOfferCol")
                 {
-                    if (!string.Equals(contract.Status, "PendingConfirm", StringComparison.OrdinalIgnoreCase))
-                    {
-                        AppDialog.ShowInfo("Chỉ từ chối khi hợp đồng đang chờ (PendingConfirm).");
-                        return;
-                    }
-                    if (!AppDialog.Confirm($"Từ chối đề nghị thuê phòng {contract.RoomNumber} ({contract.HouseName})?"))
-                        return;
-                    await _contractService.RejectRentalOfferAsync(contract.ContractID, UserSession.CurrentUser!.UserID);
-                    AppDialog.ShowInfo("Đã từ chối. Chủ nhà sẽ nhận thông báo.");
-                    await LoadDataAsync();
+                    if (!IsPendingConfirm(contract)) return;
+                    await RejectOfferAsync(contract);
                     return;
                 }
 
@@ -215,6 +250,7 @@ namespace RPMS.WinForms.Forms.Tenant
         {
             var menu = new ContextMenuStrip();
             bool isActive = string.Equals(contract.Status, "Active", StringComparison.OrdinalIgnoreCase);
+            bool pendingConfirm = IsPendingConfirm(contract);
             bool pendingCancel = string.Equals(contract.CancelRequestStatus, "Pending", StringComparison.OrdinalIgnoreCase);
 
             void Add(string text, Func<System.Threading.Tasks.Task> action, bool enabled = true)
@@ -226,6 +262,13 @@ namespace RPMS.WinForms.Forms.Tenant
                     catch (Exception ex) { AppDialog.ShowError(ex.Message); }
                 };
                 menu.Items.Add(item);
+            }
+
+            if (pendingConfirm)
+            {
+                Add("Đồng ý thuê", () => AcceptOfferAsync(contract));
+                Add("Từ chối đề nghị", () => RejectOfferAsync(contract));
+                menu.Items.Add(new ToolStripSeparator());
             }
 
             Add("In / PDF", async () =>

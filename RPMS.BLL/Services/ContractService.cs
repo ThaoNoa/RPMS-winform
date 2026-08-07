@@ -128,7 +128,10 @@ namespace RPMS.BLL.Services
                     {
                         UserID = tenantId!.Value,
                         Title = "Đề nghị thuê phòng — cần xác nhận",
-                        Content = $"Chủ nhà mời bạn thuê phòng {room.RoomNumber} (HĐ {contract.ContractCode}). Vào «Hợp đồng của tôi» để Đồng ý hoặc Từ chối.",
+                        Content = $"Chủ nhà mời bạn thuê phòng {room.RoomNumber} (HĐ {contract.ContractCode}).\n\nMở thông báo này → Xem chi tiết để Đồng ý hoặc Từ chối, hoặc vào «Hợp đồng» bấm Đồng ý / Từ chối.",
+                        ActionType = NotificationActions.ContractConfirm,
+                        RelatedID = contract.ContractID,
+                        ActionStatus = NotificationActions.Pending,
                         IsRead = false,
                         CreatedDate = DateTime.Now,
                         UpdatedDate = DateTime.Now
@@ -289,7 +292,10 @@ namespace RPMS.BLL.Services
                 {
                     UserID = request.TenantID,
                     Title = "Đề nghị thuê phòng — cần xác nhận",
-                    Content = $"Chủ nhà mời bạn thuê phòng {contract.Room.RoomNumber} (HĐ {contract.ContractCode}). Vào «Hợp đồng của tôi» bấm Đồng ý thuê hoặc Từ chối.",
+                    Content = $"Chủ nhà mời bạn thuê phòng {contract.Room.RoomNumber} (HĐ {contract.ContractCode}).\n\nMở thông báo này → Xem chi tiết để Đồng ý hoặc Từ chối, hoặc vào «Hợp đồng» bấm Đồng ý / Từ chối.",
+                    ActionType = NotificationActions.ContractConfirm,
+                    RelatedID = contract.ContractID,
+                    ActionStatus = NotificationActions.Pending,
                     IsRead = false,
                     CreatedDate = DateTime.Now,
                     UpdatedDate = DateTime.Now
@@ -347,6 +353,9 @@ namespace RPMS.BLL.Services
                 contract.Room.UpdatedDate = DateTime.Now;
                 _unitOfWork.Rooms.Update(contract.Room);
 
+                await CompletePendingActionNotificationsAsync(
+                    NotificationActions.ContractConfirm, contractId, NotificationActions.Completed, save: false);
+
                 int? landlordId = contract.Room.House?.OwnerID;
                 if (landlordId is > 0)
                 {
@@ -401,6 +410,9 @@ namespace RPMS.BLL.Services
                 contract.Status = "Draft";
                 contract.UpdatedDate = DateTime.Now;
                 _unitOfWork.Contracts.Update(contract);
+
+                await CompletePendingActionNotificationsAsync(
+                    NotificationActions.ContractConfirm, contractId, NotificationActions.Declined, save: false);
 
                 if (landlordId is > 0)
                 {
@@ -469,6 +481,8 @@ namespace RPMS.BLL.Services
                     NotificationActions.ContractCancel, contractId, NotificationActions.Completed, save: false);
                 await CompletePendingActionNotificationsAsync(
                     NotificationActions.ContractEdit, contractId, NotificationActions.Declined, save: false);
+                await CompletePendingActionNotificationsAsync(
+                    NotificationActions.ContractConfirm, contractId, NotificationActions.Declined, save: false);
 
                 if (freeRoom && contract.Room != null)
                 {
